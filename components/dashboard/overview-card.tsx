@@ -3,6 +3,7 @@
 import type { LucideIcon } from "lucide-react";
 
 import { AnimatedCard } from "@/components/magic/animated-card";
+import { GridPattern } from "@/components/magic/grid-pattern";
 import { Card, CardContent } from "@/components/ui/card";
 
 interface OverviewCardProps {
@@ -15,10 +16,22 @@ interface OverviewCardProps {
 }
 
 const tones = {
-  blue: "bg-sky-500/10 text-sky-300",
-  emerald: "bg-emerald-500/10 text-emerald-300",
-  amber: "bg-amber-500/10 text-amber-300",
-  rose: "bg-rose-500/10 text-rose-300",
+  blue: {
+    icon: "bg-sky-500/10 text-sky-300",
+    halo: "from-sky-500/18 via-sky-500/6 to-transparent",
+  },
+  emerald: {
+    icon: "bg-emerald-500/10 text-emerald-300",
+    halo: "from-emerald-500/18 via-emerald-500/6 to-transparent",
+  },
+  amber: {
+    icon: "bg-amber-500/10 text-amber-300",
+    halo: "from-amber-500/18 via-amber-500/6 to-transparent",
+  },
+  rose: {
+    icon: "bg-rose-500/10 text-rose-300",
+    halo: "from-rose-500/18 via-rose-500/6 to-transparent",
+  },
 };
 
 export const OverviewCard = ({
@@ -30,18 +43,20 @@ export const OverviewCard = ({
   delay,
 }: OverviewCardProps) => (
   <AnimatedCard delay={delay}>
-    <Card className="min-h-40 border-0 bg-card/70 shadow-dashboard">
-      <CardContent className="flex h-full flex-col justify-between p-6">
+    <Card className="relative min-h-40 overflow-hidden border-0 bg-card/75 shadow-dashboard">
+      <div className={`absolute inset-0 bg-gradient-to-br ${tones[tone].halo}`} />
+      <GridPattern className="opacity-20" />
+      <CardContent className="relative z-10 flex h-full flex-col justify-between p-6">
         <div className="flex items-start justify-between gap-4">
           <div>
             <p className="text-sm text-muted-foreground">{title}</p>
             <p className="mt-4 text-3xl font-semibold tracking-tight">{value}</p>
           </div>
-          <div className={`rounded-2xl p-3 ${tones[tone]}`}>
+          <div className={`rounded-2xl p-3 ${tones[tone].icon}`}>
             <Icon className="size-5" />
           </div>
         </div>
-        <p className="text-sm leading-6 text-muted-foreground">{description}</p>
+        <p className="max-w-xs text-sm leading-6 text-muted-foreground">{description}</p>
       </CardContent>
     </Card>
   </AnimatedCard>

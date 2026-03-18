@@ -6,7 +6,6 @@ import { formatDistanceToNowStrict } from "date-fns";
 import { TerminalSquare } from "lucide-react";
 
 import { EmptyState } from "@/components/empty-state";
-import { Progress } from "@/components/ui/progress";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -31,7 +30,7 @@ export const TasksTable = ({
   isLoading?: boolean;
 }) => {
   const [statusFilter, setStatusFilter] = useState<
-    "all" | "pending" | "running" | "success" | "failed"
+    "all" | "queued" | "running" | "success" | "failed" | "cancelled"
   >("all");
   const searchQuery = useAppStore((state) => state.searchQuery);
 
@@ -41,7 +40,7 @@ export const TasksTable = ({
         const matchesStatus =
           statusFilter === "all" ? true : task.status === statusFilter;
         const matchesQuery = searchQuery
-          ? [task.name, task.command, task.nodeName]
+          ? [task.name, task.command ?? "", task.nodeName, task.type]
               .join(" ")
               .toLowerCase()
               .includes(searchQuery.toLowerCase())
@@ -75,16 +74,20 @@ export const TasksTable = ({
   return (
     <>
       <div className="mb-4 flex justify-end">
-        <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as typeof statusFilter)}>
+        <Select
+          value={statusFilter}
+          onValueChange={(value) => setStatusFilter(value as typeof statusFilter)}
+        >
           <SelectTrigger className="min-w-44 rounded-full bg-card/80">
             <SelectValue placeholder="Filter task status" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All tasks</SelectItem>
-            <SelectItem value="pending">Pending</SelectItem>
+            <SelectItem value="queued">Queued</SelectItem>
             <SelectItem value="running">Running</SelectItem>
             <SelectItem value="success">Success</SelectItem>
             <SelectItem value="failed">Failed</SelectItem>
+            <SelectItem value="cancelled">Cancelled</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -96,7 +99,7 @@ export const TasksTable = ({
               <TableHead>Task</TableHead>
               <TableHead>Node</TableHead>
               <TableHead>Created</TableHead>
-              <TableHead>Progress</TableHead>
+              <TableHead>Latest output</TableHead>
               <TableHead className="pr-4 text-right">Open</TableHead>
             </TableRow>
           </TableHeader>
@@ -109,7 +112,9 @@ export const TasksTable = ({
                 <TableCell>
                   <div>
                     <p className="font-medium">{task.name}</p>
-                    <p className="text-xs text-muted-foreground">{task.command}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {task.command ?? task.type}
+                    </p>
                   </div>
                 </TableCell>
                 <TableCell className="text-muted-foreground">{task.nodeName}</TableCell>
@@ -118,14 +123,10 @@ export const TasksTable = ({
                     addSuffix: true,
                   })}
                 </TableCell>
-                <TableCell className="min-w-52">
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between text-xs text-muted-foreground">
-                      <span>{task.status}</span>
-                      <span>{task.progress}%</span>
-                    </div>
-                    <Progress value={task.progress} />
-                  </div>
+                <TableCell className="max-w-[22rem] text-muted-foreground">
+                  <span className="line-clamp-2 text-sm">
+                    {task.lastOutput ?? "No task output recorded yet."}
+                  </span>
                 </TableCell>
                 <TableCell className="pr-4 text-right">
                   <Link

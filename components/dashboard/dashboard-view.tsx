@@ -3,6 +3,7 @@
 import { AlertTriangle, Boxes, CirclePlay, ServerCog } from "lucide-react";
 import { formatDistanceToNowStrict } from "date-fns";
 
+import { EmptyState } from "@/components/empty-state";
 import { AppShell } from "@/components/layout/app-shell";
 import { PageHeader } from "@/components/layout/page-header";
 import { OverviewCard } from "@/components/dashboard/overview-card";
@@ -10,17 +11,17 @@ import { MetricsChart } from "@/components/dashboard/metrics-chart";
 import { RecentEventsFeed } from "@/components/dashboard/recent-events-feed";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useDashboardOverviewQuery } from "@/lib/hooks/use-noderax-data";
+import { useDashboardOverview } from "@/lib/hooks/use-noderax-data";
 
 export const DashboardView = () => {
-  const overviewQuery = useDashboardOverviewQuery();
+  const overviewQuery = useDashboardOverview();
 
   return (
     <AppShell>
       <PageHeader
         eyebrow="Operations"
         title="Infrastructure overview"
-        description="A single operational surface for node health, task throughput, and incident visibility."
+        description="A live operational surface for node health, task throughput, and incident visibility across the Noderax control plane."
       />
 
       {overviewQuery.isPending ? (
@@ -35,13 +36,21 @@ export const DashboardView = () => {
             <Skeleton className="h-[420px] rounded-3xl" />
           </div>
         </div>
+      ) : overviewQuery.isError ? (
+        <EmptyState
+          title="Dashboard data is unavailable"
+          description="The control plane could not load the current dashboard snapshot. Check the authenticated API connection and try again."
+          icon={AlertTriangle}
+          actionLabel="Retry"
+          onAction={() => overviewQuery.refetch()}
+        />
       ) : overviewQuery.data ? (
         <div className="space-y-6">
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             <OverviewCard
               title="Total Nodes"
               value={overviewQuery.data.totals.totalNodes}
-              description="Fleet members connected to the Noderax control plane."
+              description="Registered nodes currently known by the control plane."
               icon={Boxes}
               tone="blue"
               delay={0}
@@ -49,7 +58,7 @@ export const DashboardView = () => {
             <OverviewCard
               title="Online Nodes"
               value={overviewQuery.data.totals.onlineNodes}
-              description="Healthy nodes with a current heartbeat and active agent runtime."
+              description="Hosts reporting in with a current last-seen timestamp."
               icon={ServerCog}
               tone="emerald"
               delay={0.04}
@@ -57,7 +66,7 @@ export const DashboardView = () => {
             <OverviewCard
               title="Running Tasks"
               value={overviewQuery.data.totals.runningTasks}
-              description="Executions that are currently consuming cluster capacity."
+              description="Executions that are actively consuming cluster capacity."
               icon={CirclePlay}
               tone="amber"
               delay={0.08}
@@ -65,7 +74,7 @@ export const DashboardView = () => {
             <OverviewCard
               title="Failed Tasks"
               value={overviewQuery.data.totals.failedTasks}
-              description="Tasks requiring inspection, retry, or operator intervention."
+              description="Recent failures that still need operator review."
               icon={AlertTriangle}
               tone="rose"
               delay={0.12}
@@ -81,7 +90,7 @@ export const DashboardView = () => {
             <CardHeader>
               <CardTitle>Fleet snapshot</CardTitle>
               <CardDescription>
-                The nodes contributing most of the current workload footprint.
+                A quick read on the nodes contributing the most recent telemetry and workload.
               </CardDescription>
             </CardHeader>
             <CardContent className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
@@ -91,31 +100,40 @@ export const DashboardView = () => {
                   className="rounded-2xl border border-border/70 bg-background/40 p-4"
                 >
                   <div className="flex items-center justify-between">
-                    <p className="font-medium">{node.name}</p>
+                    <div>
+                      <p className="font-medium">{node.name}</p>
+                      <p className="mt-1 text-xs text-muted-foreground">{node.hostname}</p>
+                    </div>
                     <span
                       className={`size-2 rounded-full ${
                         node.status === "online" ? "bg-emerald-400" : "bg-rose-400"
                       }`}
                     />
                   </div>
-                  <p className="mt-2 text-sm text-muted-foreground">
-                    {node.region} • {node.os}
+                  <p className="mt-3 text-sm text-muted-foreground">
+                    {node.os} • {node.arch}
                   </p>
                   <div className="mt-5 space-y-2 text-sm">
                     <div className="flex items-center justify-between">
-                      <span className="text-muted-foreground">Avg CPU</span>
-                      <span className="font-mono">{node.avgCpuLoad}%</span>
+                      <span className="text-muted-foreground">CPU</span>
+                      <span className="font-mono">
+                        {node.latestMetric ? `${node.latestMetric.cpu}%` : "N/A"}
+                      </span>
                     </div>
                     <div className="flex items-center justify-between">
-                      <span className="text-muted-foreground">Agents</span>
-                      <span className="font-mono">{node.agentCount}</span>
+                      <span className="text-muted-foreground">Memory</span>
+                      <span className="font-mono">
+                        {node.latestMetric ? `${node.latestMetric.memory}%` : "N/A"}
+                      </span>
                     </div>
                     <div className="flex items-center justify-between">
-                      <span className="text-muted-foreground">Heartbeat</span>
+                      <span className="text-muted-foreground">Last seen</span>
                       <span className="text-muted-foreground">
-                        {formatDistanceToNowStrict(new Date(node.lastHeartbeat), {
-                          addSuffix: true,
-                        })}
+                        {node.lastSeenAt
+                          ? formatDistanceToNowStrict(new Date(node.lastSeenAt), {
+                              addSuffix: true,
+                            })
+                          : "Never"}
                       </span>
                     </div>
                   </div>

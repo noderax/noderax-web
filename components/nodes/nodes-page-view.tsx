@@ -6,17 +6,23 @@ import { AppShell } from "@/components/layout/app-shell";
 import { PageHeader } from "@/components/layout/page-header";
 import { OverviewCard } from "@/components/dashboard/overview-card";
 import { NodesTable } from "@/components/nodes/nodes-table";
-import { useNodesQuery } from "@/lib/hooks/use-noderax-data";
+import { useNodes } from "@/lib/hooks/use-noderax-data";
 
 export const NodesPageView = () => {
-  const nodesQuery = useNodesQuery();
+  const nodesQuery = useNodes({ limit: 100 });
   const nodes = nodesQuery.data ?? [];
 
   const onlineNodes = nodes.filter((node) => node.status === "online");
   const offlineNodes = nodes.filter((node) => node.status === "offline");
+  const measurableNodes = nodes.filter((node) => node.latestMetric);
   const averageLoad =
-    nodes.length > 0
-      ? Math.round(nodes.reduce((total, node) => total + node.avgCpuLoad, 0) / nodes.length)
+    measurableNodes.length > 0
+      ? Math.round(
+          measurableNodes.reduce(
+            (total, node) => total + (node.latestMetric?.cpu ?? 0),
+            0,
+          ) / measurableNodes.length,
+        )
       : 0;
 
   return (
@@ -24,21 +30,21 @@ export const NodesPageView = () => {
       <PageHeader
         eyebrow="Fleet"
         title="Node management"
-        description="Monitor heartbeat status, inspect host metadata, and drill into metrics and event history."
+        description="Monitor node connectivity, inspect host metadata, and drill into metrics and node-scoped event history."
       />
       <div className="space-y-6">
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <OverviewCard
             title="Total nodes"
             value={nodes.length}
-            description="Total number of registered servers currently known by the control plane."
+            description="Registered infrastructure members currently tracked by Noderax."
             icon={Boxes}
             tone="blue"
           />
           <OverviewCard
             title="Online"
             value={onlineNodes.length}
-            description="Nodes with current heartbeats and healthy runtime connectivity."
+            description="Nodes with a healthy status and recent agent activity."
             icon={ShieldCheck}
             tone="emerald"
             delay={0.04}
@@ -46,7 +52,7 @@ export const NodesPageView = () => {
           <OverviewCard
             title="Offline"
             value={offlineNodes.length}
-            description="Hosts that missed their heartbeat and require operator attention."
+            description="Hosts that require follow-up because they stopped reporting in."
             icon={WifiOff}
             tone="rose"
             delay={0.08}
@@ -54,7 +60,7 @@ export const NodesPageView = () => {
           <OverviewCard
             title="Avg CPU load"
             value={`${averageLoad}%`}
-            description="A coarse utilization signal for balancing future task placement."
+            description="Latest reported CPU usage across nodes with recent metrics."
             icon={Cpu}
             tone="amber"
             delay={0.12}

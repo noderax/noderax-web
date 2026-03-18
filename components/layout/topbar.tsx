@@ -1,6 +1,6 @@
 "use client";
 
-import { startTransition, useState } from "react";
+import { startTransition, useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import {
   ChevronsUpDown,
@@ -72,7 +72,8 @@ export const Topbar = () => {
   const pathname = usePathname();
   const router = useRouter();
   const queryClient = useQueryClient();
-  const { session } = useAuthSession();
+  const authQuery = useAuthSession();
+  const { session } = authQuery;
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const realtimeStatus = useAppStore((state) => state.realtimeStatus);
   const searchQuery = useAppStore((state) => state.searchQuery);
@@ -112,6 +113,14 @@ export const Topbar = () => {
   const section =
     Object.entries(sectionNames).find(([key]) => pathname.startsWith(key))?.[1] ??
     "Control plane";
+
+  useEffect(() => {
+    if (authQuery.isError && !session) {
+      startTransition(() => {
+        router.replace("/login");
+      });
+    }
+  }, [authQuery.isError, router, session]);
 
   return (
     <header className="sticky top-0 z-20 border-b border-border/60 bg-background/75 backdrop-blur-xl">

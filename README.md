@@ -1,5 +1,21 @@
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
+## Environment
+
+Create a local env file from the example:
+
+```bash
+cp .env.example .env.local
+```
+
+You can also use `.env` instead of `.env.local` if that better matches your setup.
+
+Important notes:
+
+- `NODERAX_API_URL` can point to the backend root origin, for example `http://localhost:3000`
+- Prefixed base URLs such as `http://localhost:3000/v1` or `http://localhost:3000/api/v1` are also supported
+- `NEXT_PUBLIC_NODERAX_WS_URL` is optional; when omitted, the frontend falls back to `NEXT_PUBLIC_NODERAX_API_URL`
+
 ## Getting Started
 
 First, run the development server:

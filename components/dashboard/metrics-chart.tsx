@@ -4,6 +4,8 @@ import { format } from "date-fns";
 import { useState } from "react";
 import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from "recharts";
 
+import { EmptyState } from "@/components/empty-state";
+import { GridPattern } from "@/components/magic/grid-pattern";
 import {
   ChartContainer,
   ChartTooltip,
@@ -13,6 +15,7 @@ import {
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { MetricPoint } from "@/lib/types";
+import { Activity } from "lucide-react";
 
 const chartConfig = {
   cpu: {
@@ -48,12 +51,22 @@ export const MetricsChart = ({
   const latestPoint = data.at(-1);
 
   return (
-    <Card className="border-0 bg-card/70 shadow-dashboard">
-      <CardHeader>
+    <Card className="relative overflow-hidden border-0 bg-card/70 shadow-dashboard">
+      <GridPattern className="opacity-15" />
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(59,130,246,0.1),transparent_36%)]" />
+      <CardHeader className="relative z-10">
         <CardTitle>{title}</CardTitle>
         <CardDescription>{description}</CardDescription>
       </CardHeader>
-      <CardContent className="space-y-5">
+      <CardContent className="relative z-10 space-y-5">
+        {!data.length ? (
+          <EmptyState
+            title="No telemetry yet"
+            description="Metrics will appear here once nodes begin reporting samples to the metrics pipeline."
+            icon={Activity}
+            className="min-h-[320px] border-0 bg-background/20"
+          />
+        ) : (
         <Tabs value={metric} onValueChange={(value) => setMetric(value as keyof typeof chartConfig)}>
           <TabsList variant="line" className="w-full justify-start gap-2 rounded-none bg-transparent p-0">
             {Object.keys(chartConfig).map((key) => (
@@ -129,6 +142,7 @@ export const MetricsChart = ({
             </TabsContent>
           ))}
         </Tabs>
+        )}
       </CardContent>
     </Card>
   );

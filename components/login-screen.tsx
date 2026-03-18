@@ -3,9 +3,8 @@
 import { startTransition, useState } from "react";
 import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useQueryClient } from "@tanstack/react-query";
 import { ShieldCheck, Sparkles, TerminalSquare } from "lucide-react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { z } from "zod";
 
 import { AnimatedCard } from "@/components/magic/animated-card";
@@ -16,13 +15,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { apiClient, ApiError } from "@/lib/api";
-import { sessionQueryKey } from "@/lib/hooks/use-auth-session";
-import { useAppStore } from "@/store/useAppStore";
+import { ApiError } from "@/lib/api";
+import { useLogin } from "@/lib/hooks/use-auth-session";
 
 const loginSchema = z.object({
   email: z.string().email("Enter a valid work email."),
-  password: z.string().min(1, "Password is required."),
+  password: z.string().min(8, "Password must be at least 8 characters."),
   remember: z.boolean(),
 });
 
@@ -30,28 +28,27 @@ type LoginValues = z.infer<typeof loginSchema>;
 
 export const LoginScreen = ({ nextPath }: { nextPath?: string }) => {
   const router = useRouter();
-  const queryClient = useQueryClient();
-  const setSession = useAppStore((state) => state.setSession);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const loginMutation = useLogin();
 
   const form = useForm<LoginValues>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
-      email: "aylin@noderax.io",
-      password: "demo-password",
+      email: "",
+      password: "",
       remember: true,
     },
+  });
+  const rememberValue = useWatch({
+    control: form.control,
+    name: "remember",
   });
 
   const onSubmit = form.handleSubmit(async (values) => {
     setErrorMessage(null);
-    setIsSubmitting(true);
 
     try {
-      const session = await apiClient.login(values);
-      setSession(session);
-      queryClient.setQueryData(sessionQueryKey, session);
+      await loginMutation.mutateAsync(values);
 
       const destination = nextPath?.startsWith("/") ? nextPath : "/dashboard";
 
@@ -61,11 +58,9 @@ export const LoginScreen = ({ nextPath }: { nextPath?: string }) => {
     } catch (error) {
       setErrorMessage(
         error instanceof ApiError
-          ? "Authentication failed. Verify your credentials and try again."
+          ? error.message
           : "Sign in failed unexpectedly.",
       );
-    } finally {
-      setIsSubmitting(false);
     }
   });
 
@@ -173,7 +168,7 @@ export const LoginScreen = ({ nextPath }: { nextPath?: string }) => {
                     </p>
                   </div>
                   <Switch
-                    checked={form.watch("remember")}
+                    checked={rememberValue}
                     onCheckedChange={(checked) =>
                       form.setValue("remember", Boolean(checked), {
                         shouldDirty: true,
@@ -192,9 +187,9 @@ export const LoginScreen = ({ nextPath }: { nextPath?: string }) => {
                   type="submit"
                   size="lg"
                   className="h-11 w-full rounded-2xl"
-                  disabled={isSubmitting}
+                  disabled={loginMutation.isPending}
                 >
-                  {isSubmitting ? "Signing in..." : "Enter dashboard"}
+                  {loginMutation.isPending ? "Signing in..." : "Enter dashboard"}
                 </Button>
               </form>
             </div>

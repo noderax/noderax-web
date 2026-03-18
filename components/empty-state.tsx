@@ -1,5 +1,7 @@
 import type { LucideIcon } from "lucide-react";
 
+import { AnimatedCard } from "@/components/magic/animated-card";
+import { GridPattern } from "@/components/magic/grid-pattern";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -20,21 +22,27 @@ export const EmptyState = ({
   onAction,
   className,
 }: EmptyStateProps) => (
-  <div
-    className={cn(
-      "flex min-h-60 flex-col items-center justify-center rounded-3xl border border-dashed border-border/80 bg-card/60 px-6 py-12 text-center shadow-dashboard",
-      className,
-    )}
-  >
-    <div className="mb-4 rounded-2xl border border-primary/20 bg-primary/10 p-3 text-primary">
-      <Icon className="size-5" />
+  <AnimatedCard className={cn("rounded-[28px]", className)}>
+    <div
+      className={cn(
+        "relative flex min-h-60 flex-col items-center justify-center overflow-hidden rounded-[28px] border border-dashed border-border/80 bg-card/65 px-6 py-12 text-center shadow-dashboard",
+        className,
+      )}
+    >
+      <GridPattern className="opacity-20" />
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(56,189,248,0.12),transparent_38%)]" />
+      <div className="relative z-10">
+        <div className="mb-4 inline-flex rounded-2xl border border-primary/20 bg-primary/10 p-3 text-primary">
+          <Icon className="size-5" />
+        </div>
+        <h3 className="text-lg font-semibold">{title}</h3>
+        <p className="mt-2 max-w-md text-sm text-muted-foreground">{description}</p>
+        {actionLabel && onAction ? (
+          <Button className="mt-5" onClick={onAction}>
+            {actionLabel}
+          </Button>
+        ) : null}
+      </div>
     </div>
-    <h3 className="text-lg font-semibold">{title}</h3>
-    <p className="mt-2 max-w-md text-sm text-muted-foreground">{description}</p>
-    {actionLabel && onAction ? (
-      <Button className="mt-5" onClick={onAction}>
-        {actionLabel}
-      </Button>
-    ) : null}
-  </div>
+  </AnimatedCard>
 );

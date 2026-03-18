@@ -5,20 +5,22 @@ import { BellRing, RefreshCcw } from "lucide-react";
 import { EmptyState } from "@/components/empty-state";
 import { AppShell } from "@/components/layout/app-shell";
 import { PageHeader } from "@/components/layout/page-header";
+import { Reveal } from "@/components/magic/reveal";
 import { SeverityBadge } from "@/components/severity-badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useEventsQuery } from "@/lib/hooks/use-noderax-data";
+import { useEvents } from "@/lib/hooks/use-noderax-data";
 import { useAppStore } from "@/store/useAppStore";
 
 export default function EventsPage() {
   const eventSeverityFilter = useAppStore((state) => state.eventSeverityFilter);
   const setEventSeverityFilter = useAppStore((state) => state.setEventSeverityFilter);
   const searchQuery = useAppStore((state) => state.searchQuery);
-  const eventsQuery = useEventsQuery({
+  const eventsQuery = useEvents({
     severity: eventSeverityFilter,
     query: searchQuery,
+    limit: 50,
   });
 
   return (
@@ -55,8 +57,9 @@ export default function EventsPage() {
 
       {eventsQuery.data?.length ? (
         <div className="space-y-4">
-          {eventsQuery.data.map((event) => (
-            <Card key={event.id} className="border-0 bg-card/70 shadow-dashboard">
+          {eventsQuery.data.map((event, index) => (
+            <Reveal key={event.id} delay={0.03 * index}>
+              <Card className="border-0 bg-card/70 shadow-dashboard transition hover:bg-card/80">
               <CardHeader>
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                   <div>
@@ -70,7 +73,7 @@ export default function EventsPage() {
               </CardHeader>
               <CardContent className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
                 <span className="rounded-full border border-border/70 px-3 py-1">
-                  {event.source}
+                      {event.sourceLabel}
                 </span>
                 <span className="rounded-full border border-border/70 px-3 py-1">
                   {event.type}
@@ -80,6 +83,7 @@ export default function EventsPage() {
                 </span>
               </CardContent>
             </Card>
+            </Reveal>
           ))}
         </div>
       ) : (

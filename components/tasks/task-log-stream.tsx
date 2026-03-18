@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState, useEffect } from "react";
 import { format } from "date-fns";
 import { Activity, Eraser, Pause, Play } from "lucide-react";
 
@@ -9,46 +9,47 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Switch } from "@/components/ui/switch";
-import { useTaskLogSubscription } from "@/lib/hooks/use-realtime";
-import type { TaskLogLine } from "@/lib/types";
+import { useTaskLogs } from "@/lib/hooks/use-noderax-data";
+import type { TaskLogLevel, TaskStatus } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/store/useAppStore";
 
-const streamStyles: Record<TaskLogLine["stream"], string> = {
+const streamStyles: Record<TaskLogLevel, string> = {
   stdout: "text-slate-100",
   stderr: "text-rose-300",
-  system: "text-sky-300",
+  info: "text-sky-300",
+  error: "text-rose-200",
 };
 
 export const TaskLogStream = ({
   taskId,
-  initialLogs,
+  taskStatus,
 }: {
   taskId: string;
-  initialLogs: TaskLogLine[];
+  taskStatus: TaskStatus;
 }) => {
-  const [logs, setLogs] = useState<TaskLogLine[]>(initialLogs);
   const [autoscroll, setAutoscroll] = useState(true);
+  const [clearedAt, setClearedAt] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const realtimeStatus = useAppStore((state) => state.realtimeStatus);
-
-  useEffect(() => {
-    setLogs(initialLogs);
-  }, [initialLogs]);
-
-  useTaskLogSubscription(taskId, (log) => {
-    setLogs((current) =>
-      current.some((entry) => entry.id === log.id) ? current : [...current, log],
-    );
+  const logsQuery = useTaskLogs(taskId, {
+    limit: 200,
+    liveForStatus: taskStatus,
   });
+
+  const logs = useMemo(
+    () =>
+      (logsQuery.data ?? []).filter((log) =>
+        clearedAt ? log.timestamp > clearedAt : true,
+      ),
+    [clearedAt, logsQuery.data],
+  );
 
   useEffect(() => {
     if (autoscroll) {
       bottomRef.current?.scrollIntoView({ block: "end" });
     }
   }, [autoscroll, logs]);
-
-  const lineCount = useMemo(() => logs.length, [logs]);
 
   return (
     <Card className="border-0 bg-card/70 shadow-dashboard">
@@ -57,7 +58,8 @@ export const TaskLogStream = ({
           <div>
             <CardTitle>Live log stream</CardTitle>
             <CardDescription>
-              Shared websocket updates are appended in real time without forcing a full task refetch.
+              Task state arrives over Socket.IO, while log lines are reconciled from the
+              REST log endpoint every 2 seconds during active execution.
             </CardDescription>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -69,7 +71,7 @@ export const TaskLogStream = ({
               <Switch checked={autoscroll} onCheckedChange={setAutoscroll} />
               Auto-scroll
             </div>
-            <Button variant="outline" size="sm" onClick={() => setLogs([])}>
+            <Button variant="outline" size="sm" onClick={() => setClearedAt(new Date().toISOString())}>
               <Eraser className="size-4" />
               Clear
             </Button>
@@ -77,13 +79,19 @@ export const TaskLogStream = ({
         </div>
       </CardHeader>
       <CardContent className="p-0">
-        {logs.length ? (
+        {logsQuery.isPending ? (
+          <div className="space-y-3 p-5">
+            {Array.from({ length: 6 }).map((_, index) => (
+              <div key={index} className="h-12 animate-pulse rounded-xl bg-background/60" />
+            ))}
+          </div>
+        ) : logs.length ? (
           <>
             <div className="flex items-center justify-between border-b border-border/70 px-5 py-3 text-xs text-muted-foreground">
-              <span>{lineCount} log lines</span>
+              <span>{logs.length} log lines</span>
               <span className="flex items-center gap-2">
                 {autoscroll ? <Play className="size-3.5" /> : <Pause className="size-3.5" />}
-                {autoscroll ? "Streaming to latest line" : "Stream paused"}
+                {taskStatus === "running" ? "Polling active" : "Awaiting new task activity"}
               </span>
             </div>
             <ScrollArea className="h-[460px]">
@@ -97,9 +105,9 @@ export const TaskLogStream = ({
                       {format(new Date(line.timestamp), "HH:mm:ss")}
                     </span>
                     <span className="uppercase tracking-[0.18em] text-muted-foreground">
-                      {line.stream}
+                      {line.level}
                     </span>
-                    <span className={cn("break-words leading-6", streamStyles[line.stream])}>
+                    <span className={cn("break-words leading-6", streamStyles[line.level])}>
                       {line.message}
                     </span>
                   </div>
@@ -112,7 +120,7 @@ export const TaskLogStream = ({
           <div className="p-6">
             <EmptyState
               title="No log lines yet"
-              description="The task has not emitted any websocket log events yet. Logs will appear here as execution progresses."
+              description="This task has not emitted persisted log entries yet. New lines will appear automatically while the task is active."
               icon={Activity}
               className="min-h-72"
             />

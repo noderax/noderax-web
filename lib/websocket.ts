@@ -1,97 +1,87 @@
-import type { EventRecord, NodeSummary, RealtimeStatus, TaskLogLine, TaskSummary } from "@/lib/types";
+"use client";
+
+import { io, type Socket } from "socket.io-client";
+
+import type { EventDto, MetricDto, NodeStatus, RealtimeStatus, TaskDto } from "@/lib/types";
 
 export type RealtimeMessage =
   | {
-      type: "node.online" | "node.offline";
+      type: "node.status.updated";
       timestamp: string;
-      data: Partial<NodeSummary> & { id: string };
+      data: {
+        nodeId: string;
+        hostname?: string;
+        status: NodeStatus;
+        lastSeenAt: string | null;
+      };
     }
   | {
-      type: "task.updated";
+      type: "metrics.ingested";
       timestamp: string;
-      data: Partial<TaskSummary> & { id: string; latestLog?: TaskLogLine };
+      data: MetricDto;
+    }
+  | {
+      type: "task.created" | "task.updated";
+      timestamp: string;
+      data: TaskDto;
     }
   | {
       type: "event.created";
       timestamp: string;
-      data: EventRecord;
-    }
-  | {
-      type: "task.log";
-      timestamp: string;
-      data: TaskLogLine & { taskId: string };
+      data: EventDto;
     };
 
 type MessageListener = (message: RealtimeMessage) => void;
 type StatusListener = (status: RealtimeStatus) => void;
-
-const RETRY_DELAYS = [1200, 2200, 4000, 7000];
 
 const toSocketUrl = () => {
   if (typeof window === "undefined") {
     return "";
   }
 
-  const configured = process.env.NEXT_PUBLIC_NODERAX_WS_URL;
-
-  if (configured) {
-    return configured;
+  const configuredSocketUrl = process.env.NEXT_PUBLIC_NODERAX_WS_URL;
+  if (configuredSocketUrl) {
+    return configuredSocketUrl;
   }
 
-  const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-  return `${protocol}//${window.location.host}/ws`;
+  const configuredApiUrl = process.env.NEXT_PUBLIC_NODERAX_API_URL;
+  if (configuredApiUrl) {
+    try {
+      return new URL(configuredApiUrl).origin;
+    } catch {
+      return configuredApiUrl;
+    }
+  }
+
+  return window.location.origin;
 };
 
-const normalizeMessage = (payload: unknown): RealtimeMessage | null => {
-  if (!payload || typeof payload !== "object") {
-    return null;
+const toNamespaceUrl = () => {
+  const baseUrl = toSocketUrl();
+  if (!baseUrl) {
+    return "";
   }
 
-  const candidate = payload as {
-    type?: string;
-    event?: string;
-    timestamp?: string;
-    data?: unknown;
-  };
-
-  const type = candidate.type ?? candidate.event;
-  const timestamp = candidate.timestamp ?? new Date().toISOString();
-  const data = candidate.data ?? {};
-
-  if (
-    type === "node.online" ||
-    type === "node.offline" ||
-    type === "task.updated" ||
-    type === "event.created" ||
-    type === "task.log"
-  ) {
-    return {
-      type,
-      timestamp,
-      data,
-    } as RealtimeMessage;
-  }
-
-  return null;
+  return baseUrl.endsWith("/realtime") ? baseUrl : `${baseUrl.replace(/\/$/, "")}/realtime`;
 };
+
+const asTimestamp = (value: string | null | undefined) => value ?? new Date().toISOString();
 
 class NoderaxRealtimeClient {
-  private socket: WebSocket | null = null;
-  private reconnectTimer: number | null = null;
-  private retryIndex = 0;
-  private status: RealtimeStatus = "idle";
+  private socket: Socket | null = null;
   private listeners = new Set<MessageListener>();
   private statusListeners = new Set<StatusListener>();
-  private shouldReconnect = true;
+  private status: RealtimeStatus = "idle";
+  private connectPromise: Promise<void> | null = null;
 
   subscribe(listener: MessageListener) {
     this.listeners.add(listener);
-    this.connect();
+    void this.connect();
 
     return () => {
       this.listeners.delete(listener);
       if (!this.listeners.size) {
-        this.scheduleDisconnect();
+        this.disconnect();
       }
     };
   }
@@ -110,67 +100,123 @@ class NoderaxRealtimeClient {
     this.statusListeners.forEach((listener) => listener(status));
   }
 
-  private scheduleDisconnect() {
-    window.clearTimeout(this.reconnectTimer ?? undefined);
-    this.reconnectTimer = window.setTimeout(() => {
-      if (!this.listeners.size) {
-        this.disconnect(false);
-      }
-    }, 5000);
+  private emit(message: RealtimeMessage) {
+    this.listeners.forEach((listener) => listener(message));
   }
 
-  connect() {
-    if (typeof window === "undefined" || this.socket) {
-      return;
+  async connect() {
+    if (typeof window === "undefined" || this.socket || this.connectPromise) {
+      return this.connectPromise;
     }
 
-    const url = toSocketUrl();
+    this.connectPromise = this.openConnection();
 
+    try {
+      await this.connectPromise;
+    } finally {
+      this.connectPromise = null;
+    }
+  }
+
+  private async openConnection() {
+    const url = toNamespaceUrl();
     if (!url) {
+      this.setStatus("disconnected");
       return;
     }
 
-    this.shouldReconnect = true;
-    this.setStatus(this.retryIndex ? "reconnecting" : "connecting");
-    this.socket = new window.WebSocket(url);
+    this.setStatus("connecting");
 
-    this.socket.onopen = () => {
-      this.retryIndex = 0;
-      this.setStatus("connected");
-    };
+    const tokenResponse = await fetch("/api/auth/realtime-token", {
+      credentials: "include",
+      cache: "no-store",
+    });
 
-    this.socket.onmessage = (event) => {
-      try {
-        const message = normalizeMessage(JSON.parse(event.data));
-        if (message) {
-          this.listeners.forEach((listener) => listener(message));
-        }
-      } catch {
-        // Ignore malformed messages from noisy upstream channels.
-      }
-    };
-
-    this.socket.onclose = () => {
-      this.socket = null;
+    if (!tokenResponse.ok) {
       this.setStatus("disconnected");
+      return;
+    }
 
-      if (this.shouldReconnect && this.listeners.size) {
-        const delay = RETRY_DELAYS[Math.min(this.retryIndex, RETRY_DELAYS.length - 1)];
-        this.retryIndex += 1;
-        window.clearTimeout(this.reconnectTimer ?? undefined);
-        this.reconnectTimer = window.setTimeout(() => this.connect(), delay);
-      }
-    };
+    const { token } = (await tokenResponse.json()) as { token: string };
 
-    this.socket.onerror = () => {
-      this.socket?.close();
-    };
+    const socket = io(url, {
+      transports: ["websocket"],
+      withCredentials: true,
+      reconnection: true,
+      reconnectionAttempts: Number.POSITIVE_INFINITY,
+      reconnectionDelay: 1_200,
+      reconnectionDelayMax: 7_000,
+      auth: {
+        token,
+      },
+    });
+
+    socket.on("connect", () => {
+      this.setStatus("connected");
+    });
+
+    socket.on("disconnect", () => {
+      this.setStatus("disconnected");
+    });
+
+    socket.io.on("reconnect_attempt", () => {
+      this.setStatus("reconnecting");
+    });
+
+    socket.io.on("error", () => {
+      this.setStatus("disconnected");
+    });
+
+    socket.on("node.status.updated", (payload) => {
+      this.emit({
+        type: "node.status.updated",
+        timestamp: asTimestamp(payload?.lastSeenAt),
+        data: {
+          nodeId: payload.nodeId,
+          hostname: payload.hostname,
+          status: payload.status,
+          lastSeenAt: payload.lastSeenAt ?? null,
+        },
+      });
+    });
+
+    socket.on("metrics.ingested", (payload: MetricDto) => {
+      this.emit({
+        type: "metrics.ingested",
+        timestamp: asTimestamp(payload.recordedAt),
+        data: payload,
+      });
+    });
+
+    socket.on("task.created", (payload: TaskDto) => {
+      this.emit({
+        type: "task.created",
+        timestamp: asTimestamp(payload.createdAt),
+        data: payload,
+      });
+    });
+
+    socket.on("task.updated", (payload: TaskDto) => {
+      this.emit({
+        type: "task.updated",
+        timestamp: asTimestamp(payload.updatedAt),
+        data: payload,
+      });
+    });
+
+    socket.on("event.created", (payload: EventDto) => {
+      this.emit({
+        type: "event.created",
+        timestamp: asTimestamp(payload.createdAt),
+        data: payload,
+      });
+    });
+
+    this.socket = socket;
   }
 
-  disconnect(reconnect = false) {
-    this.shouldReconnect = reconnect;
-    window.clearTimeout(this.reconnectTimer ?? undefined);
-    this.socket?.close();
+  disconnect() {
+    this.socket?.disconnect();
     this.socket = null;
     this.setStatus("disconnected");
   }

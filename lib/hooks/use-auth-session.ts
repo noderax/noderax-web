@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { apiClient } from "@/lib/api";
+import type { LoginPayload } from "@/lib/types";
 import { useAppStore } from "@/store/useAppStore";
 
 export const sessionQueryKey = ["auth", "session"] as const;
@@ -36,4 +37,30 @@ export const useAuthSession = () => {
     ...query,
     session: query.data ?? storedSession,
   };
+};
+
+export const useLogin = () => {
+  const queryClient = useQueryClient();
+  const setSession = useAppStore((state) => state.setSession);
+
+  return useMutation({
+    mutationFn: (payload: LoginPayload) => apiClient.login(payload),
+    onSuccess: (session) => {
+      setSession(session);
+      queryClient.setQueryData(sessionQueryKey, session);
+    },
+  });
+};
+
+export const useLogout = () => {
+  const queryClient = useQueryClient();
+  const clearSession = useAppStore((state) => state.clearSession);
+
+  return useMutation({
+    mutationFn: apiClient.logout,
+    onSuccess: () => {
+      clearSession();
+      queryClient.clear();
+    },
+  });
 };

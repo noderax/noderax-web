@@ -70,7 +70,10 @@ export default function SettingsPage() {
                 </p>
                 <p className="mt-2 font-mono text-sm">{session?.tokenPreview ?? "Unavailable"}</p>
                 <p className="mt-4 text-sm text-muted-foreground">
-                  Expires {session ? new Date(session.expiresAt).toLocaleString() : "unknown"}
+                  Expires{" "}
+                  {session?.expiresAt
+                    ? new Date(session.expiresAt).toLocaleString()
+                    : "unknown"}
                 </p>
               </div>
               <div className="flex flex-wrap gap-2">

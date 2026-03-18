@@ -9,13 +9,22 @@ import { EmptyState } from "@/components/empty-state";
 import { AppShell } from "@/components/layout/app-shell";
 import { PageHeader } from "@/components/layout/page-header";
 import { NodeStatusBadge } from "@/components/nodes/node-status-badge";
+import { TaskStatusBadge } from "@/components/tasks/task-status-badge";
+import { SeverityBadge } from "@/components/severity-badge";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useNodeDetailQuery } from "@/lib/hooks/use-noderax-data";
+import { useNode } from "@/lib/hooks/use-noderax-data";
+
+const formatLastSeen = (value: string | null) =>
+  value
+    ? formatDistanceToNowStrict(new Date(value), {
+        addSuffix: true,
+      })
+    : "Never";
 
 export const NodeDetailView = ({ id }: { id: string }) => {
-  const nodeQuery = useNodeDetailQuery(id);
+  const nodeQuery = useNode(id);
   const node = nodeQuery.data;
 
   if (nodeQuery.isError || (!nodeQuery.isPending && !node)) {
@@ -23,7 +32,7 @@ export const NodeDetailView = ({ id }: { id: string }) => {
       <AppShell>
         <EmptyState
           title="Node not found"
-          description="The requested node detail could not be loaded. It may have been decommissioned or filtered out upstream."
+          description="The requested node detail could not be loaded. It may have been decommissioned or is unavailable upstream."
           icon={Network}
         />
       </AppShell>
@@ -47,52 +56,63 @@ export const NodeDetailView = ({ id }: { id: string }) => {
       <PageHeader
         eyebrow="Node Detail"
         title={node.name}
-        description={`${node.hostname} • ${node.ipAddress} • Last heartbeat ${formatDistanceToNowStrict(
-          new Date(node.lastHeartbeat),
-          { addSuffix: true },
+        description={`${node.hostname} • ${node.os} / ${node.arch} • Last seen ${formatLastSeen(
+          node.lastSeenAt,
         )}`}
         actions={<NodeStatusBadge status={node.status} />}
       />
 
       <div className="mb-6 flex flex-wrap gap-2">
-        {node.tags.map((tag) => (
-          <Badge key={tag} variant="outline" className="rounded-full px-3 py-1">
-            {tag}
+        <Badge variant="outline" className="rounded-full px-3 py-1">
+          Hostname: {node.hostname}
+        </Badge>
+        <Badge variant="outline" className="rounded-full px-3 py-1">
+          Created: {new Date(node.createdAt).toLocaleDateString()}
+        </Badge>
+        {node.lastSeenAt ? (
+          <Badge variant="outline" className="rounded-full px-3 py-1">
+            Last seen: {formatLastSeen(node.lastSeenAt)}
           </Badge>
-        ))}
+        ) : null}
       </div>
 
       <div className="grid gap-4 xl:grid-cols-4">
         <Card className="border-0 bg-card/70 shadow-dashboard">
           <CardHeader>
-            <CardTitle>Average CPU</CardTitle>
-            <CardDescription>Current host pressure signal.</CardDescription>
+            <CardTitle>Latest CPU</CardTitle>
+            <CardDescription>Most recent reported CPU usage.</CardDescription>
           </CardHeader>
-          <CardContent className="text-3xl font-semibold">{node.avgCpuLoad}%</CardContent>
-        </Card>
-        <Card className="border-0 bg-card/70 shadow-dashboard">
-          <CardHeader>
-            <CardTitle>Agents</CardTitle>
-            <CardDescription>Workers attached to this node.</CardDescription>
-          </CardHeader>
-          <CardContent className="text-3xl font-semibold">{node.agentCount}</CardContent>
-        </Card>
-        <Card className="border-0 bg-card/70 shadow-dashboard">
-          <CardHeader>
-            <CardTitle>Kernel</CardTitle>
-            <CardDescription>Runtime + distribution pair.</CardDescription>
-          </CardHeader>
-          <CardContent className="text-lg font-medium">
-            {node.os}
-            <p className="mt-1 text-sm text-muted-foreground">{node.kernel}</p>
+          <CardContent className="text-3xl font-semibold">
+            {node.latestMetric ? `${node.latestMetric.cpu}%` : "N/A"}
           </CardContent>
         </Card>
         <Card className="border-0 bg-card/70 shadow-dashboard">
           <CardHeader>
-            <CardTitle>Uptime</CardTitle>
-            <CardDescription>Host uptime in hours.</CardDescription>
+            <CardTitle>Latest memory</CardTitle>
+            <CardDescription>Most recent reported memory usage.</CardDescription>
           </CardHeader>
-          <CardContent className="text-3xl font-semibold">{node.uptimeHours}h</CardContent>
+          <CardContent className="text-3xl font-semibold">
+            {node.latestMetric ? `${node.latestMetric.memory}%` : "N/A"}
+          </CardContent>
+        </Card>
+        <Card className="border-0 bg-card/70 shadow-dashboard">
+          <CardHeader>
+            <CardTitle>Latest disk</CardTitle>
+            <CardDescription>Most recent reported disk usage.</CardDescription>
+          </CardHeader>
+          <CardContent className="text-3xl font-semibold">
+            {node.latestMetric ? `${node.latestMetric.disk}%` : "N/A"}
+          </CardContent>
+        </Card>
+        <Card className="border-0 bg-card/70 shadow-dashboard">
+          <CardHeader>
+            <CardTitle>Network summary</CardTitle>
+            <CardDescription>Aggregated counters from the latest metric sample.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-1 text-sm">
+            <p>RX bytes: {String(node.networkStats?.rxBytes ?? "N/A")}</p>
+            <p>TX bytes: {String(node.networkStats?.txBytes ?? "N/A")}</p>
+          </CardContent>
         </Card>
       </div>
 
@@ -106,7 +126,7 @@ export const NodeDetailView = ({ id }: { id: string }) => {
           <MetricsChart
             data={node.metrics}
             title="Node telemetry"
-            description="CPU, memory, and disk series captured from this host."
+            description="CPU, memory, and disk samples ingested for this node."
           />
         </TabsContent>
         <TabsContent value="tasks" className="mt-6">
@@ -128,11 +148,11 @@ export const NodeDetailView = ({ id }: { id: string }) => {
                     <div className="flex items-center justify-between gap-4">
                       <div>
                         <p className="font-medium">{task.name}</p>
-                        <p className="mt-1 text-sm text-muted-foreground">{task.command}</p>
+                        <p className="mt-1 text-sm text-muted-foreground">
+                          {task.command ?? task.type}
+                        </p>
                       </div>
-                      <Badge variant="outline" className="rounded-full px-3 py-1">
-                        {task.progress}%
-                      </Badge>
+                      <TaskStatusBadge status={task.status} />
                     </div>
                   </Link>
                 ))
@@ -152,24 +172,36 @@ export const NodeDetailView = ({ id }: { id: string }) => {
             <CardHeader>
               <CardTitle>Node event history</CardTitle>
               <CardDescription>
-                Timeline of alerts, recoveries, and telemetry anomalies tied to this host.
+                Alerts, recoveries, and task activity recorded for this node.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
-              {node.events.map((event) => (
-                <div
-                  key={event.id}
-                  className="rounded-2xl border border-border/70 bg-background/40 p-4"
-                >
-                  <div className="flex items-center justify-between gap-3">
-                    <p className="font-medium">{event.title}</p>
-                    <Badge variant="outline" className="rounded-full px-3 py-1">
-                      {event.severity}
-                    </Badge>
+              {node.recentEvents.length ? (
+                node.recentEvents.map((event) => (
+                  <div
+                    key={event.id}
+                    className="rounded-2xl border border-border/70 bg-background/40 p-4"
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <p className="font-medium">{event.title}</p>
+                        <p className="mt-1 text-xs uppercase tracking-[0.18em] text-muted-foreground">
+                          {event.sourceLabel}
+                        </p>
+                      </div>
+                      <SeverityBadge severity={event.severity} />
+                    </div>
+                    <p className="mt-2 text-sm text-muted-foreground">{event.message}</p>
                   </div>
-                  <p className="mt-2 text-sm text-muted-foreground">{event.message}</p>
-                </div>
-              ))}
+                ))
+              ) : (
+                <EmptyState
+                  title="No node events yet"
+                  description="This node has not produced any recorded events in the selected time window."
+                  icon={Network}
+                  className="min-h-48"
+                />
+              )}
             </CardContent>
           </Card>
         </TabsContent>

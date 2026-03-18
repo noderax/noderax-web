@@ -1,12 +1,86 @@
 export type NodeStatus = "online" | "offline";
-export type TaskStatus = "pending" | "running" | "success" | "failed";
+export type TaskStatus = "queued" | "running" | "success" | "failed" | "cancelled";
 export type EventSeverity = "info" | "warning" | "critical";
+export type TaskLogLevel = "info" | "stdout" | "stderr" | "error";
 export type RealtimeStatus =
   | "idle"
   | "connecting"
   | "connected"
   | "reconnecting"
   | "disconnected";
+
+export interface NodeDto {
+  id: string;
+  name: string;
+  hostname: string;
+  os: string;
+  arch: string;
+  status: NodeStatus;
+  lastSeenAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface TaskDto {
+  id: string;
+  nodeId: string;
+  type: string;
+  payload: Record<string, unknown>;
+  status: TaskStatus;
+  result: Record<string, unknown> | null;
+  output: string | null;
+  startedAt: string | null;
+  finishedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface TaskLogDto {
+  id: string;
+  taskId: string;
+  level: TaskLogLevel;
+  message: string;
+  timestamp: string | null;
+  createdAt: string;
+}
+
+export interface EventDto {
+  id: string;
+  nodeId: string | null;
+  type: string;
+  severity: EventSeverity;
+  message: string;
+  metadata: Record<string, unknown> | null;
+  createdAt: string;
+}
+
+export interface MetricDto {
+  id: string;
+  nodeId: string;
+  cpuUsage: number;
+  memoryUsage: number;
+  diskUsage: number;
+  networkStats: Record<string, unknown>;
+  recordedAt: string;
+}
+
+export interface UserDto {
+  id: string;
+  email: string;
+  name: string;
+  role: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface LoginResponseDto {
+  accessToken?: string;
+  token?: string;
+  expiresIn?: string;
+  expiresAt?: string;
+  user?: UserDto;
+}
 
 export interface MetricPoint {
   timestamp: string;
@@ -18,56 +92,53 @@ export interface MetricPoint {
 export interface NodeSummary {
   id: string;
   name: string;
+  hostname: string;
   status: NodeStatus;
-  lastHeartbeat: string;
+  lastSeenAt: string | null;
   os: string;
   arch: string;
-  region: string;
-  version: string;
-  uptimeHours: number;
-  agentCount: number;
-  avgCpuLoad: number;
+  createdAt: string;
+  updatedAt: string;
+  latestMetric: MetricPoint | null;
 }
 
 export interface NodeDetail extends NodeSummary {
-  hostname: string;
-  kernel: string;
-  ipAddress: string;
-  tags: string[];
   metrics: MetricPoint[];
+  recentEvents: EventRecord[];
   runningTasks: TaskSummary[];
-  events: EventRecord[];
+  networkStats: Record<string, unknown> | null;
 }
 
 export interface TaskSummary {
   id: string;
   name: string;
+  type: string;
   status: TaskStatus;
   nodeId: string;
   nodeName: string;
-  command: string;
+  command: string | null;
   createdAt: string;
-  startedAt?: string;
-  completedAt?: string;
-  durationSeconds?: number;
-  exitCode?: number | null;
-  progress: number;
+  startedAt: string | null;
+  finishedAt: string | null;
+  updatedAt: string;
+  exitCode: number | null;
+  lastOutput: string | null;
 }
 
 export interface TaskLogLine {
   id: string;
+  taskId: string;
   timestamp: string;
-  stream: "stdout" | "stderr" | "system";
+  level: TaskLogLevel;
   message: string;
 }
 
 export interface TaskDetail extends TaskSummary {
-  operator: string;
-  image: string;
-  retries: number;
-  workingDirectory: string;
+  payload: Record<string, unknown>;
+  result: Record<string, unknown> | null;
+  node: NodeSummary | null;
   logs: TaskLogLine[];
-  events: EventRecord[];
+  relatedEvents: EventRecord[];
 }
 
 export interface EventRecord {
@@ -77,10 +148,11 @@ export interface EventRecord {
   title: string;
   message: string;
   createdAt: string;
-  source: string;
+  sourceLabel: string;
   entityType: "node" | "task" | "system";
   entityId?: string;
-  metadata?: Record<string, string | number | boolean>;
+  nodeId?: string | null;
+  metadata?: Record<string, unknown> | null;
 }
 
 export interface AuthUser {
@@ -88,13 +160,15 @@ export interface AuthUser {
   name: string;
   email: string;
   role: string;
-  avatar?: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface AuthSession {
   user: AuthUser;
   scopes: string[];
-  expiresAt: string;
+  expiresAt: string | null;
   tokenPreview: string;
 }
 
@@ -115,4 +189,35 @@ export interface DashboardOverview {
   recentEvents: EventRecord[];
   nodes: NodeSummary[];
   tasks: TaskSummary[];
+}
+
+export interface NodeFilters {
+  status?: NodeStatus;
+  search?: string;
+  limit?: number;
+  offset?: number;
+}
+
+export interface TaskFilters {
+  nodeId?: string;
+  status?: TaskStatus;
+  limit?: number;
+  offset?: number;
+}
+
+export interface TaskLogFilters {
+  limit?: number;
+}
+
+export interface EventFilters {
+  nodeId?: string;
+  type?: string;
+  severity?: EventSeverity | "all";
+  limit?: number;
+  query?: string;
+}
+
+export interface MetricFilters {
+  nodeId?: string;
+  limit?: number;
 }

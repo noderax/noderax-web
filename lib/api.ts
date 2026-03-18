@@ -1,19 +1,32 @@
-import { mockApi } from "@/lib/mock-data";
+import {
+  buildDashboardOverview,
+  buildNodeDetail,
+  buildTaskDetail,
+  mapEventRecord,
+  mapNodeSummary,
+  mapTaskSummary,
+} from "@/lib/noderax";
 import type {
   AuthSession,
   DashboardOverview,
+  EventDto,
+  EventFilters,
   EventRecord,
   LoginPayload,
-  MetricPoint,
+  MetricDto,
+  MetricFilters,
   NodeDetail,
+  NodeDto,
+  NodeFilters,
   NodeSummary,
   TaskDetail,
+  TaskDto,
+  TaskFilters,
+  TaskLogDto,
+  TaskLogFilters,
   TaskSummary,
+  UserDto,
 } from "@/lib/types";
-
-const shouldUseMockData = () =>
-  process.env.NEXT_PUBLIC_NODERAX_USE_MOCKS === "true" ||
-  !process.env.NEXT_PUBLIC_NODERAX_API_URL;
 
 class ApiError extends Error {
   status: number;
@@ -44,11 +57,28 @@ const buildQueryString = (
   return value ? `?${value}` : "";
 };
 
+const readErrorMessage = async (response: Response) => {
+  try {
+    const payload = (await response.json()) as {
+      message?: string | string[];
+      error?: string;
+    };
+
+    if (Array.isArray(payload.message)) {
+      return payload.message.join(" ");
+    }
+
+    return payload.message ?? payload.error ?? "Request failed.";
+  } catch {
+    return "Request failed.";
+  }
+};
+
 const request = async <T>(path: string, init?: RequestInit): Promise<T> => {
   const response = await fetch(path, {
     ...init,
     headers: {
-      "content-type": "application/json",
+      ...(init?.body ? { "content-type": "application/json" } : {}),
       ...(init?.headers ?? {}),
     },
     cache: "no-store",
@@ -56,132 +86,213 @@ const request = async <T>(path: string, init?: RequestInit): Promise<T> => {
   });
 
   if (!response.ok) {
-    const payload = await response.text();
-    throw new ApiError(payload || "Request failed", response.status);
+    throw new ApiError(await readErrorMessage(response), response.status);
+  }
+
+  if (response.status === 204) {
+    return undefined as T;
   }
 
   return (await response.json()) as T;
 };
 
-const aggregateMetrics = (nodes: NodeDetail[]): MetricPoint[] => {
-  if (!nodes.length) {
-    return [];
+const createNodeLookup = (nodes: NodeDto[]) =>
+  new Map(nodes.map((node) => [node.id, node] as const));
+
+const createNodeSummaryLookup = (nodes: NodeSummary[]) =>
+  new Map(nodes.map((node) => [node.id, node] as const));
+
+const createMetricsByNodeId = (metrics: MetricDto[]) => {
+  const map = new Map<string, MetricDto[]>();
+
+  metrics.forEach((metric) => {
+    const current = map.get(metric.nodeId) ?? [];
+    current.push(metric);
+    current.sort((left, right) => right.recordedAt.localeCompare(left.recordedAt));
+    map.set(metric.nodeId, current);
+  });
+
+  return map;
+};
+
+const filterEventsByQuery = (events: EventRecord[], query?: string) => {
+  if (!query?.trim()) {
+    return events;
   }
 
-  return Array.from({ length: nodes[0]?.metrics.length ?? 0 }, (_, index) => {
-    const current = nodes.map((node) => node.metrics[index]).filter(Boolean);
+  const normalizedQuery = query.trim().toLowerCase();
 
-    return {
-      timestamp: current[0]?.timestamp ?? new Date().toISOString(),
-      cpu: Math.round(current.reduce((sum, point) => sum + point.cpu, 0) / current.length),
-      memory: Math.round(
-        current.reduce((sum, point) => sum + point.memory, 0) / current.length,
-      ),
-      disk: Math.round(current.reduce((sum, point) => sum + point.disk, 0) / current.length),
-    };
-  });
+  return events.filter((event) =>
+    [event.title, event.message, event.sourceLabel, event.type]
+      .join(" ")
+      .toLowerCase()
+      .includes(normalizedQuery),
+  );
 };
 
 export const apiClient = {
-  async login(payload: LoginPayload) {
+  login(payload: LoginPayload) {
     return request<AuthSession>("/api/auth/login", {
       method: "POST",
       body: JSON.stringify(payload),
     });
   },
-  async logout() {
+  logout() {
     return request<{ success: true }>("/api/auth/logout", {
       method: "POST",
     });
   },
-  async getSession() {
-    if (shouldUseMockData()) {
-      return mockApi.getSession();
-    }
-
+  getSession() {
     return request<AuthSession>("/api/auth/session");
   },
-  async getNodes() {
-    if (shouldUseMockData()) {
-      return mockApi.getNodes();
-    }
-
-    return request<NodeSummary[]>("/api/proxy/nodes");
+  getRealtimeToken() {
+    return request<{ token: string }>("/api/auth/realtime-token");
   },
-  async getNode(id: string) {
-    if (shouldUseMockData()) {
-      return mockApi.getNode(id);
-    }
-
-    return request<NodeDetail>(`/api/proxy/nodes/${id}`);
+  getCurrentUser() {
+    return request<UserDto>("/api/proxy/users/me");
   },
-  async getTasks() {
-    if (shouldUseMockData()) {
-      return mockApi.getTasks();
-    }
-
-    return request<TaskSummary[]>("/api/proxy/tasks");
+  getNodes(filters?: NodeFilters) {
+    return request<NodeDto[]>(
+      `/api/proxy/nodes${buildQueryString({
+        status: filters?.status,
+        search: filters?.search,
+        limit: filters?.limit,
+        offset: filters?.offset,
+      })}`,
+    );
   },
-  async getTask(id: string) {
-    if (shouldUseMockData()) {
-      return mockApi.getTask(id);
-    }
-
-    return request<TaskDetail>(`/api/proxy/tasks/${id}`);
+  getNode(id: string) {
+    return request<NodeDto>(`/api/proxy/nodes/${id}`);
   },
-  async getEvents(filters?: { severity?: string; query?: string }) {
-    if (shouldUseMockData()) {
-      const data = await mockApi.getEvents();
-      return data.filter((event) => {
-        const matchesSeverity =
-          !filters?.severity || filters.severity === "all"
-            ? true
-            : event.severity === filters.severity;
-        const matchesQuery = filters?.query
-          ? [event.title, event.message, event.source]
-              .join(" ")
-              .toLowerCase()
-              .includes(filters.query.toLowerCase())
-          : true;
-
-        return matchesSeverity && matchesQuery;
-      });
-    }
-
-    return request<EventRecord[]>(
+  getTasks(filters?: TaskFilters) {
+    return request<TaskDto[]>(
+      `/api/proxy/tasks${buildQueryString({
+        nodeId: filters?.nodeId,
+        status: filters?.status,
+        limit: filters?.limit,
+        offset: filters?.offset,
+      })}`,
+    );
+  },
+  getTask(id: string) {
+    return request<TaskDto>(`/api/proxy/tasks/${id}`);
+  },
+  getTaskLogs(id: string, filters?: TaskLogFilters) {
+    return request<TaskLogDto[]>(
+      `/api/proxy/tasks/${id}/logs${buildQueryString({
+        limit: filters?.limit,
+      })}`,
+    );
+  },
+  getEvents(filters?: EventFilters) {
+    return request<EventDto[]>(
       `/api/proxy/events${buildQueryString({
-        severity: filters?.severity,
-        query: filters?.query,
+        nodeId: filters?.nodeId,
+        type: filters?.type,
+        severity: filters?.severity === "all" ? undefined : filters?.severity,
+        limit: filters?.limit,
+      })}`,
+    );
+  },
+  getMetrics(filters?: MetricFilters) {
+    return request<MetricDto[]>(
+      `/api/proxy/metrics${buildQueryString({
+        nodeId: filters?.nodeId,
+        limit: filters?.limit,
       })}`,
     );
   },
   async getDashboardOverview(): Promise<DashboardOverview> {
-    if (shouldUseMockData()) {
-      return mockApi.getDashboardOverview();
-    }
-
-    const [nodes, tasks, events] = await Promise.all([
-      this.getNodes(),
-      this.getTasks(),
-      this.getEvents(),
+    const [nodes, tasks, events, metrics] = await Promise.all([
+      this.getNodes({ limit: 100 }),
+      this.getTasks({ limit: 50 }),
+      this.getEvents({ limit: 12 }),
+      this.getMetrics({ limit: 100 }),
     ]);
 
-    const detailedNodes = await Promise.all(
-      nodes.slice(0, 4).map((node) => this.getNode(node.id)),
-    );
+    const metricsByNodeId = createMetricsByNodeId(metrics);
+    const nodeSummaries = nodes.map((node) => mapNodeSummary(node, metricsByNodeId));
+    const nodeLookup = createNodeLookup(nodes);
+    const taskSummaries = tasks.map((task) => mapTaskSummary(task, nodeLookup));
+    const eventRecords = events.map(mapEventRecord);
 
-    return {
-      totals: {
-        totalNodes: nodes.length,
-        onlineNodes: nodes.filter((node) => node.status === "online").length,
-        runningTasks: tasks.filter((task) => task.status === "running").length,
-        failedTasks: tasks.filter((task) => task.status === "failed").length,
-      },
-      metricSeries: aggregateMetrics(detailedNodes),
-      recentEvents: events.slice(0, 5),
-      nodes,
+    return buildDashboardOverview({
+      nodes: nodeSummaries,
+      tasks: taskSummaries,
+      events: eventRecords,
+      metrics,
+    });
+  },
+  async getNodeSummaries(filters?: NodeFilters): Promise<NodeSummary[]> {
+    const [nodes, metrics] = await Promise.all([
+      this.getNodes(filters),
+      this.getMetrics({ limit: 100 }),
+    ]);
+
+    const metricsByNodeId = createMetricsByNodeId(metrics);
+    return nodes.map((node) => mapNodeSummary(node, metricsByNodeId));
+  },
+  async getNodeDetail(id: string): Promise<NodeDetail> {
+    const [node, metrics, tasks, events] = await Promise.all([
+      this.getNode(id),
+      this.getMetrics({ nodeId: id, limit: 24 }),
+      this.getTasks({ nodeId: id, status: "running", limit: 20 }),
+      this.getEvents({ nodeId: id, limit: 20 }),
+    ]);
+
+    const nodeSummary = mapNodeSummary(node, createMetricsByNodeId(metrics));
+    const nodeLookup = createNodeSummaryLookup([nodeSummary]);
+
+    return buildNodeDetail({
+      node: nodeSummary,
+      metrics,
+      events,
       tasks,
-    };
+      nodeLookup,
+    });
+  },
+  async getTaskSummaries(filters?: TaskFilters): Promise<TaskSummary[]> {
+    const [tasks, nodes] = await Promise.all([
+      this.getTasks(filters),
+      this.getNodes({ limit: 100 }),
+    ]);
+
+    const nodeLookup = createNodeLookup(nodes);
+    return tasks.map((task) => mapTaskSummary(task, nodeLookup));
+  },
+  async getTaskDetail(id: string): Promise<TaskDetail> {
+    const task = await this.getTask(id);
+
+    const [node, metrics, logs, events] = await Promise.all([
+      this.getNode(task.nodeId),
+      this.getMetrics({ nodeId: task.nodeId, limit: 1 }),
+      this.getTaskLogs(id, { limit: 200 }),
+      this.getEvents({ nodeId: task.nodeId, limit: 50 }),
+    ]);
+
+    const nodeSummary = mapNodeSummary(node, createMetricsByNodeId(metrics));
+    const nodeLookup = createNodeSummaryLookup([nodeSummary]);
+
+    return buildTaskDetail({
+      task,
+      node: nodeSummary,
+      logs,
+      events,
+      nodeLookup,
+    });
+  },
+  async getTaskLogLines(id: string, filters?: TaskLogFilters) {
+    return (await this.getTaskLogs(id, filters)).map((log) => ({
+      id: log.id,
+      taskId: log.taskId,
+      timestamp: log.timestamp ?? log.createdAt,
+      level: log.level,
+      message: log.message,
+    }));
+  },
+  async getEventRecords(filters?: EventFilters) {
+    const events = await this.getEvents(filters);
+    return filterEventsByQuery(events.map(mapEventRecord), filters?.query);
   },
 };
 

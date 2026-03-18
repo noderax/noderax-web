@@ -2,70 +2,113 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import {
+  AUTH_PERSIST_COOKIE,
   AUTH_SESSION_COOKIE,
   AUTH_TOKEN_COOKIE,
   buildAuthCookieOptions,
   encodeSession,
-  getApiBaseUrl,
+  fetchApiWithFallback,
   normalizeAuthSession,
-  shouldUseMockData,
+  normalizeAuthToken,
 } from "@/lib/auth";
+import type { LoginResponseDto } from "@/lib/types";
 
 const loginSchema = z.object({
   email: z.string().email(),
-  password: z.string().min(1),
+  password: z.string().min(8),
   remember: z.boolean().optional().default(false),
 });
+
+const readErrorMessage = async (response: Response) => {
+  try {
+    const payload = (await response.json()) as {
+      message?: string | string[];
+      error?: string;
+    };
+
+    if (Array.isArray(payload.message)) {
+      return payload.message.join(" ");
+    }
+
+    return payload.message ?? payload.error ?? "Authentication failed.";
+  } catch {
+    return "Authentication failed.";
+  }
+};
 
 export async function POST(request: Request) {
   try {
     const payload = loginSchema.parse(await request.json());
+    let response: Response;
 
-    const sessionEnvelope = shouldUseMockData()
-      ? normalizeAuthSession(
-          {
-            accessToken: `mock.${Date.now()}.token`,
-          },
-          payload.email,
-        )
-      : await (async () => {
-          const response = await fetch(new URL("/auth/login", getApiBaseUrl()), {
-            method: "POST",
-            headers: {
-              "content-type": "application/json",
-            },
-            body: JSON.stringify(payload),
-            cache: "no-store",
-          });
-
-          if (!response.ok) {
-            return null;
-          }
-
-          const upstreamPayload = (await response.json()) as Record<string, unknown>;
-          return normalizeAuthSession(upstreamPayload, payload.email);
-        })();
-
-    if (!sessionEnvelope) {
+    try {
+      response = await fetchApiWithFallback("/auth/login", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          email: payload.email,
+          password: payload.password,
+        }),
+        cache: "no-store",
+      });
+    } catch {
       return NextResponse.json(
-        { message: "Invalid credentials." },
-        { status: 401 },
+        { message: "Missing NODERAX_API_URL configuration." },
+        { status: 500 },
       );
     }
 
-    const response = NextResponse.json(sessionEnvelope.session);
-    response.cookies.set(
-      AUTH_TOKEN_COOKIE,
-      sessionEnvelope.token,
-      buildAuthCookieOptions(sessionEnvelope.session.expiresAt),
-    );
-    response.cookies.set(
-      AUTH_SESSION_COOKIE,
-      encodeSession(sessionEnvelope.session),
-      buildAuthCookieOptions(sessionEnvelope.session.expiresAt),
-    );
+    if (!response) {
+      return NextResponse.json(
+        { message: "Missing NODERAX_API_URL configuration." },
+        { status: 500 },
+      );
+    }
 
-    return response;
+    if (!response.ok) {
+      return NextResponse.json(
+        { message: await readErrorMessage(response) },
+        { status: response.status },
+      );
+    }
+
+    const upstreamPayload = (await response.json()) as LoginResponseDto;
+    const token = normalizeAuthToken(upstreamPayload);
+
+    if (!token || !upstreamPayload.user) {
+      return NextResponse.json(
+        { message: "Login response is missing authentication data." },
+        { status: 502 },
+      );
+    }
+
+    const session = normalizeAuthSession({
+      token,
+      user: upstreamPayload.user,
+      expiresIn: upstreamPayload.expiresIn,
+      expiresAt: upstreamPayload.expiresAt,
+    });
+
+    const nextResponse = NextResponse.json(session);
+    const cookieOptions = buildAuthCookieOptions({
+      expiresAt: session.expiresAt,
+      persistent: payload.remember,
+    });
+
+    nextResponse.cookies.set(AUTH_TOKEN_COOKIE, token, cookieOptions);
+    nextResponse.cookies.set(
+      AUTH_SESSION_COOKIE,
+      encodeSession(session),
+      cookieOptions,
+    );
+    nextResponse.cookies.set(AUTH_PERSIST_COOKIE, payload.remember ? "1" : "0", {
+      ...cookieOptions,
+      httpOnly: true,
+    });
+
+    return nextResponse;
   } catch (error) {
     return NextResponse.json(
       {
@@ -74,7 +117,7 @@ export async function POST(request: Request) {
             ? "Please provide a valid email and password."
             : "Unable to sign in right now.",
       },
-      { status: 400 },
+      { status: error instanceof z.ZodError ? 400 : 500 },
     );
   }
 }

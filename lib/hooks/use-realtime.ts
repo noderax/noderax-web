@@ -4,119 +4,160 @@ import { useEffect, useEffectEvent } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
-import { getRealtimeClient, type RealtimeMessage } from "@/lib/websocket";
-import type { EventRecord, NodeDetail, NodeSummary, TaskDetail, TaskLogLine, TaskSummary } from "@/lib/types";
+import { mapEventRecord, mapMetricDtoToPoint } from "@/lib/noderax";
 import { queryKeys } from "@/lib/hooks/use-noderax-data";
+import { getRealtimeClient, type RealtimeMessage } from "@/lib/websocket";
+import type { DashboardOverview, EventRecord, NodeDetail, NodeSummary, TaskDetail } from "@/lib/types";
 import { useAppStore } from "@/store/useAppStore";
 
-const updateNodeStatus = (
-  nodes: NodeSummary[] | undefined,
-  message: Extract<RealtimeMessage, { type: "node.online" | "node.offline" }>,
-) =>
-  nodes?.map((node) =>
-    node.id === message.data.id
-      ? {
-          ...node,
-          ...message.data,
-          status: message.type === "node.online" ? ("online" as const) : ("offline" as const),
-          lastHeartbeat: message.timestamp,
-        }
-      : node,
-  );
-
-const updateTask = (
-  tasks: TaskSummary[] | undefined,
-  message: Extract<RealtimeMessage, { type: "task.updated" }>,
-) =>
-  tasks?.map((task) =>
-    task.id === message.data.id
-      ? {
-          ...task,
-          ...message.data,
-        }
-      : task,
-  );
-
-const prependEvent = (events: EventRecord[] | undefined, event: EventRecord) => {
-  const nextEvents = [event, ...(events ?? [])];
-  return nextEvents.filter(
-    (candidate, index, collection) =>
-      collection.findIndex((item) => item.id === candidate.id) === index,
+const prependUnique = <T extends { id: string }>(items: T[] | undefined, value: T) => {
+  const nextItems = [value, ...(items ?? [])];
+  return nextItems.filter(
+    (item, index, collection) =>
+      collection.findIndex((candidate) => candidate.id === item.id) === index,
   );
 };
 
 export const useRealtimeBridge = () => {
   const queryClient = useQueryClient();
+  const session = useAppStore((state) => state.session);
   const setRealtimeStatus = useAppStore((state) => state.setRealtimeStatus);
 
   const onMessage = useEffectEvent((message: RealtimeMessage) => {
-    if (message.type === "node.online" || message.type === "node.offline") {
-      queryClient.setQueryData<NodeSummary[] | undefined>(
-        queryKeys.nodes.all,
-        (current) => updateNodeStatus(current, message),
+    if (message.type === "node.status.updated") {
+      queryClient.setQueriesData<NodeSummary[]>(
+        { queryKey: ["nodes", "list"] },
+        (current) =>
+          current?.map((node) =>
+            node.id === message.data.nodeId
+              ? {
+                  ...node,
+                  status: message.data.status,
+                  lastSeenAt: message.data.lastSeenAt,
+                }
+              : node,
+          ),
       );
 
       queryClient.setQueryData<NodeDetail | undefined>(
-        queryKeys.nodes.detail(message.data.id),
+        queryKeys.nodes.detail(message.data.nodeId),
         (current) =>
           current
             ? {
                 ...current,
-                ...message.data,
-                status: message.type === "node.online" ? ("online" as const) : ("offline" as const),
-                lastHeartbeat: message.timestamp,
+                status: message.data.status,
+                lastSeenAt: message.data.lastSeenAt,
               }
             : current,
       );
     }
 
-    if (message.type === "task.updated") {
-      queryClient.setQueryData<TaskSummary[] | undefined>(
-        queryKeys.tasks.all,
-        (current) => updateTask(current, message),
+    if (message.type === "metrics.ingested") {
+      const point = mapMetricDtoToPoint(message.data);
+
+      queryClient.setQueriesData<NodeSummary[]>(
+        { queryKey: ["nodes", "list"] },
+        (current) =>
+          current?.map((node) =>
+            node.id === message.data.nodeId
+              ? {
+                  ...node,
+                  latestMetric: point,
+                }
+              : node,
+          ),
       );
 
-      queryClient.setQueryData<TaskDetail | undefined>(
-        queryKeys.tasks.detail(message.data.id),
+      queryClient.setQueryData<NodeDetail | undefined>(
+        queryKeys.nodes.detail(message.data.nodeId),
         (current) =>
           current
             ? {
                 ...current,
-                ...message.data,
-                logs:
-                  message.data.latestLog && !current.logs.some((line) => line.id === message.data.latestLog?.id)
-                    ? [...current.logs, message.data.latestLog]
-                    : current.logs,
+                latestMetric: point,
+                networkStats: message.data.networkStats,
+                metrics: [...current.metrics, point]
+                  .sort((left, right) => left.timestamp.localeCompare(right.timestamp))
+                  .slice(-24),
               }
             : current,
       );
     }
 
-    if (message.type === "event.created") {
-      queryClient.setQueriesData<EventRecord[]>(
-        { queryKey: ["events"] },
-        (current) => prependEvent(current, message.data),
-      );
+    if (message.type === "task.updated" || message.type === "task.created") {
+      queryClient.invalidateQueries({
+        queryKey: ["tasks"],
+        refetchType: "active",
+      });
 
-      if (message.data.severity === "critical") {
-        toast.error(message.data.title, {
-          description: message.data.message,
-        });
-      } else if (message.data.severity === "warning") {
-        toast.warning(message.data.title, {
-          description: message.data.message,
-        });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.dashboard.overview,
+        refetchType: "active",
+      });
+
+      if (message.type === "task.updated") {
+        queryClient.setQueryData<TaskDetail | undefined>(
+          queryKeys.tasks.detail(message.data.id),
+          (current) =>
+            current
+              ? {
+                  ...current,
+                  status: message.data.status,
+                  startedAt: message.data.startedAt,
+                  finishedAt: message.data.finishedAt,
+                  updatedAt: message.data.updatedAt,
+                  exitCode:
+                    typeof message.data.result?.exitCode === "number"
+                      ? message.data.result.exitCode
+                      : current.exitCode,
+                  lastOutput: message.data.output,
+                  result: message.data.result,
+                }
+              : current,
+        );
       }
     }
 
-    void queryClient.invalidateQueries({
-      queryKey: queryKeys.dashboard.overview,
-      refetchType: "active",
-    });
+    if (message.type === "event.created") {
+      const event = mapEventRecord(message.data);
+
+      queryClient.setQueriesData<EventRecord[]>(
+        { queryKey: ["events", "list"] },
+        (current) => prependUnique(current, event),
+      );
+
+      queryClient.setQueryData<DashboardOverview | undefined>(
+        queryKeys.dashboard.overview,
+        (current) =>
+          current
+            ? {
+                ...current,
+                recentEvents: prependUnique(current.recentEvents, event).slice(0, 6),
+              }
+            : current,
+      );
+
+      if (event.severity === "critical") {
+        toast.error(event.title, {
+          description: event.message,
+        });
+      } else if (event.severity === "warning") {
+        toast.warning(event.title, {
+          description: event.message,
+        });
+      }
+    }
   });
 
   useEffect(() => {
     const client = getRealtimeClient();
+
+    if (!session) {
+      client.disconnect();
+      setRealtimeStatus("idle");
+      return;
+    }
+
     const unsubscribeMessages = client.subscribe((message) => onMessage(message));
     const unsubscribeStatus = client.subscribeStatus(setRealtimeStatus);
 
@@ -124,34 +165,5 @@ export const useRealtimeBridge = () => {
       unsubscribeMessages();
       unsubscribeStatus();
     };
-  }, [setRealtimeStatus]);
-};
-
-export const useTaskLogSubscription = (
-  taskId: string,
-  onLog: (log: TaskLogLine) => void,
-) => {
-  const handleMessage = useEffectEvent((message: RealtimeMessage) => {
-    if (message.type === "task.log" && message.data.taskId === taskId) {
-      onLog({
-        id: message.data.id,
-        timestamp: message.data.timestamp,
-        stream: message.data.stream,
-        message: message.data.message,
-      });
-    }
-
-    if (
-      message.type === "task.updated" &&
-      message.data.id === taskId &&
-      message.data.latestLog
-    ) {
-      onLog(message.data.latestLog);
-    }
-  });
-
-  useEffect(() => {
-    const client = getRealtimeClient();
-    return client.subscribe((message) => handleMessage(message));
-  }, [taskId]);
+  }, [session, setRealtimeStatus]);
 };

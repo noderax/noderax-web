@@ -30,6 +30,13 @@ import type { NodeSummary } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/store/useAppStore";
 
+const formatLastSeen = (value: string | null) =>
+  value
+    ? formatDistanceToNowStrict(new Date(value), {
+        addSuffix: true,
+      })
+    : "Never";
+
 export const NodesTable = ({
   nodes,
   isLoading,
@@ -49,7 +56,7 @@ export const NodesTable = ({
         const matchesStatus =
           statusFilter === "all" ? true : node.status === statusFilter;
         const matchesQuery = searchQuery
-          ? [node.name, node.region, node.os, node.arch, node.version]
+          ? [node.name, node.hostname, node.os, node.arch]
               .join(" ")
               .toLowerCase()
               .includes(searchQuery.toLowerCase())
@@ -83,7 +90,10 @@ export const NodesTable = ({
   return (
     <>
       <div className="mb-4 flex justify-end">
-        <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as typeof statusFilter)}>
+        <Select
+          value={statusFilter}
+          onValueChange={(value) => setStatusFilter(value as typeof statusFilter)}
+        >
           <SelectTrigger className="min-w-40 rounded-full bg-card/80">
             <SelectValue placeholder="Filter status" />
           </SelectTrigger>
@@ -101,9 +111,9 @@ export const NodesTable = ({
             <TableRow className="hover:bg-transparent">
               <TableHead className="pl-4">Name</TableHead>
               <TableHead>Status</TableHead>
-              <TableHead>Last heartbeat</TableHead>
+              <TableHead>Last seen</TableHead>
               <TableHead>OS / Arch</TableHead>
-              <TableHead>Region</TableHead>
+              <TableHead>Latest CPU</TableHead>
               <TableHead className="pr-4 text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -113,23 +123,21 @@ export const NodesTable = ({
                 <TableCell className="pl-4">
                   <div>
                     <p className="font-medium">{node.name}</p>
-                    <p className="text-xs text-muted-foreground">
-                      v{node.version} • {node.agentCount} agents
-                    </p>
+                    <p className="text-xs text-muted-foreground">{node.hostname}</p>
                   </div>
                 </TableCell>
                 <TableCell>
                   <NodeStatusBadge status={node.status} />
                 </TableCell>
                 <TableCell className="text-muted-foreground">
-                  {formatDistanceToNowStrict(new Date(node.lastHeartbeat), {
-                    addSuffix: true,
-                  })}
+                  {formatLastSeen(node.lastSeenAt)}
                 </TableCell>
                 <TableCell className="text-muted-foreground">
                   {node.os} / {node.arch}
                 </TableCell>
-                <TableCell className="text-muted-foreground">{node.region}</TableCell>
+                <TableCell className="text-muted-foreground">
+                  {node.latestMetric ? `${node.latestMetric.cpu}%` : "N/A"}
+                </TableCell>
                 <TableCell className="pr-4 text-right">
                   <div className="flex items-center justify-end gap-2">
                     <Dialog
@@ -158,32 +166,30 @@ export const NodesTable = ({
                           </div>
                           <div className="rounded-2xl border border-border/70 bg-muted/40 p-4">
                             <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
-                              Capacity
+                              Activity
                             </p>
-                            <p className="mt-2 text-sm font-medium">{node.agentCount} agents</p>
+                            <p className="mt-2 text-sm font-medium">{formatLastSeen(node.lastSeenAt)}</p>
+                            <NodeStatusBadge status={node.status} />
+                          </div>
+                          <div className="rounded-2xl border border-border/70 bg-muted/40 p-4">
+                            <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
+                              Hostname
+                            </p>
+                            <p className="mt-2 text-sm font-medium">{node.hostname}</p>
                             <p className="text-sm text-muted-foreground">
-                              Avg CPU {node.avgCpuLoad}%
+                              Created {new Date(node.createdAt).toLocaleString()}
                             </p>
                           </div>
                           <div className="rounded-2xl border border-border/70 bg-muted/40 p-4">
                             <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
-                              Region
-                            </p>
-                            <p className="mt-2 text-sm font-medium">{node.region}</p>
-                            <p className="text-sm text-muted-foreground">
-                              Uptime {node.uptimeHours}h
-                            </p>
-                          </div>
-                          <div className="rounded-2xl border border-border/70 bg-muted/40 p-4">
-                            <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
-                              Heartbeat
+                              Latest telemetry
                             </p>
                             <p className="mt-2 text-sm font-medium">
-                              {formatDistanceToNowStrict(new Date(node.lastHeartbeat), {
-                                addSuffix: true,
-                              })}
+                              CPU {node.latestMetric ? `${node.latestMetric.cpu}%` : "N/A"}
                             </p>
-                            <NodeStatusBadge status={node.status} />
+                            <p className="text-sm text-muted-foreground">
+                              Memory {node.latestMetric ? `${node.latestMetric.memory}%` : "N/A"}
+                            </p>
                           </div>
                         </div>
                       </DialogContent>
