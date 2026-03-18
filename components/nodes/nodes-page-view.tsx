@@ -52,43 +52,48 @@ export const NodesPageView = () => {
         eyebrow="Fleet"
         title="Node management"
         description="Monitor node connectivity, inspect host metadata, and drill into metrics and node-scoped event history."
+        meta={
+          <>
+            <div className="meta-chip rounded-full border px-3 py-2 text-sm">
+              <span className="text-muted-foreground">Coverage</span>{" "}
+              <span className="font-semibold">{onlineCoverage}% online</span>
+            </div>
+            <div className="meta-chip rounded-full border px-3 py-2 text-sm">
+              <span className="text-muted-foreground">Average CPU</span>{" "}
+              <span className="font-semibold">{averageLoad}%</span>
+            </div>
+            <div className="meta-chip rounded-full border px-3 py-2 text-sm">
+              <span className="text-muted-foreground">Offline</span>{" "}
+              <span className="font-semibold">{offlineNodes.length}</span>
+            </div>
+          </>
+        }
+        actions={
+          featuredNode ? (
+            <>
+              <div className="min-w-[12rem] flex-1">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">
+                  Fleet spotlight
+                </p>
+                <p className="mt-1 text-sm font-medium">{featuredNode.name}</p>
+                <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                  {featuredNode.hostname} • {featuredNode.os} / {featuredNode.arch}
+                </p>
+              </div>
+              <Link
+                href={`/nodes/${featuredNode.id}`}
+                className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
+              >
+                Open node
+                <ArrowUpRight className="size-4" />
+              </Link>
+            </>
+          ) : null
+        }
       />
       <div className="space-y-6">
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <OverviewCard
-            title="Total nodes"
-            value={nodes.length}
-            description="Registered infrastructure members currently tracked by Noderax."
-            icon={Boxes}
-            tone="brand"
-          />
-          <OverviewCard
-            title="Online"
-            value={onlineNodes.length}
-            description="Nodes with a healthy status and recent agent activity."
-            icon={ShieldCheck}
-            tone="emerald"
-            delay={0.04}
-          />
-          <OverviewCard
-            title="Offline"
-            value={offlineNodes.length}
-            description="Hosts that require follow-up because they stopped reporting in."
-            icon={WifiOff}
-            tone="rose"
-            delay={0.08}
-          />
-          <OverviewCard
-            title="Avg CPU load"
-            value={`${averageLoad}%`}
-            description="Latest reported CPU usage across nodes with recent metrics."
-            icon={Cpu}
-            tone="amber"
-            delay={0.12}
-          />
-        </div>
         {featuredNode ? (
-          <div className="grid gap-6 xl:grid-cols-[1.35fr_0.65fr]">
+          <div className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
             <SectionPanel
               variant="feature"
               eyebrow="Node Spotlight"
@@ -106,7 +111,7 @@ export const NodesPageView = () => {
               contentClassName="p-6"
             >
               <div className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
-                <div className="rounded-[26px] border border-border/70 bg-background/35 p-5">
+                <div className="surface-subtle rounded-[26px] border p-5">
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
                       <p className="text-sm font-medium text-foreground/95">
@@ -124,7 +129,7 @@ export const NodesPageView = () => {
                     <NodeStatusBadge status={featuredNode.status} />
                   </div>
                   <div className="mt-5 grid gap-3 sm:grid-cols-2">
-                    <div className="rounded-2xl border border-border/70 bg-card/70 p-4">
+                    <div className="surface-subtle rounded-2xl border p-4">
                       <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
                         CPU
                       </p>
@@ -132,7 +137,7 @@ export const NodesPageView = () => {
                         {featuredNode.latestMetric ? `${featuredNode.latestMetric.cpu}%` : "N/A"}
                       </p>
                     </div>
-                    <div className="rounded-2xl border border-border/70 bg-card/70 p-4">
+                    <div className="surface-subtle rounded-2xl border p-4">
                       <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
                         Memory
                       </p>
@@ -142,7 +147,7 @@ export const NodesPageView = () => {
                           : "N/A"}
                       </p>
                     </div>
-                    <div className="rounded-2xl border border-border/70 bg-card/70 p-4">
+                    <div className="surface-subtle rounded-2xl border p-4">
                       <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
                         Created
                       </p>
@@ -152,7 +157,7 @@ export const NodesPageView = () => {
                         className="mt-2 block text-lg font-semibold"
                       />
                     </div>
-                    <div className="rounded-2xl border border-border/70 bg-card/70 p-4">
+                    <div className="surface-subtle rounded-2xl border p-4">
                       <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
                         Runtime
                       </p>
@@ -165,7 +170,7 @@ export const NodesPageView = () => {
                 </div>
 
                 <div className="grid gap-3">
-                  <div className="rounded-[24px] border border-border/70 bg-background/30 p-4">
+                  <div className="surface-subtle rounded-[24px] border p-4">
                     <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
                       Fleet coverage
                     </p>
@@ -174,7 +179,7 @@ export const NodesPageView = () => {
                       of the visible fleet is online right now.
                     </p>
                   </div>
-                  <div className="rounded-[24px] border border-border/70 bg-background/30 p-4">
+                  <div className="surface-subtle rounded-[24px] border p-4">
                     <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
                       Hottest node
                     </p>
@@ -187,7 +192,7 @@ export const NodesPageView = () => {
                         : "Waiting for metric samples."}
                     </p>
                   </div>
-                  <div className="rounded-[24px] border border-border/70 bg-background/30 p-4">
+                  <div className="surface-subtle rounded-[24px] border p-4">
                     <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
                       Follow-up lane
                     </p>
@@ -204,44 +209,75 @@ export const NodesPageView = () => {
               </div>
             </SectionPanel>
 
-            <SectionPanel
-              eyebrow="Operational Posture"
-              title="Control lane"
-              description="A more standard, repeatable panel layout for day-to-day fleet review."
-              contentClassName="space-y-3 p-6"
-            >
-              <div className="rounded-[24px] border border-border/70 bg-background/30 p-4">
-                <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
-                  Total tracked
-                </p>
-                <p className="mt-2 text-2xl font-semibold">{nodes.length}</p>
-                <p className="text-sm text-muted-foreground">
-                  Nodes currently visible in this workspace.
-                </p>
-              </div>
-              <div className="rounded-[24px] border border-border/70 bg-background/30 p-4">
-                <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
-                  Average CPU
-                </p>
-                <p className="mt-2 text-2xl font-semibold">{averageLoad}%</p>
-                <p className="text-sm text-muted-foreground">
-                  Based on nodes that have recent telemetry.
-                </p>
-              </div>
-              <div className="rounded-[24px] border border-border/70 bg-background/30 p-4">
-                <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
-                  Current lead
-                </p>
-                <p className="mt-2 text-lg font-semibold">{featuredNode.hostname}</p>
-                <p className="text-sm text-muted-foreground">
-                  {featuredNode.status === "online"
-                    ? "Healthy candidate for deeper inspection."
-                    : "Most relevant node currently needs a closer look."}
-                </p>
-              </div>
-            </SectionPanel>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <OverviewCard
+                title="Total nodes"
+                value={nodes.length}
+                description="Registered infrastructure members currently tracked by Noderax."
+                icon={Boxes}
+                tone="brand"
+              />
+              <OverviewCard
+                title="Online"
+                value={onlineNodes.length}
+                description="Nodes with a healthy status and recent agent activity."
+                icon={ShieldCheck}
+                tone="emerald"
+                delay={0.04}
+              />
+              <OverviewCard
+                title="Offline"
+                value={offlineNodes.length}
+                description="Hosts that require follow-up because they stopped reporting in."
+                icon={WifiOff}
+                tone="rose"
+                delay={0.08}
+              />
+              <OverviewCard
+                title="Avg CPU load"
+                value={`${averageLoad}%`}
+                description="Latest reported CPU usage across nodes with recent metrics."
+                icon={Cpu}
+                tone="amber"
+                delay={0.12}
+              />
+            </div>
           </div>
-        ) : null}
+        ) : (
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <OverviewCard
+              title="Total nodes"
+              value={nodes.length}
+              description="Registered infrastructure members currently tracked by Noderax."
+              icon={Boxes}
+              tone="brand"
+            />
+            <OverviewCard
+              title="Online"
+              value={onlineNodes.length}
+              description="Nodes with a healthy status and recent agent activity."
+              icon={ShieldCheck}
+              tone="emerald"
+              delay={0.04}
+            />
+            <OverviewCard
+              title="Offline"
+              value={offlineNodes.length}
+              description="Hosts that require follow-up because they stopped reporting in."
+              icon={WifiOff}
+              tone="rose"
+              delay={0.08}
+            />
+            <OverviewCard
+              title="Avg CPU load"
+              value={`${averageLoad}%`}
+              description="Latest reported CPU usage across nodes with recent metrics."
+              icon={Cpu}
+              tone="amber"
+              delay={0.12}
+            />
+          </div>
+        )}
         <NodesTable nodes={nodes} isLoading={nodesQuery.isPending} />
       </div>
     </AppShell>

@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 
+import { GridPattern } from "@/components/magic/grid-pattern";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
@@ -44,7 +45,8 @@ const realtimeConfig = {
   connected: {
     icon: SignalHigh,
     label: "Realtime live",
-    className: "border-emerald-500/20 bg-emerald-500/10 text-emerald-300",
+    className:
+      "border-emerald-500/20 bg-emerald-500/12 text-emerald-700 dark:text-emerald-300",
   },
   connecting: {
     icon: SignalLow,
@@ -54,17 +56,19 @@ const realtimeConfig = {
   reconnecting: {
     icon: SignalLow,
     label: "Reconnecting",
-    className: "border-amber-500/20 bg-amber-500/10 text-amber-300",
+    className:
+      "border-amber-500/20 bg-amber-500/12 text-amber-700 dark:text-amber-300",
   },
   disconnected: {
     icon: SignalZero,
     label: "Offline",
-    className: "border-rose-500/20 bg-rose-500/10 text-rose-300",
+    className:
+      "border-rose-500/20 bg-rose-500/12 text-rose-700 dark:text-rose-300",
   },
   idle: {
     icon: SignalLow,
     label: "Standby",
-    className: "border-muted bg-muted/60 text-muted-foreground",
+    className: "border-border/70 bg-muted/60 text-muted-foreground",
   },
 };
 
@@ -123,96 +127,103 @@ export const Topbar = () => {
   }, [authQuery.isError, router, session]);
 
   return (
-    <header className="sticky top-0 z-20 border-b border-border/60 bg-background/75 backdrop-blur-xl">
-      <div className="flex flex-col gap-4 px-4 py-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex min-w-0 items-center gap-3">
+    <header className="sticky top-3 z-20">
+      <div className="surface-panel relative overflow-hidden rounded-[32px] border px-4 py-4 sm:px-5">
+        <GridPattern className="pointer-events-none absolute inset-0 opacity-10" />
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(156,28,41,0.14),transparent_30%),linear-gradient(180deg,rgba(255,255,255,0.05),transparent_26%)]" />
+        <div className="relative z-10 grid gap-4 xl:grid-cols-[minmax(0,0.85fr)_minmax(320px,1fr)_auto] xl:items-center">
+          <div className="flex min-w-0 items-start gap-3">
             <Button
               variant="outline"
               size="icon"
-              className="lg:hidden"
+              className="mt-0.5 lg:hidden"
               onClick={() => setMobileSidebarOpen(true)}
               aria-label="Open navigation"
             >
               <Menu className="size-4" />
             </Button>
             <div className="min-w-0">
-              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-primary/75">
-                {section}
+              <p className="text-[11px] font-semibold uppercase tracking-[0.26em] text-primary/75">
+                Command deck
               </p>
-              <p className="truncate text-sm text-muted-foreground">
-                Search scope follows the current page context.
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <div
-              className={cn(
-                "hidden items-center gap-2 rounded-full border px-3 py-2 text-xs font-medium md:flex",
-                statusConfig.className,
-              )}
-            >
-              <StatusIcon className="size-3.5" />
-              {statusConfig.label}
-            </div>
-            <ThemeToggle />
-            <DropdownMenu>
-              <DropdownMenuTrigger className="flex items-center gap-2 rounded-full border border-border/70 bg-card/70 px-2.5 py-1.5 text-left transition hover:border-primary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                <Avatar className="size-8 border border-border/70">
-                  <AvatarFallback>{initials}</AvatarFallback>
-                </Avatar>
-                <div className="hidden min-w-0 md:block">
-                  <p className="truncate text-sm font-medium">
-                    {session?.user.name ?? "Operator"}
-                  </p>
-                  <p className="truncate text-xs text-muted-foreground">
-                    {session?.user.email ?? "operator@noderax.io"}
-                  </p>
+              <div className="mt-1 flex flex-wrap items-center gap-2">
+                <h2 className="truncate text-lg font-semibold tracking-tight">
+                  {section}
+                </h2>
+                <div
+                  className={cn(
+                    "inline-flex items-center gap-2 rounded-full border px-2.5 py-1 text-[11px] font-medium",
+                    statusConfig.className,
+                  )}
+                >
+                  <StatusIcon className="size-3.5" />
+                  {statusConfig.label}
                 </div>
-                <ChevronsUpDown className="size-3.5 text-muted-foreground" />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-64">
-                <DropdownMenuGroup>
-                  <DropdownMenuLabel>Account</DropdownMenuLabel>
-                  <div className="px-2 pb-2 text-xs text-muted-foreground">
-                    JWT-backed access, route protection, and realtime controls.
-                  </div>
-                </DropdownMenuGroup>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  onClick={() => router.push("/settings")}
-                >
-                  <Settings2 className="size-4" />
-                  Settings
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => router.push("/settings#token-management")}
-                >
-                  Token management
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  variant="destructive"
-                  onClick={handleLogout}
-                  disabled={isLoggingOut}
-                >
-                  <LogOut className="size-4" />
-                  {isLoggingOut ? "Signing out..." : "Sign out"}
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+              </div>
+              <p className="mt-1 truncate text-xs text-muted-foreground">
+                Search, filtering, and account controls stay pinned to the current workspace.
+              </p>
+            </div>
           </div>
-        </div>
 
-        <div className="relative">
-          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={searchQuery}
-            onChange={(event) => setSearchQuery(event.target.value)}
-            placeholder="Search nodes, tasks, events, commands..."
-            className="h-11 rounded-2xl border-border/80 bg-card/60 pl-10 shadow-dashboard"
-          />
+          <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-center">
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+                placeholder="Search nodes, tasks, events, commands..."
+                className="h-12 rounded-[1.2rem] pl-10"
+              />
+            </div>
+            <div className="flex items-center gap-2 sm:justify-end">
+              <ThemeToggle />
+            </div>
+          </div>
+
+          <DropdownMenu>
+            <DropdownMenuTrigger className="control-surface flex items-center gap-3 rounded-[1.35rem] border px-2.5 py-2 text-left transition hover:border-primary/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+              <Avatar className="size-10 border border-border/70">
+                <AvatarFallback>{initials}</AvatarFallback>
+              </Avatar>
+              <div className="hidden min-w-0 sm:block">
+                <p className="truncate text-sm font-medium">
+                  {session?.user.name ?? "Operator"}
+                </p>
+                <p className="truncate text-xs text-muted-foreground">
+                  {session?.user.email ?? "operator@noderax.io"}
+                </p>
+              </div>
+              <ChevronsUpDown className="size-3.5 text-muted-foreground" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-64">
+              <DropdownMenuGroup>
+                <DropdownMenuLabel>Account</DropdownMenuLabel>
+                <div className="px-2 pb-2 text-xs leading-5 text-muted-foreground">
+                  JWT-backed access, route protection, and realtime controls.
+                </div>
+              </DropdownMenuGroup>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => router.push("/settings")}>
+                <Settings2 className="size-4" />
+                Settings
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => router.push("/settings#token-management")}
+              >
+                Token management
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                variant="destructive"
+                onClick={handleLogout}
+                disabled={isLoggingOut}
+              >
+                <LogOut className="size-4" />
+                {isLoggingOut ? "Signing out..." : "Sign out"}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
     </header>

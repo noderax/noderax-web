@@ -14,6 +14,10 @@ import { useDashboardOverview } from "@/lib/hooks/use-noderax-data";
 
 export const DashboardView = () => {
   const overviewQuery = useDashboardOverview();
+  const latestEvent = overviewQuery.data?.recentEvents[0];
+  const criticalEvents =
+    overviewQuery.data?.recentEvents.filter((event) => event.severity === "critical")
+      .length ?? 0;
 
   return (
     <AppShell>
@@ -21,6 +25,55 @@ export const DashboardView = () => {
         eyebrow="Operations"
         title="Infrastructure overview"
         description="A live operational surface for node health, task throughput, and incident visibility across the Noderax control plane."
+        meta={
+          overviewQuery.data ? (
+            <>
+              <div className="meta-chip rounded-full border px-3 py-2 text-sm">
+                <span className="text-muted-foreground">Nodes</span>{" "}
+                <span className="font-semibold">{overviewQuery.data.totals.totalNodes}</span>
+              </div>
+              <div className="meta-chip rounded-full border px-3 py-2 text-sm">
+                <span className="text-muted-foreground">Online</span>{" "}
+                <span className="font-semibold">{overviewQuery.data.totals.onlineNodes}</span>
+              </div>
+              <div className="meta-chip rounded-full border px-3 py-2 text-sm">
+                <span className="text-muted-foreground">Running tasks</span>{" "}
+                <span className="font-semibold">{overviewQuery.data.totals.runningTasks}</span>
+              </div>
+              <div className="meta-chip rounded-full border px-3 py-2 text-sm">
+                <span className="text-muted-foreground">Critical signals</span>{" "}
+                <span className="font-semibold">{criticalEvents}</span>
+              </div>
+            </>
+          ) : null
+        }
+        actions={
+          <>
+            <div className="min-w-[12rem] flex-1">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">
+                Live posture
+              </p>
+              <p className="mt-1 text-sm font-medium">Realtime telemetry is active</p>
+              <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                Query reconciliation and websocket mutation keep the deck current.
+              </p>
+            </div>
+            <div className="meta-chip min-w-[11rem] rounded-2xl border px-3 py-2">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">
+                Latest event
+              </p>
+              <p className="mt-1 text-sm font-medium">
+                {latestEvent?.title ?? "No events yet"}
+              </p>
+              <TimeDisplay
+                value={latestEvent?.createdAt}
+                mode="relative"
+                emptyLabel="Waiting"
+                className="mt-1 block text-xs text-muted-foreground"
+              />
+            </div>
+          </>
+        }
       />
 
       {overviewQuery.isPending ? (
@@ -94,7 +147,7 @@ export const DashboardView = () => {
               {overviewQuery.data.nodes.slice(0, 4).map((node) => (
                 <div
                   key={node.id}
-                  className="rounded-[24px] border border-border/70 bg-background/35 p-4 transition hover:bg-background/50"
+                  className="surface-subtle surface-hover rounded-[24px] border p-4"
                 >
                   <div className="flex items-center justify-between">
                     <div>

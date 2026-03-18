@@ -23,10 +23,10 @@ const getEventHref = (event: EventRecord) => {
 
 export const RecentEventsFeed = ({ events }: { events: EventRecord[] }) => (
   <Reveal>
-    <Card className="relative overflow-hidden border-0 bg-card/70 shadow-dashboard">
-      <GridPattern className="opacity-15" />
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(56,189,248,0.08),transparent_34%)]" />
-      <CardHeader className="relative z-10">
+    <Card className="surface-panel relative overflow-hidden border">
+      <GridPattern className="opacity-12" />
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(156,28,41,0.08),transparent_34%),linear-gradient(180deg,rgba(255,255,255,0.04),transparent_24%)]" />
+      <CardHeader className="relative z-10 border-b border-border/60">
         <CardTitle>Recent events</CardTitle>
         <CardDescription>
           Alerts, node state changes, and task transitions ordered by recency.
@@ -39,10 +39,10 @@ export const RecentEventsFeed = ({ events }: { events: EventRecord[] }) => (
               <Reveal key={event.id} delay={0.04 * index}>
                 <Link
                   href={getEventHref(event)}
-                  className="group relative block overflow-hidden rounded-2xl border border-border/70 bg-background/40 p-4 transition hover:border-primary/30 hover:bg-background/70"
+                  className="surface-subtle surface-hover group relative block overflow-hidden rounded-[24px] border p-4"
                 >
-                  <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/50 to-transparent opacity-0 transition group-hover:opacity-100" />
-                  <div className="flex items-start justify-between gap-3">
+                  <div className="absolute bottom-4 left-4 top-4 w-px bg-gradient-to-b from-primary/40 via-border to-transparent" />
+                  <div className="flex items-start justify-between gap-3 pl-4">
                     <div>
                       <div className="flex items-center gap-2">
                         <SeverityBadge severity={event.severity} />
@@ -54,13 +54,13 @@ export const RecentEventsFeed = ({ events }: { events: EventRecord[] }) => (
                     </div>
                     <ChevronRight className="mt-0.5 size-4 text-muted-foreground transition group-hover:text-foreground" />
                   </div>
-                  <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                  <p className="mt-2 pl-4 text-sm leading-6 text-muted-foreground">
                     {event.message}
                   </p>
                   <TimeDisplay
                     value={event.createdAt}
                     mode="relative"
-                    className="mt-3 block text-xs text-muted-foreground"
+                    className="mt-3 block pl-4 text-xs text-muted-foreground"
                   />
                 </Link>
               </Reveal>

@@ -10,7 +10,6 @@ import { PageHeader } from "@/components/layout/page-header";
 import { NodeStatusBadge } from "@/components/nodes/node-status-badge";
 import { TaskStatusBadge } from "@/components/tasks/task-status-badge";
 import { SeverityBadge } from "@/components/severity-badge";
-import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TimeDisplay } from "@/components/ui/time-display";
@@ -55,25 +54,41 @@ export const NodeDetailView = ({ id }: { id: string }) => {
             <TimeDisplay value={node.lastSeenAt} mode="relative" emptyLabel="Never" />
           </>
         }
-        actions={<NodeStatusBadge status={node.status} />}
+        meta={
+          <>
+            <div className="meta-chip rounded-full border px-3 py-2 text-sm">
+              <span className="text-muted-foreground">Hostname</span>{" "}
+              <span className="font-semibold">{node.hostname}</span>
+            </div>
+            <div className="meta-chip rounded-full border px-3 py-2 text-sm">
+              <span className="text-muted-foreground">Created</span>{" "}
+              <TimeDisplay value={node.createdAt} mode="date" />
+            </div>
+            {node.lastSeenAt ? (
+              <div className="meta-chip rounded-full border px-3 py-2 text-sm">
+                <span className="text-muted-foreground">Last seen</span>{" "}
+                <TimeDisplay value={node.lastSeenAt} mode="relative" emptyLabel="Never" />
+              </div>
+            ) : null}
+          </>
+        }
+        actions={
+          <>
+            <div className="min-w-[10rem] flex-1">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">
+                Fleet state
+              </p>
+              <p className="mt-1 text-sm font-medium">
+                {node.latestMetric ? `${node.latestMetric.cpu}% CPU / ${node.latestMetric.memory}% MEM` : "Telemetry pending"}
+              </p>
+            </div>
+            <NodeStatusBadge status={node.status} />
+          </>
+        }
       />
 
-      <div className="mb-6 flex flex-wrap gap-2">
-        <Badge variant="outline" className="rounded-full px-3 py-1">
-          Hostname: {node.hostname}
-        </Badge>
-        <Badge variant="outline" className="rounded-full px-3 py-1">
-          Created: <TimeDisplay value={node.createdAt} mode="date" />
-        </Badge>
-        {node.lastSeenAt ? (
-          <Badge variant="outline" className="rounded-full px-3 py-1">
-            Last seen: <TimeDisplay value={node.lastSeenAt} mode="relative" emptyLabel="Never" />
-          </Badge>
-        ) : null}
-      </div>
-
       <div className="grid gap-4 xl:grid-cols-4">
-        <Card className="border-0 bg-card/70 shadow-dashboard">
+        <Card className="surface-panel border">
           <CardHeader>
             <CardTitle>Latest CPU</CardTitle>
             <CardDescription>Most recent reported CPU usage.</CardDescription>
@@ -82,7 +97,7 @@ export const NodeDetailView = ({ id }: { id: string }) => {
             {node.latestMetric ? `${node.latestMetric.cpu}%` : "N/A"}
           </CardContent>
         </Card>
-        <Card className="border-0 bg-card/70 shadow-dashboard">
+        <Card className="surface-panel border">
           <CardHeader>
             <CardTitle>Latest memory</CardTitle>
             <CardDescription>Most recent reported memory usage.</CardDescription>
@@ -91,7 +106,7 @@ export const NodeDetailView = ({ id }: { id: string }) => {
             {node.latestMetric ? `${node.latestMetric.memory}%` : "N/A"}
           </CardContent>
         </Card>
-        <Card className="border-0 bg-card/70 shadow-dashboard">
+        <Card className="surface-panel border">
           <CardHeader>
             <CardTitle>Latest disk</CardTitle>
             <CardDescription>Most recent reported disk usage.</CardDescription>
@@ -100,7 +115,7 @@ export const NodeDetailView = ({ id }: { id: string }) => {
             {node.latestMetric ? `${node.latestMetric.disk}%` : "N/A"}
           </CardContent>
         </Card>
-        <Card className="border-0 bg-card/70 shadow-dashboard">
+        <Card className="surface-panel border">
           <CardHeader>
             <CardTitle>Network summary</CardTitle>
             <CardDescription>Aggregated counters from the latest metric sample.</CardDescription>
@@ -126,7 +141,7 @@ export const NodeDetailView = ({ id }: { id: string }) => {
           />
         </TabsContent>
         <TabsContent value="tasks" className="mt-6">
-          <Card className="border-0 bg-card/70 shadow-dashboard">
+          <Card className="surface-panel border">
             <CardHeader>
               <CardTitle>Running tasks</CardTitle>
               <CardDescription>
@@ -139,7 +154,7 @@ export const NodeDetailView = ({ id }: { id: string }) => {
                   <Link
                     key={task.id}
                     href={`/tasks/${task.id}`}
-                    className="block rounded-2xl border border-border/70 bg-background/40 p-4 transition hover:border-primary/30"
+                    className="surface-subtle surface-hover block rounded-2xl border p-4"
                   >
                     <div className="flex items-center justify-between gap-4">
                       <div>
@@ -164,7 +179,7 @@ export const NodeDetailView = ({ id }: { id: string }) => {
           </Card>
         </TabsContent>
         <TabsContent value="events" className="mt-6">
-          <Card className="border-0 bg-card/70 shadow-dashboard">
+          <Card className="surface-panel border">
             <CardHeader>
               <CardTitle>Node event history</CardTitle>
               <CardDescription>
@@ -176,7 +191,7 @@ export const NodeDetailView = ({ id }: { id: string }) => {
                 node.recentEvents.map((event) => (
                   <div
                     key={event.id}
-                    className="rounded-2xl border border-border/70 bg-background/40 p-4"
+                    className="surface-subtle rounded-2xl border p-4"
                   >
                     <div className="flex items-center justify-between gap-3">
                       <div>

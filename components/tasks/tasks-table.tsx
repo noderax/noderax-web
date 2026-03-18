@@ -57,7 +57,7 @@ export const TasksTable = ({
       value={statusFilter}
       onValueChange={(value) => setStatusFilter(value as typeof statusFilter)}
     >
-      <SelectTrigger className="min-w-44 rounded-full bg-background/60">
+      <SelectTrigger className="min-w-44">
         <SelectValue placeholder="Filter task status" />
       </SelectTrigger>
       <SelectContent>
@@ -113,7 +113,7 @@ export const TasksTable = ({
       action={filterControl}
       contentClassName="px-3 pb-3 pt-4"
     >
-      <div className="overflow-hidden rounded-[26px] border border-border/70 bg-background/25">
+      <div className="surface-subtle overflow-hidden rounded-[28px] border">
         <Table>
           <TableHeader>
             <TableRow className="hover:bg-transparent">
@@ -127,7 +127,7 @@ export const TasksTable = ({
           </TableHeader>
           <TableBody>
             {filteredTasks.map((task) => (
-              <TableRow key={task.id} className="hover:bg-background/60">
+              <TableRow key={task.id}>
                 <TableCell className="pl-4">
                   <TaskStatusBadge status={task.status} />
                 </TableCell>

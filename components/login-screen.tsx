@@ -7,7 +7,7 @@ import { ShieldCheck, Sparkles } from "lucide-react";
 import { useForm, useWatch } from "react-hook-form";
 import { z } from "zod";
 
-import { BrandMark } from "@/components/brand/brand-mark";
+import { BrandBadge } from "@/components/brand/brand-mark";
 import { AnimatedCard } from "@/components/magic/animated-card";
 import { GlowOrb } from "@/components/magic/glow-orb";
 import { GridPattern } from "@/components/magic/grid-pattern";
@@ -76,38 +76,40 @@ export const LoginScreen = ({ nextPath }: { nextPath?: string }) => {
       <GridPattern className="opacity-35" />
 
       <div className="relative z-10 flex min-h-screen flex-col">
-        <div className="flex items-center justify-between px-6 py-6">
-          <div className="flex items-center gap-3">
-            <div className="rounded-[1.4rem] border border-primary/20 bg-card/60 p-2 shadow-dashboard">
-              <BrandMark className="size-9" />
+        <div className="px-6 py-6">
+          <div className="surface-panel mx-auto flex w-full max-w-6xl items-center justify-between rounded-[30px] border px-5 py-4">
+            <div className="flex items-center gap-3">
+              <BrandBadge size="lg" priority />
+              <div>
+                <p className="text-sm font-semibold tracking-[0.24em] text-primary/80 uppercase">
+                  Noderax
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  Secure control plane access
+                </p>
+              </div>
             </div>
-            <div>
-              <p className="text-sm font-semibold tracking-[0.24em] text-primary/80 uppercase">
-                Noderax
-              </p>
-              <p className="text-sm text-muted-foreground">
-                Secure control plane access
-              </p>
-            </div>
+            <ThemeToggle />
           </div>
-          <ThemeToggle />
         </div>
 
         <div className="mx-auto grid w-full max-w-6xl flex-1 gap-10 px-6 pb-12 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
           <div className="max-w-xl space-y-6">
-            <p className="text-xs font-semibold uppercase tracking-[0.28em] text-primary/75">
-              Production-grade operations
-            </p>
-            <h1 className="max-w-lg text-4xl font-semibold tracking-tight sm:text-5xl">
-              <span className="text-shimmer">
-                One dashboard for your entire node fleet.
-              </span>
-            </h1>
-            <p className="max-w-xl text-lg leading-8 text-muted-foreground">
-              Manage nodes, watch task execution, stream live logs, and react to operational events with a focused interface built for high-volume SaaS teams.
-            </p>
+            <div className="surface-feature rounded-[34px] border p-7">
+              <p className="inline-flex rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.28em] text-primary">
+                Production-grade operations
+              </p>
+              <h1 className="mt-5 max-w-lg text-4xl font-semibold tracking-tight sm:text-5xl">
+                <span className="text-shimmer">
+                  One dashboard for your entire node fleet.
+                </span>
+              </h1>
+              <p className="mt-4 max-w-xl text-lg leading-8 text-muted-foreground">
+                Manage nodes, watch task execution, stream live logs, and react to operational events with a focused interface built for high-volume SaaS teams.
+              </p>
+            </div>
             <div className="grid gap-4 sm:grid-cols-2">
-              <div className="rounded-3xl border border-border/70 bg-card/50 p-5 shadow-dashboard">
+              <div className="surface-panel rounded-[28px] border p-5">
                 <div className="mb-4 inline-flex rounded-2xl bg-primary/10 p-3 text-primary">
                   <ShieldCheck className="size-5" />
                 </div>
@@ -116,7 +118,7 @@ export const LoginScreen = ({ nextPath }: { nextPath?: string }) => {
                   Secure cookie-backed session flow with middleware enforcement on protected views.
                 </p>
               </div>
-              <div className="rounded-3xl border border-border/70 bg-card/50 p-5 shadow-dashboard">
+              <div className="surface-panel rounded-[28px] border p-5">
                 <div className="mb-4 inline-flex rounded-2xl bg-primary/10 p-3 text-primary">
                   <Sparkles className="size-5" />
                 </div>
@@ -129,11 +131,9 @@ export const LoginScreen = ({ nextPath }: { nextPath?: string }) => {
           </div>
 
           <AnimatedCard className="mx-auto w-full max-w-md">
-            <div className="relative rounded-[28px] border border-border/70 bg-card/80 p-7 shadow-dashboard backdrop-blur-xl">
+            <div className="surface-panel relative rounded-[32px] border p-7">
               <div className="mb-6 flex items-center gap-3">
-                <div className="rounded-2xl border border-primary/15 bg-primary/8 p-2">
-                  <BrandMark className="size-9" />
-                </div>
+                <BrandBadge size="md" />
                 <div>
                   <p className="font-semibold">Sign in to Noderax</p>
                   <p className="text-sm text-muted-foreground">
@@ -167,7 +167,7 @@ export const LoginScreen = ({ nextPath }: { nextPath?: string }) => {
                   ) : null}
                 </div>
 
-                <div className="flex items-center justify-between rounded-2xl border border-border/70 bg-background/40 px-4 py-3">
+                <div className="control-surface flex items-center justify-between rounded-2xl border px-4 py-3">
                   <div>
                     <p className="text-sm font-medium">Remember this browser</p>
                     <p className="text-xs text-muted-foreground">

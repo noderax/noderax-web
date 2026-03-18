@@ -50,11 +50,39 @@ export const TaskDetailView = ({ id }: { id: string }) => {
             <TimeDisplay value={task.createdAt} mode="relative" />
           </>
         }
-        actions={<TaskStatusBadge status={task.status} />}
+        meta={
+          <>
+            <div className="meta-chip rounded-full border px-3 py-2 text-sm">
+              <span className="text-muted-foreground">Node</span>{" "}
+              <span className="font-semibold">{task.nodeName}</span>
+            </div>
+            <div className="meta-chip rounded-full border px-3 py-2 text-sm">
+              <span className="text-muted-foreground">Type</span>{" "}
+              <span className="font-semibold">{task.type}</span>
+            </div>
+            <div className="meta-chip rounded-full border px-3 py-2 text-sm">
+              <span className="text-muted-foreground">Exit</span>{" "}
+              <span className="font-semibold">{task.exitCode ?? "N/A"}</span>
+            </div>
+          </>
+        }
+        actions={
+          <>
+            <div className="min-w-[10rem] flex-1">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">
+                Execution state
+              </p>
+              <p className="mt-1 text-sm font-medium">
+                {task.lastOutput ?? "No task output captured yet."}
+              </p>
+            </div>
+            <TaskStatusBadge status={task.status} />
+          </>
+        }
       />
 
       <div className="grid gap-4 xl:grid-cols-4">
-        <Card className="border-0 bg-card/70 shadow-dashboard">
+        <Card className="surface-panel border">
           <CardHeader>
             <CardTitle>Task type</CardTitle>
             <CardDescription>Backend task discriminator.</CardDescription>
@@ -66,7 +94,7 @@ export const TaskDetailView = ({ id }: { id: string }) => {
             <p className="font-medium">{task.type}</p>
           </CardContent>
         </Card>
-        <Card className="border-0 bg-card/70 shadow-dashboard">
+        <Card className="surface-panel border">
           <CardHeader>
             <CardTitle>Scheduled node</CardTitle>
             <CardDescription>Node currently associated with this task.</CardDescription>
@@ -83,7 +111,7 @@ export const TaskDetailView = ({ id }: { id: string }) => {
             </div>
           </CardContent>
         </Card>
-        <Card className="border-0 bg-card/70 shadow-dashboard">
+        <Card className="surface-panel border">
           <CardHeader>
             <CardTitle>Latest output</CardTitle>
             <CardDescription>Most recent task message or error.</CardDescription>
@@ -92,7 +120,7 @@ export const TaskDetailView = ({ id }: { id: string }) => {
             {task.lastOutput ?? "No task output captured yet."}
           </CardContent>
         </Card>
-        <Card className="border-0 bg-card/70 shadow-dashboard">
+        <Card className="surface-panel border">
           <CardHeader>
             <CardTitle>Exit code</CardTitle>
             <CardDescription>Resolved from task result metadata.</CardDescription>
@@ -114,7 +142,7 @@ export const TaskDetailView = ({ id }: { id: string }) => {
         </TabsContent>
         <TabsContent value="execution" className="mt-6">
           <div className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
-            <Card className="border-0 bg-card/70 shadow-dashboard">
+            <Card className="surface-panel border">
               <CardHeader>
                 <CardTitle>Execution detail</CardTitle>
                 <CardDescription>
@@ -122,13 +150,13 @@ export const TaskDetailView = ({ id }: { id: string }) => {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="rounded-2xl border border-border/70 bg-background/40 p-4">
+                <div className="surface-subtle rounded-2xl border p-4">
                   <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
                     Command
                   </p>
                   <p className="mt-2 font-mono text-sm">{task.command ?? "No command field"}</p>
                 </div>
-                <div className="rounded-2xl border border-border/70 bg-background/40 p-4">
+                <div className="surface-subtle rounded-2xl border p-4">
                   <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
                     Payload
                   </p>
@@ -136,7 +164,7 @@ export const TaskDetailView = ({ id }: { id: string }) => {
                     {JSON.stringify(task.payload, null, 2)}
                   </pre>
                 </div>
-                <div className="rounded-2xl border border-border/70 bg-background/40 p-4">
+                <div className="surface-subtle rounded-2xl border p-4">
                   <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
                     Result
                   </p>
@@ -147,7 +175,7 @@ export const TaskDetailView = ({ id }: { id: string }) => {
               </CardContent>
             </Card>
 
-            <Card className="border-0 bg-card/70 shadow-dashboard">
+            <Card className="surface-panel border">
               <CardHeader>
                 <CardTitle>Execution timeline</CardTitle>
                 <CardDescription>
@@ -155,7 +183,7 @@ export const TaskDetailView = ({ id }: { id: string }) => {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-3">
-                <div className="rounded-2xl border border-border/70 bg-background/40 p-4">
+                <div className="surface-subtle rounded-2xl border p-4">
                   <p className="text-sm text-muted-foreground">Created</p>
                   <TimeDisplay
                     value={task.createdAt}
@@ -164,7 +192,7 @@ export const TaskDetailView = ({ id }: { id: string }) => {
                     className="mt-1 block font-medium"
                   />
                 </div>
-                <div className="rounded-2xl border border-border/70 bg-background/40 p-4">
+                <div className="surface-subtle rounded-2xl border p-4">
                   <p className="text-sm text-muted-foreground">Started</p>
                   <TimeDisplay
                     value={task.startedAt}
@@ -173,7 +201,7 @@ export const TaskDetailView = ({ id }: { id: string }) => {
                     className="mt-1 block font-medium"
                   />
                 </div>
-                <div className="rounded-2xl border border-border/70 bg-background/40 p-4">
+                <div className="surface-subtle rounded-2xl border p-4">
                   <p className="text-sm text-muted-foreground">Finished</p>
                   <TimeDisplay
                     value={task.finishedAt}
@@ -203,7 +231,7 @@ export const TaskDetailView = ({ id }: { id: string }) => {
           </div>
         </TabsContent>
         <TabsContent value="events" className="mt-6">
-          <Card className="border-0 bg-card/70 shadow-dashboard">
+          <Card className="surface-panel border">
             <CardHeader>
               <CardTitle>Task event history</CardTitle>
               <CardDescription>
@@ -222,7 +250,7 @@ export const TaskDetailView = ({ id }: { id: string }) => {
                           ? `/tasks/${event.entityId}`
                           : "/events"
                     }
-                    className="block rounded-2xl border border-border/70 bg-background/40 p-4 transition hover:border-primary/30"
+                    className="surface-subtle surface-hover block rounded-2xl border p-4"
                   >
                     <div className="flex items-center justify-between gap-3">
                       <div>

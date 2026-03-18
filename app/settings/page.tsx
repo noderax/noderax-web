@@ -21,6 +21,29 @@ export default function SettingsPage() {
         eyebrow="Preferences"
         title="Settings"
         description="Manage appearance, inspect token metadata, and review your operator profile."
+        meta={
+          <>
+            <div className="meta-chip rounded-full border px-3 py-2 text-sm">
+              <span className="text-muted-foreground">Role</span>{" "}
+              <span className="font-semibold">{session?.user.role ?? "Platform Operator"}</span>
+            </div>
+            <div className="meta-chip rounded-full border px-3 py-2 text-sm">
+              <span className="text-muted-foreground">Scopes</span>{" "}
+              <span className="font-semibold">{session?.scopes.length ?? 0}</span>
+            </div>
+          </>
+        }
+        actions={
+          <div className="flex w-full items-center justify-between gap-4">
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">
+                Appearance
+              </p>
+              <p className="mt-1 text-sm font-medium">Theme and local UI preferences</p>
+            </div>
+            <ThemeToggle />
+          </div>
+        }
       />
 
       <div className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">

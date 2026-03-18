@@ -66,7 +66,7 @@ export const NodesTable = ({
       value={statusFilter}
       onValueChange={(value) => setStatusFilter(value as typeof statusFilter)}
     >
-      <SelectTrigger className="min-w-40 rounded-full bg-background/60">
+      <SelectTrigger className="min-w-40">
         <SelectValue placeholder="Filter status" />
       </SelectTrigger>
       <SelectContent>
@@ -119,7 +119,7 @@ export const NodesTable = ({
       action={filterControl}
       contentClassName="px-3 pb-3 pt-4"
     >
-      <div className="overflow-hidden rounded-[26px] border border-border/70 bg-background/25">
+      <div className="surface-subtle overflow-hidden rounded-[28px] border">
         <Table>
           <TableHeader>
             <TableRow className="hover:bg-transparent">
@@ -133,7 +133,7 @@ export const NodesTable = ({
           </TableHeader>
           <TableBody>
             {filteredNodes.map((node) => (
-              <TableRow key={node.id} className="hover:bg-background/60">
+              <TableRow key={node.id}>
                 <TableCell className="pl-4">
                   <div>
                     <p className="font-medium">{node.name}</p>
@@ -171,14 +171,14 @@ export const NodesTable = ({
                           </DialogDescription>
                         </DialogHeader>
                         <div className="grid gap-4 sm:grid-cols-2">
-                          <div className="rounded-2xl border border-border/70 bg-muted/40 p-4">
+                          <div className="surface-subtle rounded-2xl border p-4">
                             <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
                               Runtime
                             </p>
                             <p className="mt-2 text-sm font-medium">{node.os}</p>
                             <p className="text-sm text-muted-foreground">{node.arch}</p>
                           </div>
-                          <div className="rounded-2xl border border-border/70 bg-muted/40 p-4">
+                          <div className="surface-subtle rounded-2xl border p-4">
                             <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
                               Activity
                             </p>
@@ -190,7 +190,7 @@ export const NodesTable = ({
                             />
                             <NodeStatusBadge status={node.status} />
                           </div>
-                          <div className="rounded-2xl border border-border/70 bg-muted/40 p-4">
+                          <div className="surface-subtle rounded-2xl border p-4">
                             <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
                               Hostname
                             </p>
@@ -200,7 +200,7 @@ export const NodesTable = ({
                               <TimeDisplay value={node.createdAt} mode="datetime" />
                             </div>
                           </div>
-                          <div className="rounded-2xl border border-border/70 bg-muted/40 p-4">
+                          <div className="surface-subtle rounded-2xl border p-4">
                             <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
                               Latest telemetry
                             </p>

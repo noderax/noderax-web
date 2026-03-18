@@ -51,12 +51,32 @@ export const MetricsChart = ({
   const latestPoint = data.at(-1);
 
   return (
-    <Card className="relative overflow-hidden border-0 bg-card/70 shadow-dashboard">
-      <GridPattern className="opacity-15" />
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(156,28,41,0.14),transparent_36%)]" />
-      <CardHeader className="relative z-10">
-        <CardTitle>{title}</CardTitle>
-        <CardDescription>{description}</CardDescription>
+    <Card className="surface-panel relative overflow-hidden border">
+      <GridPattern className="opacity-12" />
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(156,28,41,0.14),transparent_34%),linear-gradient(180deg,rgba(255,255,255,0.04),transparent_26%)]" />
+      <CardHeader className="relative z-10 border-b border-border/60">
+        <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+          <div>
+            <CardTitle>{title}</CardTitle>
+            <CardDescription>{description}</CardDescription>
+          </div>
+          {latestPoint ? (
+            <div className="grid grid-cols-3 gap-2">
+              {([
+                ["CPU", latestPoint.cpu],
+                ["Memory", latestPoint.memory],
+                ["Disk", latestPoint.disk],
+              ] as const).map(([label, value]) => (
+                <div key={label} className="meta-chip rounded-2xl border px-3 py-2">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
+                    {label}
+                  </p>
+                  <p className="mt-1 text-lg font-semibold">{value}%</p>
+                </div>
+              ))}
+            </div>
+          ) : null}
+        </div>
       </CardHeader>
       <CardContent className="relative z-10 space-y-5">
         {!data.length ? (
@@ -64,7 +84,7 @@ export const MetricsChart = ({
             title="No telemetry yet"
             description="Metrics will appear here once nodes begin reporting samples to the metrics pipeline."
             icon={Activity}
-            className="min-h-[320px] border-0 bg-background/20"
+            className="min-h-[320px] border-0 bg-transparent shadow-none"
           />
         ) : (
         <Tabs value={metric} onValueChange={(value) => setMetric(value as keyof typeof chartConfig)}>
@@ -77,14 +97,14 @@ export const MetricsChart = ({
           </TabsList>
           {Object.keys(chartConfig).map((key) => (
             <TabsContent key={key} value={key} className="mt-0">
-              <div className="mb-5 flex items-end justify-between gap-4">
+              <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
                 <div>
                   <p className="text-sm text-muted-foreground">Current</p>
                   <p className="mt-1 text-3xl font-semibold">
                     {latestPoint?.[key as keyof MetricPoint]}%
                   </p>
                 </div>
-                <p className="max-w-xs text-right text-sm text-muted-foreground">
+                <p className="max-w-xs text-sm text-muted-foreground sm:text-right">
                   Streaming telemetry refreshes automatically and is also reconciled through query invalidation.
                 </p>
               </div>
