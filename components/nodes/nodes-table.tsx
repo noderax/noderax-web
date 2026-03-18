@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+import { SectionPanel } from "@/components/ui/section-panel";
 import {
   Table,
   TableBody,
@@ -60,45 +61,65 @@ export const NodesTable = ({
     [nodes, searchQuery, statusFilter],
   );
 
+  const filterControl = (
+    <Select
+      value={statusFilter}
+      onValueChange={(value) => setStatusFilter(value as typeof statusFilter)}
+    >
+      <SelectTrigger className="min-w-40 rounded-full bg-background/60">
+        <SelectValue placeholder="Filter status" />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value="all">All statuses</SelectItem>
+        <SelectItem value="online">Online only</SelectItem>
+        <SelectItem value="offline">Offline only</SelectItem>
+      </SelectContent>
+    </Select>
+  );
+
   if (isLoading) {
     return (
-      <div className="space-y-3 rounded-3xl border border-border/70 bg-card/70 p-4 shadow-dashboard">
+      <SectionPanel
+        eyebrow="Fleet Directory"
+        title="Node inventory"
+        description="A standardized control panel for filtering the fleet and opening deeper node inspection."
+        action={filterControl}
+        contentClassName="space-y-3 p-4"
+      >
         {Array.from({ length: 5 }).map((_, index) => (
           <Skeleton key={index} className="h-14 rounded-2xl" />
         ))}
-      </div>
+      </SectionPanel>
     );
   }
 
   if (!filteredNodes.length) {
     return (
-      <EmptyState
-        title="No nodes match the current filters"
-        description="Adjust the global search or the status filter to inspect another part of the fleet."
-        icon={MonitorCog}
-      />
+      <SectionPanel
+        eyebrow="Fleet Directory"
+        title="Node inventory"
+        description="A standardized control panel for filtering the fleet and opening deeper node inspection."
+        action={filterControl}
+        contentClassName="p-6"
+      >
+        <EmptyState
+          title="No nodes match the current filters"
+          description="Adjust the global search or the status filter to inspect another part of the fleet."
+          icon={MonitorCog}
+        />
+      </SectionPanel>
     );
   }
 
   return (
-    <>
-      <div className="mb-4 flex justify-end">
-        <Select
-          value={statusFilter}
-          onValueChange={(value) => setStatusFilter(value as typeof statusFilter)}
-        >
-          <SelectTrigger className="min-w-40 rounded-full bg-card/80">
-            <SelectValue placeholder="Filter status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All statuses</SelectItem>
-            <SelectItem value="online">Online only</SelectItem>
-            <SelectItem value="offline">Offline only</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-
-      <div className="overflow-hidden rounded-3xl border border-border/70 bg-card/70 shadow-dashboard">
+    <SectionPanel
+      eyebrow="Fleet Directory"
+      title="Node inventory"
+      description="A standardized control panel for filtering the fleet and opening deeper node inspection."
+      action={filterControl}
+      contentClassName="px-3 pb-3 pt-4"
+    >
+      <div className="overflow-hidden rounded-[26px] border border-border/70 bg-background/25">
         <Table>
           <TableHeader>
             <TableRow className="hover:bg-transparent">
@@ -112,7 +133,7 @@ export const NodesTable = ({
           </TableHeader>
           <TableBody>
             {filteredNodes.map((node) => (
-              <TableRow key={node.id}>
+              <TableRow key={node.id} className="hover:bg-background/60">
                 <TableCell className="pl-4">
                   <div>
                     <p className="font-medium">{node.name}</p>
@@ -207,6 +228,6 @@ export const NodesTable = ({
           </TableBody>
         </Table>
       </div>
-    </>
+    </SectionPanel>
   );
 };

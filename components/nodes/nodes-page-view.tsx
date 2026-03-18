@@ -1,12 +1,19 @@
 "use client";
 
-import { Boxes, Cpu, ShieldCheck, WifiOff } from "lucide-react";
+import Link from "next/link";
+import { ArrowUpRight, Boxes, Cpu, ShieldCheck, WifiOff } from "lucide-react";
 
 import { AppShell } from "@/components/layout/app-shell";
 import { PageHeader } from "@/components/layout/page-header";
 import { OverviewCard } from "@/components/dashboard/overview-card";
+import { NodeStatusBadge } from "@/components/nodes/node-status-badge";
 import { NodesTable } from "@/components/nodes/nodes-table";
+import { buttonVariants } from "@/components/ui/button";
+import { SectionPanel } from "@/components/ui/section-panel";
+import { TimeDisplay } from "@/components/ui/time-display";
 import { useNodes } from "@/lib/hooks/use-noderax-data";
+import type { NodeSummary } from "@/lib/types";
+import { cn } from "@/lib/utils";
 
 export const NodesPageView = () => {
   const nodesQuery = useNodes({ limit: 100 });
@@ -15,6 +22,20 @@ export const NodesPageView = () => {
   const onlineNodes = nodes.filter((node) => node.status === "online");
   const offlineNodes = nodes.filter((node) => node.status === "offline");
   const measurableNodes = nodes.filter((node) => node.latestMetric);
+  const featuredNode = onlineNodes[0] ?? nodes[0] ?? null;
+  const busiestNode = measurableNodes.reduce<NodeSummary | null>(
+    (current, node) => {
+      if (!current) {
+        return node;
+      }
+
+      return (node.latestMetric?.cpu ?? 0) > (current.latestMetric?.cpu ?? 0)
+        ? node
+        : current;
+    },
+    null,
+  );
+  const onlineCoverage = nodes.length ? Math.round((onlineNodes.length / nodes.length) * 100) : 0;
   const averageLoad =
     measurableNodes.length > 0
       ? Math.round(
@@ -66,6 +87,161 @@ export const NodesPageView = () => {
             delay={0.12}
           />
         </div>
+        {featuredNode ? (
+          <div className="grid gap-6 xl:grid-cols-[1.35fr_0.65fr]">
+            <SectionPanel
+              variant="feature"
+              eyebrow="Node Spotlight"
+              title={featuredNode.name}
+              description={`${featuredNode.hostname} • ${featuredNode.os} / ${featuredNode.arch}`}
+              action={
+                <Link
+                  href={`/nodes/${featuredNode.id}`}
+                  className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
+                >
+                  Open node
+                  <ArrowUpRight className="size-4" />
+                </Link>
+              }
+              contentClassName="p-6"
+            >
+              <div className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
+                <div className="rounded-[26px] border border-border/70 bg-background/35 p-5">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-medium text-foreground/95">
+                        Live node summary
+                      </p>
+                      <p className="mt-1 text-sm text-muted-foreground">
+                        Last seen{" "}
+                        <TimeDisplay
+                          value={featuredNode.lastSeenAt}
+                          mode="relative"
+                          emptyLabel="Never"
+                        />
+                      </p>
+                    </div>
+                    <NodeStatusBadge status={featuredNode.status} />
+                  </div>
+                  <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                    <div className="rounded-2xl border border-border/70 bg-card/70 p-4">
+                      <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
+                        CPU
+                      </p>
+                      <p className="mt-2 text-2xl font-semibold">
+                        {featuredNode.latestMetric ? `${featuredNode.latestMetric.cpu}%` : "N/A"}
+                      </p>
+                    </div>
+                    <div className="rounded-2xl border border-border/70 bg-card/70 p-4">
+                      <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
+                        Memory
+                      </p>
+                      <p className="mt-2 text-2xl font-semibold">
+                        {featuredNode.latestMetric
+                          ? `${featuredNode.latestMetric.memory}%`
+                          : "N/A"}
+                      </p>
+                    </div>
+                    <div className="rounded-2xl border border-border/70 bg-card/70 p-4">
+                      <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
+                        Created
+                      </p>
+                      <TimeDisplay
+                        value={featuredNode.createdAt}
+                        mode="date"
+                        className="mt-2 block text-lg font-semibold"
+                      />
+                    </div>
+                    <div className="rounded-2xl border border-border/70 bg-card/70 p-4">
+                      <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
+                        Runtime
+                      </p>
+                      <p className="mt-2 text-lg font-semibold">
+                        {featuredNode.os}
+                      </p>
+                      <p className="text-sm text-muted-foreground">{featuredNode.arch}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid gap-3">
+                  <div className="rounded-[24px] border border-border/70 bg-background/30 p-4">
+                    <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
+                      Fleet coverage
+                    </p>
+                    <p className="mt-2 text-3xl font-semibold">{onlineCoverage}%</p>
+                    <p className="text-sm text-muted-foreground">
+                      of the visible fleet is online right now.
+                    </p>
+                  </div>
+                  <div className="rounded-[24px] border border-border/70 bg-background/30 p-4">
+                    <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
+                      Hottest node
+                    </p>
+                    <p className="mt-2 text-lg font-semibold">
+                      {busiestNode?.name ?? "No telemetry yet"}
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      {busiestNode?.latestMetric
+                        ? `CPU ${busiestNode.latestMetric.cpu}%`
+                        : "Waiting for metric samples."}
+                    </p>
+                  </div>
+                  <div className="rounded-[24px] border border-border/70 bg-background/30 p-4">
+                    <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
+                      Follow-up lane
+                    </p>
+                    <p className="mt-2 text-lg font-semibold">
+                      {offlineNodes.length ? `${offlineNodes.length} nodes pending` : "All clear"}
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      {offlineNodes.length
+                        ? "Offline members still need operator review."
+                        : "No offline nodes in the current view."}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </SectionPanel>
+
+            <SectionPanel
+              eyebrow="Operational Posture"
+              title="Control lane"
+              description="A more standard, repeatable panel layout for day-to-day fleet review."
+              contentClassName="space-y-3 p-6"
+            >
+              <div className="rounded-[24px] border border-border/70 bg-background/30 p-4">
+                <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
+                  Total tracked
+                </p>
+                <p className="mt-2 text-2xl font-semibold">{nodes.length}</p>
+                <p className="text-sm text-muted-foreground">
+                  Nodes currently visible in this workspace.
+                </p>
+              </div>
+              <div className="rounded-[24px] border border-border/70 bg-background/30 p-4">
+                <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
+                  Average CPU
+                </p>
+                <p className="mt-2 text-2xl font-semibold">{averageLoad}%</p>
+                <p className="text-sm text-muted-foreground">
+                  Based on nodes that have recent telemetry.
+                </p>
+              </div>
+              <div className="rounded-[24px] border border-border/70 bg-background/30 p-4">
+                <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
+                  Current lead
+                </p>
+                <p className="mt-2 text-lg font-semibold">{featuredNode.hostname}</p>
+                <p className="text-sm text-muted-foreground">
+                  {featuredNode.status === "online"
+                    ? "Healthy candidate for deeper inspection."
+                    : "Most relevant node currently needs a closer look."}
+                </p>
+              </div>
+            </SectionPanel>
+          </div>
+        ) : null}
         <NodesTable nodes={nodes} isLoading={nodesQuery.isPending} />
       </div>
     </AppShell>

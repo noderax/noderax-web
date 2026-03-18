@@ -6,6 +6,7 @@ import { TerminalSquare } from "lucide-react";
 
 import { EmptyState } from "@/components/empty-state";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { SectionPanel } from "@/components/ui/section-panel";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
@@ -51,47 +52,68 @@ export const TasksTable = ({
     [searchQuery, statusFilter, tasks],
   );
 
+  const filterControl = (
+    <Select
+      value={statusFilter}
+      onValueChange={(value) => setStatusFilter(value as typeof statusFilter)}
+    >
+      <SelectTrigger className="min-w-44 rounded-full bg-background/60">
+        <SelectValue placeholder="Filter task status" />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value="all">All tasks</SelectItem>
+        <SelectItem value="queued">Queued</SelectItem>
+        <SelectItem value="running">Running</SelectItem>
+        <SelectItem value="success">Success</SelectItem>
+        <SelectItem value="failed">Failed</SelectItem>
+        <SelectItem value="cancelled">Cancelled</SelectItem>
+      </SelectContent>
+    </Select>
+  );
+
   if (isLoading) {
     return (
-      <div className="space-y-3 rounded-3xl border border-border/70 bg-card/70 p-4 shadow-dashboard">
+      <SectionPanel
+        eyebrow="Execution Queue"
+        title="Task ledger"
+        description="A consistent operations panel for active work, recent output, and quick detail access."
+        action={filterControl}
+        contentClassName="space-y-3 p-4"
+      >
         {Array.from({ length: 5 }).map((_, index) => (
           <Skeleton key={index} className="h-16 rounded-2xl" />
         ))}
-      </div>
+      </SectionPanel>
     );
   }
 
   if (!filteredTasks.length) {
     return (
-      <EmptyState
-        title="No tasks match the current filters"
-        description="Broaden the page search or switch the execution status filter to inspect additional tasks."
-        icon={TerminalSquare}
-      />
+      <SectionPanel
+        eyebrow="Execution Queue"
+        title="Task ledger"
+        description="A consistent operations panel for active work, recent output, and quick detail access."
+        action={filterControl}
+        contentClassName="p-6"
+      >
+        <EmptyState
+          title="No tasks match the current filters"
+          description="Broaden the page search or switch the execution status filter to inspect additional tasks."
+          icon={TerminalSquare}
+        />
+      </SectionPanel>
     );
   }
 
   return (
-    <>
-      <div className="mb-4 flex justify-end">
-        <Select
-          value={statusFilter}
-          onValueChange={(value) => setStatusFilter(value as typeof statusFilter)}
-        >
-          <SelectTrigger className="min-w-44 rounded-full bg-card/80">
-            <SelectValue placeholder="Filter task status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All tasks</SelectItem>
-            <SelectItem value="queued">Queued</SelectItem>
-            <SelectItem value="running">Running</SelectItem>
-            <SelectItem value="success">Success</SelectItem>
-            <SelectItem value="failed">Failed</SelectItem>
-            <SelectItem value="cancelled">Cancelled</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-      <div className="overflow-hidden rounded-3xl border border-border/70 bg-card/70 shadow-dashboard">
+    <SectionPanel
+      eyebrow="Execution Queue"
+      title="Task ledger"
+      description="A consistent operations panel for active work, recent output, and quick detail access."
+      action={filterControl}
+      contentClassName="px-3 pb-3 pt-4"
+    >
+      <div className="overflow-hidden rounded-[26px] border border-border/70 bg-background/25">
         <Table>
           <TableHeader>
             <TableRow className="hover:bg-transparent">
@@ -105,7 +127,7 @@ export const TasksTable = ({
           </TableHeader>
           <TableBody>
             {filteredTasks.map((task) => (
-              <TableRow key={task.id}>
+              <TableRow key={task.id} className="hover:bg-background/60">
                 <TableCell className="pl-4">
                   <TaskStatusBadge status={task.status} />
                 </TableCell>
@@ -139,6 +161,6 @@ export const TasksTable = ({
           </TableBody>
         </Table>
       </div>
-    </>
+    </SectionPanel>
   );
 };

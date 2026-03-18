@@ -7,7 +7,7 @@ import { PageHeader } from "@/components/layout/page-header";
 import { OverviewCard } from "@/components/dashboard/overview-card";
 import { MetricsChart } from "@/components/dashboard/metrics-chart";
 import { RecentEventsFeed } from "@/components/dashboard/recent-events-feed";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { SectionPanel } from "@/components/ui/section-panel";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TimeDisplay } from "@/components/ui/time-display";
 import { useDashboardOverview } from "@/lib/hooks/use-noderax-data";
@@ -85,18 +85,16 @@ export const DashboardView = () => {
             <RecentEventsFeed events={overviewQuery.data.recentEvents} />
           </div>
 
-          <Card className="border-0 bg-card/70 shadow-dashboard">
-            <CardHeader>
-              <CardTitle>Fleet snapshot</CardTitle>
-              <CardDescription>
-                A quick read on the nodes contributing the most recent telemetry and workload.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <SectionPanel
+            eyebrow="Fleet Scan"
+            title="Fleet snapshot"
+            description="A quick read on the nodes contributing the most recent telemetry and workload."
+            contentClassName="grid gap-4 p-6 md:grid-cols-2 xl:grid-cols-4"
+          >
               {overviewQuery.data.nodes.slice(0, 4).map((node) => (
                 <div
                   key={node.id}
-                  className="rounded-2xl border border-border/70 bg-background/40 p-4"
+                  className="rounded-[24px] border border-border/70 bg-background/35 p-4 transition hover:bg-background/50"
                 >
                   <div className="flex items-center justify-between">
                     <div>
@@ -137,8 +135,7 @@ export const DashboardView = () => {
                   </div>
                 </div>
               ))}
-            </CardContent>
-          </Card>
+          </SectionPanel>
         </div>
       ) : null}
     </AppShell>
