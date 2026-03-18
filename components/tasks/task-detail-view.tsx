@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { Binary, FolderTree, ServerCog, ShieldAlert } from "lucide-react";
-import { formatDistanceToNowStrict } from "date-fns";
 
 import { EmptyState } from "@/components/empty-state";
 import { AppShell } from "@/components/layout/app-shell";
@@ -13,14 +12,8 @@ import { SeverityBadge } from "@/components/severity-badge";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { TimeDisplay } from "@/components/ui/time-display";
 import { useTask } from "@/lib/hooks/use-noderax-data";
-
-const formatTime = (value: string | null) =>
-  value
-    ? formatDistanceToNowStrict(new Date(value), {
-        addSuffix: true,
-      })
-    : "Not available";
 
 export const TaskDetailView = ({ id }: { id: string }) => {
   const taskQuery = useTask(id);
@@ -51,10 +44,12 @@ export const TaskDetailView = ({ id }: { id: string }) => {
       <PageHeader
         eyebrow="Task Detail"
         title={task.name}
-        description={`${task.command ?? task.type} • Scheduled on ${task.nodeName} • Created ${formatDistanceToNowStrict(
-          new Date(task.createdAt),
-          { addSuffix: true },
-        )}`}
+        description={
+          <>
+            {task.command ?? task.type} • Scheduled on {task.nodeName} • Created{" "}
+            <TimeDisplay value={task.createdAt} mode="relative" />
+          </>
+        }
         actions={<TaskStatusBadge status={task.status} />}
       />
 
@@ -162,15 +157,30 @@ export const TaskDetailView = ({ id }: { id: string }) => {
               <CardContent className="space-y-3">
                 <div className="rounded-2xl border border-border/70 bg-background/40 p-4">
                   <p className="text-sm text-muted-foreground">Created</p>
-                  <p className="mt-1 font-medium">{formatTime(task.createdAt)}</p>
+                  <TimeDisplay
+                    value={task.createdAt}
+                    mode="relative"
+                    emptyLabel="Not available"
+                    className="mt-1 block font-medium"
+                  />
                 </div>
                 <div className="rounded-2xl border border-border/70 bg-background/40 p-4">
                   <p className="text-sm text-muted-foreground">Started</p>
-                  <p className="mt-1 font-medium">{formatTime(task.startedAt)}</p>
+                  <TimeDisplay
+                    value={task.startedAt}
+                    mode="relative"
+                    emptyLabel="Not available"
+                    className="mt-1 block font-medium"
+                  />
                 </div>
                 <div className="rounded-2xl border border-border/70 bg-background/40 p-4">
                   <p className="text-sm text-muted-foreground">Finished</p>
-                  <p className="mt-1 font-medium">{formatTime(task.finishedAt)}</p>
+                  <TimeDisplay
+                    value={task.finishedAt}
+                    mode="relative"
+                    emptyLabel="Not available"
+                    className="mt-1 block font-medium"
+                  />
                 </div>
                 <div className="flex flex-wrap gap-2">
                   <Badge variant="outline" className="rounded-full px-3 py-1">
@@ -180,7 +190,12 @@ export const TaskDetailView = ({ id }: { id: string }) => {
                     Status: {task.status}
                   </Badge>
                   <Badge variant="outline" className="rounded-full px-3 py-1">
-                    Updated: {formatTime(task.updatedAt)}
+                    Updated:{" "}
+                    <TimeDisplay
+                      value={task.updatedAt}
+                      mode="relative"
+                      emptyLabel="Not available"
+                    />
                   </Badge>
                 </div>
               </CardContent>

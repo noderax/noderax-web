@@ -10,6 +10,7 @@ import { SeverityBadge } from "@/components/severity-badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { TimeDisplay } from "@/components/ui/time-display";
 import { useEvents } from "@/lib/hooks/use-noderax-data";
 import { useAppStore } from "@/store/useAppStore";
 
@@ -60,29 +61,29 @@ export default function EventsPage() {
           {eventsQuery.data.map((event, index) => (
             <Reveal key={event.id} delay={0.03 * index}>
               <Card className="border-0 bg-card/70 shadow-dashboard transition hover:bg-card/80">
-              <CardHeader>
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                  <div>
-                    <CardTitle>{event.title}</CardTitle>
-                    <CardDescription className="mt-2">
-                      {event.message}
-                    </CardDescription>
+                <CardHeader>
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                      <CardTitle>{event.title}</CardTitle>
+                      <CardDescription className="mt-2">
+                        {event.message}
+                      </CardDescription>
+                    </div>
+                    <SeverityBadge severity={event.severity} />
                   </div>
-                  <SeverityBadge severity={event.severity} />
-                </div>
-              </CardHeader>
-              <CardContent className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-                <span className="rounded-full border border-border/70 px-3 py-1">
-                      {event.sourceLabel}
-                </span>
-                <span className="rounded-full border border-border/70 px-3 py-1">
-                  {event.type}
-                </span>
-                <span className="rounded-full border border-border/70 px-3 py-1">
-                  {new Date(event.createdAt).toLocaleString()}
-                </span>
-              </CardContent>
-            </Card>
+                </CardHeader>
+                <CardContent className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+                  <span className="rounded-full border border-border/70 px-3 py-1">
+                    {event.sourceLabel}
+                  </span>
+                  <span className="rounded-full border border-border/70 px-3 py-1">
+                    {event.type}
+                  </span>
+                  <span className="rounded-full border border-border/70 px-3 py-1">
+                    <TimeDisplay value={event.createdAt} mode="datetime" />
+                  </span>
+                </CardContent>
+              </Card>
             </Reveal>
           ))}
         </div>

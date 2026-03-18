@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
+import { TimeDisplay } from "@/components/ui/time-display";
 import { useAuthSession } from "@/lib/hooks/use-auth-session";
 
 export default function SettingsPage() {
@@ -71,9 +72,7 @@ export default function SettingsPage() {
                 <p className="mt-2 font-mono text-sm">{session?.tokenPreview ?? "Unavailable"}</p>
                 <p className="mt-4 text-sm text-muted-foreground">
                   Expires{" "}
-                  {session?.expiresAt
-                    ? new Date(session.expiresAt).toLocaleString()
-                    : "unknown"}
+                  <TimeDisplay value={session?.expiresAt} mode="datetime" emptyLabel="unknown" />
                 </p>
               </div>
               <div className="flex flex-wrap gap-2">

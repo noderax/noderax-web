@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { Network, Timer } from "lucide-react";
-import { formatDistanceToNowStrict } from "date-fns";
 
 import { MetricsChart } from "@/components/dashboard/metrics-chart";
 import { EmptyState } from "@/components/empty-state";
@@ -14,14 +13,8 @@ import { SeverityBadge } from "@/components/severity-badge";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { TimeDisplay } from "@/components/ui/time-display";
 import { useNode } from "@/lib/hooks/use-noderax-data";
-
-const formatLastSeen = (value: string | null) =>
-  value
-    ? formatDistanceToNowStrict(new Date(value), {
-        addSuffix: true,
-      })
-    : "Never";
 
 export const NodeDetailView = ({ id }: { id: string }) => {
   const nodeQuery = useNode(id);
@@ -56,9 +49,12 @@ export const NodeDetailView = ({ id }: { id: string }) => {
       <PageHeader
         eyebrow="Node Detail"
         title={node.name}
-        description={`${node.hostname} • ${node.os} / ${node.arch} • Last seen ${formatLastSeen(
-          node.lastSeenAt,
-        )}`}
+        description={
+          <>
+            {node.hostname} • {node.os} / {node.arch} • Last seen{" "}
+            <TimeDisplay value={node.lastSeenAt} mode="relative" emptyLabel="Never" />
+          </>
+        }
         actions={<NodeStatusBadge status={node.status} />}
       />
 
@@ -67,11 +63,11 @@ export const NodeDetailView = ({ id }: { id: string }) => {
           Hostname: {node.hostname}
         </Badge>
         <Badge variant="outline" className="rounded-full px-3 py-1">
-          Created: {new Date(node.createdAt).toLocaleDateString()}
+          Created: <TimeDisplay value={node.createdAt} mode="date" />
         </Badge>
         {node.lastSeenAt ? (
           <Badge variant="outline" className="rounded-full px-3 py-1">
-            Last seen: {formatLastSeen(node.lastSeenAt)}
+            Last seen: <TimeDisplay value={node.lastSeenAt} mode="relative" emptyLabel="Never" />
           </Badge>
         ) : null}
       </div>

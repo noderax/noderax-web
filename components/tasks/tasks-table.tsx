@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { formatDistanceToNowStrict } from "date-fns";
 import { TerminalSquare } from "lucide-react";
 
 import { EmptyState } from "@/components/empty-state";
@@ -16,6 +15,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { TimeDisplay } from "@/components/ui/time-display";
 import { buttonVariants } from "@/components/ui/button";
 import { TaskStatusBadge } from "@/components/tasks/task-status-badge";
 import type { TaskSummary } from "@/lib/types";
@@ -119,9 +119,7 @@ export const TasksTable = ({
                 </TableCell>
                 <TableCell className="text-muted-foreground">{task.nodeName}</TableCell>
                 <TableCell className="text-muted-foreground">
-                  {formatDistanceToNowStrict(new Date(task.createdAt), {
-                    addSuffix: true,
-                  })}
+                  <TimeDisplay value={task.createdAt} mode="relative" />
                 </TableCell>
                 <TableCell className="max-w-[22rem] text-muted-foreground">
                   <span className="line-clamp-2 text-sm">

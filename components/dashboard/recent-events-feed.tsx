@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { formatDistanceToNowStrict } from "date-fns";
 import { ChevronRight } from "lucide-react";
 
 import { SeverityBadge } from "@/components/severity-badge";
@@ -7,6 +6,7 @@ import { GridPattern } from "@/components/magic/grid-pattern";
 import { Reveal } from "@/components/magic/reveal";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { TimeDisplay } from "@/components/ui/time-display";
 import type { EventRecord } from "@/lib/types";
 
 const getEventHref = (event: EventRecord) => {
@@ -57,11 +57,11 @@ export const RecentEventsFeed = ({ events }: { events: EventRecord[] }) => (
                   <p className="mt-2 text-sm leading-6 text-muted-foreground">
                     {event.message}
                   </p>
-                  <p className="mt-3 text-xs text-muted-foreground">
-                    {formatDistanceToNowStrict(new Date(event.createdAt), {
-                      addSuffix: true,
-                    })}
-                  </p>
+                  <TimeDisplay
+                    value={event.createdAt}
+                    mode="relative"
+                    className="mt-3 block text-xs text-muted-foreground"
+                  />
                 </Link>
               </Reveal>
             ))}

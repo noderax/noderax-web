@@ -1,8 +1,6 @@
 "use client";
 
 import { AlertTriangle, Boxes, CirclePlay, ServerCog } from "lucide-react";
-import { formatDistanceToNowStrict } from "date-fns";
-
 import { EmptyState } from "@/components/empty-state";
 import { AppShell } from "@/components/layout/app-shell";
 import { PageHeader } from "@/components/layout/page-header";
@@ -11,6 +9,7 @@ import { MetricsChart } from "@/components/dashboard/metrics-chart";
 import { RecentEventsFeed } from "@/components/dashboard/recent-events-feed";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { TimeDisplay } from "@/components/ui/time-display";
 import { useDashboardOverview } from "@/lib/hooks/use-noderax-data";
 
 export const DashboardView = () => {
@@ -128,13 +127,12 @@ export const DashboardView = () => {
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="text-muted-foreground">Last seen</span>
-                      <span className="text-muted-foreground">
-                        {node.lastSeenAt
-                          ? formatDistanceToNowStrict(new Date(node.lastSeenAt), {
-                              addSuffix: true,
-                            })
-                          : "Never"}
-                      </span>
+                      <TimeDisplay
+                        value={node.lastSeenAt}
+                        mode="relative"
+                        emptyLabel="Never"
+                        className="text-muted-foreground"
+                      />
                     </div>
                   </div>
                 </div>

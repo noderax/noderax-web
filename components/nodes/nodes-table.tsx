@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { formatDistanceToNowStrict } from "date-fns";
 import { ExternalLink, MonitorCog } from "lucide-react";
 
 import { EmptyState } from "@/components/empty-state";
@@ -26,16 +25,10 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { TimeDisplay } from "@/components/ui/time-display";
 import type { NodeSummary } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/store/useAppStore";
-
-const formatLastSeen = (value: string | null) =>
-  value
-    ? formatDistanceToNowStrict(new Date(value), {
-        addSuffix: true,
-      })
-    : "Never";
 
 export const NodesTable = ({
   nodes,
@@ -130,7 +123,7 @@ export const NodesTable = ({
                   <NodeStatusBadge status={node.status} />
                 </TableCell>
                 <TableCell className="text-muted-foreground">
-                  {formatLastSeen(node.lastSeenAt)}
+                  <TimeDisplay value={node.lastSeenAt} mode="relative" emptyLabel="Never" />
                 </TableCell>
                 <TableCell className="text-muted-foreground">
                   {node.os} / {node.arch}
@@ -168,7 +161,12 @@ export const NodesTable = ({
                             <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
                               Activity
                             </p>
-                            <p className="mt-2 text-sm font-medium">{formatLastSeen(node.lastSeenAt)}</p>
+                            <TimeDisplay
+                              value={node.lastSeenAt}
+                              mode="relative"
+                              emptyLabel="Never"
+                              className="mt-2 block text-sm font-medium"
+                            />
                             <NodeStatusBadge status={node.status} />
                           </div>
                           <div className="rounded-2xl border border-border/70 bg-muted/40 p-4">
@@ -176,9 +174,10 @@ export const NodesTable = ({
                               Hostname
                             </p>
                             <p className="mt-2 text-sm font-medium">{node.hostname}</p>
-                            <p className="text-sm text-muted-foreground">
-                              Created {new Date(node.createdAt).toLocaleString()}
-                            </p>
+                            <div className="text-sm text-muted-foreground">
+                              Created{" "}
+                              <TimeDisplay value={node.createdAt} mode="datetime" />
+                            </div>
                           </div>
                           <div className="rounded-2xl border border-border/70 bg-muted/40 p-4">
                             <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
