@@ -25,6 +25,7 @@ async function forwardRequest(
 
   const headers = new Headers(request.headers);
   headers.set("authorization", `Bearer ${token}`);
+  headers.delete("accept-encoding");
   headers.delete("cookie");
   headers.delete("host");
   headers.delete("connection");
@@ -63,6 +64,9 @@ async function forwardRequest(
 
   const responseHeaders = new Headers(response.headers);
   responseHeaders.delete("set-cookie");
+  responseHeaders.delete("content-encoding");
+  responseHeaders.delete("content-length");
+  responseHeaders.delete("transfer-encoding");
 
   return new NextResponse(await response.arrayBuffer(), {
     status: response.status,

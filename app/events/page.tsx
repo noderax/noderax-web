@@ -5,12 +5,18 @@ import { BellRing, RefreshCcw } from "lucide-react";
 import { EmptyState } from "@/components/empty-state";
 import { AppShell } from "@/components/layout/app-shell";
 import { PageHeader } from "@/components/layout/page-header";
-import { Reveal } from "@/components/magic/reveal";
 import { SeverityBadge } from "@/components/severity-badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { SectionPanel } from "@/components/ui/section-panel";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { TimeDisplay } from "@/components/ui/time-display";
 import { useEvents } from "@/lib/hooks/use-noderax-data";
 import { useAppStore } from "@/store/useAppStore";
@@ -34,7 +40,7 @@ export default function EventsPage() {
       <PageHeader
         eyebrow="Signals"
         title="Operational events"
-        description="Filter platform events by severity and inspect alerting history in a single live-updating feed."
+        description="Filter platform events by severity and inspect alert history in a cleaner event ledger."
         meta={
           events.length ? (
             <>
@@ -61,7 +67,7 @@ export default function EventsPage() {
                 setEventSeverityFilter(value as typeof eventSeverityFilter)
               }
             >
-              <SelectTrigger className="min-w-44 rounded-full bg-card/70">
+              <SelectTrigger className="min-w-44">
                 <SelectValue placeholder="Severity" />
               </SelectTrigger>
               <SelectContent>
@@ -80,77 +86,46 @@ export default function EventsPage() {
       />
 
       {events.length ? (
-        <div className="grid gap-6 xl:grid-cols-[0.76fr_1.24fr]">
-          <SectionPanel
-            eyebrow="Signal Map"
-            title="Severity landscape"
-            description="Use this lane to spot concentration shifts in operational noise and failure signals."
-            contentClassName="space-y-3 p-6"
-          >
-            <div className="surface-subtle rounded-[24px] border p-4">
-              <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
-                Filter state
-              </p>
-              <p className="mt-2 text-lg font-semibold capitalize">
-                {eventSeverityFilter}
-              </p>
-              <p className="text-sm text-muted-foreground">
-                Search-aware filtering follows the global command bar.
-              </p>
-            </div>
-            <div className="surface-subtle rounded-[24px] border p-4">
-              <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
-                Critical concentration
-              </p>
-              <p className="mt-2 text-3xl font-semibold">{criticalCount}</p>
-              <p className="text-sm text-muted-foreground">
-                High-priority alerts in the currently visible stream.
-              </p>
-            </div>
-            <div className="surface-subtle rounded-[24px] border p-4">
-              <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
-                Latest signal
-              </p>
-              <p className="mt-2 text-lg font-semibold">{events[0]?.title}</p>
-              <TimeDisplay
-                value={events[0]?.createdAt}
-                mode="relative"
-                className="mt-1 block text-sm text-muted-foreground"
-              />
-            </div>
-          </SectionPanel>
-
-          <div className="space-y-4">
-            {events.map((event, index) => (
-              <Reveal key={event.id} delay={0.03 * index}>
-                <Card className="surface-panel surface-hover border">
-                  <CardHeader>
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                      <div>
-                        <CardTitle>{event.title}</CardTitle>
-                        <CardDescription className="mt-2">
-                          {event.message}
-                        </CardDescription>
-                      </div>
-                      <SeverityBadge severity={event.severity} />
+        <SectionPanel
+          eyebrow="Ledger"
+          title="Event stream"
+          description="Severity-aware operational events ordered by recency."
+          contentClassName="p-0"
+        >
+          <Table>
+            <TableHeader>
+              <TableRow className="hover:bg-transparent">
+                <TableHead>Severity</TableHead>
+                <TableHead>Title</TableHead>
+                <TableHead>Source</TableHead>
+                <TableHead>Type</TableHead>
+                <TableHead>Created</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {events.map((event) => (
+                <TableRow key={event.id}>
+                  <TableCell>
+                    <SeverityBadge severity={event.severity} />
+                  </TableCell>
+                  <TableCell className="max-w-[32rem]">
+                    <div>
+                      <p className="font-medium">{event.title}</p>
+                      <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">
+                        {event.message}
+                      </p>
                     </div>
-                  </CardHeader>
-                  <CardContent className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-                    <span className="meta-chip rounded-full border px-3 py-1">
-                      {event.sourceLabel}
-                    </span>
-                    <span className="meta-chip rounded-full border px-3 py-1">
-                      {event.type}
-                    </span>
-                    <span className="meta-chip rounded-full border px-3 py-1">
-                      <TimeDisplay value={event.createdAt} mode="datetime" />
-                    </span>
-                  </CardContent>
-                </Card>
-              </Reveal>
-            ))}
-          </div>
-        </div>
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">{event.sourceLabel}</TableCell>
+                  <TableCell className="text-muted-foreground">{event.type}</TableCell>
+                  <TableCell className="text-muted-foreground">
+                    <TimeDisplay value={event.createdAt} mode="datetime" />
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </SectionPanel>
       ) : (
         <EmptyState
           title="No events found"

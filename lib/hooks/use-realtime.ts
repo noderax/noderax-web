@@ -167,3 +167,16 @@ export const useRealtimeBridge = () => {
     };
   }, [session, setRealtimeStatus]);
 };
+
+export const useNodeRealtimeSubscription = (nodeId: string | null | undefined) => {
+  const sessionUserId = useAppStore((state) => state.session?.user.id);
+
+  useEffect(() => {
+    if (!sessionUserId || !nodeId) {
+      return;
+    }
+
+    const client = getRealtimeClient();
+    return client.subscribeNode(nodeId);
+  }, [nodeId, sessionUserId]);
+};

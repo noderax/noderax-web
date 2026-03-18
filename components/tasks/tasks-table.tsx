@@ -5,8 +5,10 @@ import { useMemo, useState } from "react";
 import { TerminalSquare } from "lucide-react";
 
 import { EmptyState } from "@/components/empty-state";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { TaskStatusBadge } from "@/components/tasks/task-status-badge";
+import { buttonVariants } from "@/components/ui/button";
 import { SectionPanel } from "@/components/ui/section-panel";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
@@ -17,8 +19,6 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { TimeDisplay } from "@/components/ui/time-display";
-import { buttonVariants } from "@/components/ui/button";
-import { TaskStatusBadge } from "@/components/tasks/task-status-badge";
 import type { TaskSummary } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/store/useAppStore";
@@ -74,14 +74,14 @@ export const TasksTable = ({
   if (isLoading) {
     return (
       <SectionPanel
-        eyebrow="Execution Queue"
-        title="Task ledger"
-        description="A consistent operations panel for active work, recent output, and quick detail access."
+        eyebrow="Ledger"
+        title="Task list"
+        description="Filter current execution work and open full task detail."
         action={filterControl}
-        contentClassName="space-y-3 p-4"
+        contentClassName="space-y-3"
       >
         {Array.from({ length: 5 }).map((_, index) => (
-          <Skeleton key={index} className="h-16 rounded-2xl" />
+          <Skeleton key={index} className="h-16 rounded-[18px]" />
         ))}
       </SectionPanel>
     );
@@ -90,11 +90,10 @@ export const TasksTable = ({
   if (!filteredTasks.length) {
     return (
       <SectionPanel
-        eyebrow="Execution Queue"
-        title="Task ledger"
-        description="A consistent operations panel for active work, recent output, and quick detail access."
+        eyebrow="Ledger"
+        title="Task list"
+        description="Filter current execution work and open full task detail."
         action={filterControl}
-        contentClassName="p-6"
       >
         <EmptyState
           title="No tasks match the current filters"
@@ -107,60 +106,58 @@ export const TasksTable = ({
 
   return (
     <SectionPanel
-      eyebrow="Execution Queue"
-      title="Task ledger"
-      description="A consistent operations panel for active work, recent output, and quick detail access."
+      eyebrow="Ledger"
+      title="Task list"
+      description="Filter current execution work and open full task detail."
       action={filterControl}
-      contentClassName="px-3 pb-3 pt-4"
+      contentClassName="p-0"
     >
-      <div className="surface-subtle overflow-hidden rounded-[28px] border">
-        <Table>
-          <TableHeader>
-            <TableRow className="hover:bg-transparent">
-              <TableHead className="pl-4">Status</TableHead>
-              <TableHead>Task</TableHead>
-              <TableHead>Node</TableHead>
-              <TableHead>Created</TableHead>
-              <TableHead>Latest output</TableHead>
-              <TableHead className="pr-4 text-right">Open</TableHead>
+      <Table>
+        <TableHeader>
+          <TableRow className="hover:bg-transparent">
+            <TableHead>Status</TableHead>
+            <TableHead>Task</TableHead>
+            <TableHead>Node</TableHead>
+            <TableHead>Created</TableHead>
+            <TableHead>Latest output</TableHead>
+            <TableHead className="text-right">Open</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {filteredTasks.map((task) => (
+            <TableRow key={task.id}>
+              <TableCell>
+                <TaskStatusBadge status={task.status} />
+              </TableCell>
+              <TableCell>
+                <div>
+                  <p className="font-medium">{task.name}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {task.command ?? task.type}
+                  </p>
+                </div>
+              </TableCell>
+              <TableCell className="text-muted-foreground">{task.nodeName}</TableCell>
+              <TableCell className="text-muted-foreground">
+                <TimeDisplay value={task.createdAt} mode="relative" />
+              </TableCell>
+              <TableCell className="max-w-[24rem] text-muted-foreground">
+                <span className="line-clamp-2 text-sm">
+                  {task.lastOutput ?? "No task output recorded yet."}
+                </span>
+              </TableCell>
+              <TableCell className="text-right">
+                <Link
+                  href={`/tasks/${task.id}`}
+                  className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}
+                >
+                  Details
+                </Link>
+              </TableCell>
             </TableRow>
-          </TableHeader>
-          <TableBody>
-            {filteredTasks.map((task) => (
-              <TableRow key={task.id}>
-                <TableCell className="pl-4">
-                  <TaskStatusBadge status={task.status} />
-                </TableCell>
-                <TableCell>
-                  <div>
-                    <p className="font-medium">{task.name}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {task.command ?? task.type}
-                    </p>
-                  </div>
-                </TableCell>
-                <TableCell className="text-muted-foreground">{task.nodeName}</TableCell>
-                <TableCell className="text-muted-foreground">
-                  <TimeDisplay value={task.createdAt} mode="relative" />
-                </TableCell>
-                <TableCell className="max-w-[22rem] text-muted-foreground">
-                  <span className="line-clamp-2 text-sm">
-                    {task.lastOutput ?? "No task output recorded yet."}
-                  </span>
-                </TableCell>
-                <TableCell className="pr-4 text-right">
-                  <Link
-                    href={`/tasks/${task.id}`}
-                    className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}
-                  >
-                    Details
-                  </Link>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
+          ))}
+        </TableBody>
+      </Table>
     </SectionPanel>
   );
 };

@@ -12,9 +12,13 @@ You can also use `.env` instead of `.env.local` if that better matches your setu
 
 Important notes:
 
-- `NODERAX_API_URL` can point to the backend root origin, for example `http://localhost:3000`
-- Prefixed base URLs such as `http://localhost:3000/v1` or `http://localhost:3000/api/v1` are also supported
-- `NEXT_PUBLIC_NODERAX_WS_URL` is optional; when omitted, the frontend falls back to `NEXT_PUBLIC_NODERAX_API_URL`
+- `NODERAX_API_URL` should point to the REST base URL, for example `http://localhost:3000/v1`
+- `NEXT_PUBLIC_NODERAX_API_URL` should use the same REST base URL when set
+- Realtime does not use the REST prefix; it connects to the `/realtime` namespace on the backend origin
+- `NEXT_PUBLIC_NODERAX_WS_URL` is optional; when omitted, the frontend falls back to the origin from `NEXT_PUBLIC_NODERAX_API_URL`
+- `NEXT_PUBLIC_NODERAX_WS_URL` can be either a base origin such as `http://localhost:3000` or a full realtime namespace URL such as `http://localhost:3000/realtime`
+- Realtime still uses Socket.IO's default transport path `/socket.io`; `/realtime` is a namespace, not a custom path
+- The frontend will not connect to `/v1/realtime` or `/api/v1/realtime`
 
 ## Getting Started
 

@@ -4,7 +4,7 @@ import { buildAuthSession } from "@/lib/noderax";
 export const AUTH_TOKEN_COOKIE = "noderax_token";
 export const AUTH_SESSION_COOKIE = "noderax_session";
 export const AUTH_PERSIST_COOKIE = "noderax_persist";
-const DEFAULT_API_PREFIXES = ["v1", "api/v1"];
+const API_PREFIX = "/v1";
 
 const DURATION_UNITS: Record<string, number> = {
   s: 1_000,
@@ -29,6 +29,24 @@ const joinApiUrl = (baseUrl: string, path: string) => {
   return url;
 };
 
+const resolveRestBaseUrl = (baseUrl: string) => {
+  const url = new URL(baseUrl);
+  const normalizedBasePath =
+    url.pathname && url.pathname !== "/" ? normalizePathname(url.pathname) : "/";
+
+  if (normalizedBasePath === "/") {
+    url.pathname = API_PREFIX;
+    return url;
+  }
+
+  if (normalizedBasePath === "/api/v1") {
+    url.pathname = API_PREFIX;
+    return url;
+  }
+
+  return url;
+};
+
 export const getApiRequestUrls = (path: string) => {
   const baseUrl = getApiBaseUrl();
 
@@ -36,47 +54,17 @@ export const getApiRequestUrls = (path: string) => {
     return [];
   }
 
-  const parsedBaseUrl = new URL(baseUrl);
-  const hasExplicitPrefix =
-    Boolean(parsedBaseUrl.pathname) && parsedBaseUrl.pathname !== "/";
-
-  const candidates = [joinApiUrl(baseUrl, path)];
-
-  if (!hasExplicitPrefix) {
-    DEFAULT_API_PREFIXES.forEach((prefix) => {
-      candidates.push(joinApiUrl(baseUrl, `${prefix}${normalizePathname(path)}`));
-    });
-  }
-
-  return candidates.filter(
-    (candidate, index, collection) =>
-      collection.findIndex(({ href }) => href === candidate.href) === index,
-  );
+  return [joinApiUrl(resolveRestBaseUrl(baseUrl).href, path)];
 };
 
 export const fetchApiWithFallback = async (path: string, init?: RequestInit) => {
-  const candidates = getApiRequestUrls(path);
+  const [candidate] = getApiRequestUrls(path);
 
-  if (!candidates.length) {
+  if (!candidate) {
     throw new Error("Missing NODERAX_API_URL configuration.");
   }
 
-  let lastResponse: Response | null = null;
-
-  for (const candidate of candidates) {
-    const response = await fetch(candidate, init);
-    lastResponse = response;
-
-    if (response.status !== 404) {
-      return response;
-    }
-  }
-
-  if (lastResponse) {
-    return lastResponse;
-  }
-
-  throw new Error("Unable to reach upstream API.");
+  return fetch(candidate, init);
 };
 
 export const parseDurationToMs = (value?: string | null) => {

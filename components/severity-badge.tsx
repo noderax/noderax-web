@@ -3,16 +3,18 @@ import type { EventSeverity } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 const severityStyles: Record<EventSeverity, string> = {
-  info: "border-primary/20 bg-primary/10 text-primary",
-  warning: "border-amber-500/20 bg-amber-500/12 text-amber-700 dark:text-amber-300",
-  critical: "border-rose-500/20 bg-rose-500/12 text-rose-700 dark:text-rose-300",
+  info: "border-primary/16 bg-primary/[0.08] text-primary",
+  warning:
+    "border-amber-500/16 bg-amber-500/[0.08] text-amber-800 dark:text-amber-300",
+  critical:
+    "border-rose-500/16 bg-rose-500/[0.08] text-rose-800 dark:text-rose-300",
 };
 
 export const SeverityBadge = ({ severity }: { severity: EventSeverity }) => (
   <Badge
     variant="outline"
     className={cn(
-      "rounded-full border px-2.5 py-1 text-[11px] font-medium uppercase tracking-[0.18em]",
+      "rounded-full border px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.16em]",
       severityStyles[severity],
     )}
   >

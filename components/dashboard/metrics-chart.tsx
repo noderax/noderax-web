@@ -2,10 +2,10 @@
 
 import { format } from "date-fns";
 import { useState } from "react";
+import { Activity, Cpu, HardDrive, MemoryStick } from "lucide-react";
 import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from "recharts";
 
 import { EmptyState } from "@/components/empty-state";
-import { GridPattern } from "@/components/magic/grid-pattern";
 import {
   ChartContainer,
   ChartTooltip,
@@ -13,9 +13,9 @@ import {
   type ChartConfig,
 } from "@/components/ui/chart";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { MetricPoint } from "@/lib/types";
-import { Activity } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 const chartConfig = {
   cpu: {
@@ -32,16 +32,25 @@ const chartConfig = {
   },
 } satisfies ChartConfig;
 
-const labels: Record<keyof typeof chartConfig, string> = {
-  cpu: "CPU usage",
-  memory: "Memory pressure",
-  disk: "Disk utilization",
-};
+const metricMeta = {
+  cpu: {
+    label: "CPU usage",
+    icon: Cpu,
+  },
+  memory: {
+    label: "Memory pressure",
+    icon: MemoryStick,
+  },
+  disk: {
+    label: "Disk utilization",
+    icon: HardDrive,
+  },
+} satisfies Record<keyof typeof chartConfig, { label: string; icon: typeof Cpu }>;
 
 export const MetricsChart = ({
   data,
   title = "Resource utilization",
-  description = "24-hour blended load across connected infrastructure.",
+  description = "Recent telemetry samples across connected infrastructure.",
 }: {
   data: MetricPoint[];
   title?: string;
@@ -49,119 +58,118 @@ export const MetricsChart = ({
 }) => {
   const [metric, setMetric] = useState<keyof typeof chartConfig>("cpu");
   const latestPoint = data.at(-1);
+  const MetricIcon = metricMeta[metric].icon;
 
   return (
-    <Card className="surface-panel relative overflow-hidden border">
-      <GridPattern className="opacity-12" />
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(156,28,41,0.14),transparent_34%),linear-gradient(180deg,rgba(255,255,255,0.04),transparent_26%)]" />
-      <CardHeader className="relative z-10 border-b border-border/60">
-        <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+    <Card className="border">
+      <CardHeader className="border-b border-border/80">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
             <CardTitle>{title}</CardTitle>
             <CardDescription>{description}</CardDescription>
           </div>
-          {latestPoint ? (
-            <div className="grid grid-cols-3 gap-2">
-              {([
-                ["CPU", latestPoint.cpu],
-                ["Memory", latestPoint.memory],
-                ["Disk", latestPoint.disk],
-              ] as const).map(([label, value]) => (
-                <div key={label} className="meta-chip rounded-2xl border px-3 py-2">
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
-                    {label}
-                  </p>
-                  <p className="mt-1 text-lg font-semibold">{value}%</p>
-                </div>
+          <Tabs value={metric} onValueChange={(value) => setMetric(value as keyof typeof chartConfig)}>
+            <TabsList variant="line" className="h-auto gap-1 rounded-[14px] bg-muted/55 p-1">
+              {Object.keys(chartConfig).map((key) => (
+                <TabsTrigger
+                  key={key}
+                  value={key}
+                  className="rounded-[10px] px-3 py-1.5 text-xs"
+                >
+                  {chartConfig[key as keyof typeof chartConfig].label}
+                </TabsTrigger>
               ))}
-            </div>
-          ) : null}
+            </TabsList>
+          </Tabs>
         </div>
       </CardHeader>
-      <CardContent className="relative z-10 space-y-5">
+      <CardContent className="space-y-5">
         {!data.length ? (
           <EmptyState
             title="No telemetry yet"
             description="Metrics will appear here once nodes begin reporting samples to the metrics pipeline."
             icon={Activity}
-            className="min-h-[320px] border-0 bg-transparent shadow-none"
+            className="min-h-[320px] border-0 bg-transparent"
           />
         ) : (
-        <Tabs value={metric} onValueChange={(value) => setMetric(value as keyof typeof chartConfig)}>
-          <TabsList variant="line" className="w-full justify-start gap-2 rounded-none bg-transparent p-0">
-            {Object.keys(chartConfig).map((key) => (
-              <TabsTrigger key={key} value={key} className="rounded-full px-3">
-                {labels[key as keyof typeof chartConfig]}
-              </TabsTrigger>
-            ))}
-          </TabsList>
-          {Object.keys(chartConfig).map((key) => (
-            <TabsContent key={key} value={key} className="mt-0">
-              <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+          <>
+            <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
+              <div className="flex items-center gap-3">
+                <div className="flex size-11 items-center justify-center rounded-full border bg-muted/60 text-primary">
+                  <MetricIcon className="size-4.5" />
+                </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">Current</p>
-                  <p className="mt-1 text-3xl font-semibold">
-                    {latestPoint?.[key as keyof MetricPoint]}%
+                  <p className="text-sm text-muted-foreground">{metricMeta[metric].label}</p>
+                  <p className="text-2xl font-semibold tracking-tight">
+                    {latestPoint?.[metric as keyof MetricPoint]}%
                   </p>
                 </div>
-                <p className="max-w-xs text-sm text-muted-foreground sm:text-right">
-                  Streaming telemetry refreshes automatically and is also reconciled through query invalidation.
-                </p>
               </div>
-              <ChartContainer config={chartConfig} className="h-[280px] w-full">
-                <AreaChart data={data}>
-                  <defs>
-                    <linearGradient id={`gradient-${key}`} x1="0" y1="0" x2="0" y2="1">
-                      <stop
-                        offset="5%"
-                        stopColor={`var(--color-${key})`}
-                        stopOpacity={0.45}
-                      />
-                      <stop
-                        offset="95%"
-                        stopColor={`var(--color-${key})`}
-                        stopOpacity={0}
-                      />
+              {latestPoint ? (
+                <div className="grid grid-cols-3 gap-2 text-sm">
+                  {([
+                    ["CPU", latestPoint.cpu],
+                    ["Memory", latestPoint.memory],
+                    ["Disk", latestPoint.disk],
+                  ] as const).map(([label, value]) => (
+                    <div key={label} className="surface-subtle rounded-[16px] border px-3 py-2">
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                        {label}
+                      </p>
+                      <p className="mt-1 font-medium">{value}%</p>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+
+            <ChartContainer config={chartConfig} className="h-[300px] w-full">
+              <AreaChart data={data}>
+                <defs>
+                  {Object.keys(chartConfig).map((key) => (
+                    <linearGradient key={key} id={`gradient-${key}`} x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="8%" stopColor={`var(--color-${key})`} stopOpacity={0.24} />
+                      <stop offset="95%" stopColor={`var(--color-${key})`} stopOpacity={0} />
                     </linearGradient>
-                  </defs>
-                  <CartesianGrid vertical={false} strokeDasharray="3 3" />
-                  <XAxis
-                    dataKey="timestamp"
-                    tickFormatter={(value) => format(new Date(value), "HH:mm")}
-                    tickLine={false}
-                    axisLine={false}
-                    minTickGap={18}
-                  />
-                  <YAxis
-                    tickFormatter={(value) => `${value}%`}
-                    tickLine={false}
-                    axisLine={false}
-                    width={42}
-                  />
-                  <ChartTooltip
-                    content={
-                      <ChartTooltipContent
-                        formatter={(value) => (
-                          <span className="font-mono tabular-nums">{value}%</span>
-                        )}
-                        labelFormatter={(value) =>
-                          format(new Date(String(value)), "MMM d, HH:mm")
-                        }
-                      />
-                    }
-                  />
+                  ))}
+                </defs>
+                <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="var(--border)" />
+                <XAxis
+                  dataKey="timestamp"
+                  tickFormatter={(value) => format(new Date(value), "HH:mm")}
+                  tickLine={false}
+                  axisLine={false}
+                  minTickGap={18}
+                />
+                <YAxis
+                  tickFormatter={(value) => `${value}%`}
+                  tickLine={false}
+                  axisLine={false}
+                  width={42}
+                />
+                <ChartTooltip
+                  content={
+                    <ChartTooltipContent
+                      formatter={(value) => <span className="font-mono tabular-nums">{value}%</span>}
+                      labelFormatter={(value) => format(new Date(String(value)), "MMM d, HH:mm")}
+                    />
+                  }
+                />
+                {Object.keys(chartConfig).map((key) => (
                   <Area
+                    key={key}
+                    hide={metric !== key}
                     type="monotone"
                     dataKey={key}
                     stroke={`var(--color-${key})`}
                     fill={`url(#gradient-${key})`}
                     strokeWidth={2}
+                    className={cn(metric !== key && "opacity-0")}
                   />
-                </AreaChart>
-              </ChartContainer>
-            </TabsContent>
-          ))}
-        </Tabs>
+                ))}
+              </AreaChart>
+            </ChartContainer>
+          </>
         )}
       </CardContent>
     </Card>

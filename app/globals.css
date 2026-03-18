@@ -40,109 +40,104 @@
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
   --radius-sm: calc(var(--radius) * 0.6);
-  --radius-md: calc(var(--radius) * 0.8);
+  --radius-md: calc(var(--radius) * 0.82);
   --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) * 1.4);
-  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-xl: calc(var(--radius) * 1.3);
+  --radius-2xl: calc(var(--radius) * 1.7);
   --radius-3xl: calc(var(--radius) * 2.2);
-  --radius-4xl: calc(var(--radius) * 2.6);
 }
 
 :root {
-  --background: oklch(0.965 0.02 82);
-  --foreground: oklch(0.24 0.02 32);
-  --card: oklch(0.986 0.014 80);
-  --card-foreground: oklch(0.24 0.02 32);
-  --popover: oklch(0.988 0.012 79);
-  --popover-foreground: oklch(0.24 0.02 32);
-  --primary: oklch(0.54 0.19 25);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.944 0.02 79);
-  --secondary-foreground: oklch(0.26 0.022 34);
-  --muted: oklch(0.936 0.018 78);
-  --muted-foreground: oklch(0.5 0.022 44);
-  --accent: oklch(0.928 0.024 76);
-  --accent-foreground: oklch(0.24 0.02 32);
-  --destructive: oklch(0.62 0.22 26.9);
-  --border: oklch(0.874 0.02 72);
-  --input: oklch(0.874 0.02 72);
-  --ring: oklch(0.54 0.19 25 / 0.45);
-  --chart-1: oklch(0.59 0.2 27);
-  --chart-2: oklch(0.54 0.17 19);
-  --chart-3: oklch(0.49 0.13 13);
-  --chart-4: oklch(0.69 0.14 39);
-  --chart-5: oklch(0.37 0.05 16);
-  --radius: 1rem;
-  --sidebar: oklch(0.975 0.016 80 / 0.95);
-  --sidebar-foreground: oklch(0.24 0.02 32);
-  --sidebar-primary: oklch(0.54 0.19 25);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.934 0.022 77);
-  --sidebar-accent-foreground: oklch(0.24 0.02 32);
-  --sidebar-border: oklch(0.874 0.02 72 / 0.82);
-  --sidebar-ring: oklch(0.54 0.19 25 / 0.42);
-  --surface-panel: color-mix(in oklch, var(--card) 88%, var(--background));
-  --surface-subtle: color-mix(in oklch, var(--card) 66%, var(--background));
-  --surface-feature: color-mix(in oklch, var(--card) 84%, var(--accent) 10%);
-  --control-surface: color-mix(in oklch, var(--card) 76%, var(--background));
-  --control-hover: color-mix(in oklch, var(--card) 58%, var(--accent));
-  --popover-surface: color-mix(in oklch, var(--card) 92%, var(--background));
+  --background: oklch(0.984 0.008 82);
+  --foreground: oklch(0.245 0.015 28);
+  --card: oklch(0.992 0.005 82);
+  --card-foreground: oklch(0.245 0.015 28);
+  --popover: oklch(0.995 0.004 82);
+  --popover-foreground: oklch(0.245 0.015 28);
+  --primary: oklch(0.545 0.17 25);
+  --primary-foreground: oklch(0.988 0.003 80);
+  --secondary: oklch(0.965 0.008 82);
+  --secondary-foreground: oklch(0.29 0.014 28);
+  --muted: oklch(0.956 0.007 80);
+  --muted-foreground: oklch(0.53 0.015 34);
+  --accent: oklch(0.952 0.012 74);
+  --accent-foreground: oklch(0.245 0.015 28);
+  --destructive: oklch(0.61 0.22 26);
+  --border: oklch(0.9 0.01 74);
+  --input: oklch(0.9 0.01 74);
+  --ring: oklch(0.545 0.17 25 / 0.28);
+  --chart-1: oklch(0.58 0.18 25);
+  --chart-2: oklch(0.62 0.14 155);
+  --chart-3: oklch(0.69 0.14 70);
+  --chart-4: oklch(0.54 0.13 13);
+  --chart-5: oklch(0.41 0.05 25);
+  --radius: 0.95rem;
+  --sidebar: oklch(0.978 0.006 82 / 0.96);
+  --sidebar-foreground: oklch(0.245 0.015 28);
+  --sidebar-primary: oklch(0.545 0.17 25);
+  --sidebar-primary-foreground: oklch(0.988 0.003 80);
+  --sidebar-accent: oklch(0.958 0.01 80);
+  --sidebar-accent-foreground: oklch(0.245 0.015 28);
+  --sidebar-border: oklch(0.9 0.01 74 / 0.88);
+  --sidebar-ring: oklch(0.545 0.17 25 / 0.22);
+  --surface-panel: color-mix(in oklch, var(--card) 96%, var(--background));
+  --surface-subtle: color-mix(in oklch, var(--card) 80%, var(--muted));
+  --surface-feature: color-mix(in oklch, var(--card) 92%, var(--primary) 4%);
+  --surface-dialog: color-mix(in oklch, var(--popover) 94%, var(--card));
+  --control-surface: color-mix(in oklch, var(--card) 88%, var(--background));
+  --control-hover: color-mix(in oklch, var(--accent) 52%, var(--card));
+  --popover-surface: color-mix(in oklch, var(--popover) 96%, var(--background));
   --surface-hover-border: color-mix(in oklch, var(--primary) 22%, var(--border));
-  --ambient-1: rgba(143, 18, 32, 0.11);
-  --ambient-2: rgba(126, 65, 22, 0.08);
-  --ambient-3: rgba(108, 77, 44, 0.05);
-  --shadow-dashboard: 0 18px 38px -28px rgba(74, 43, 20, 0.16),
-    0 0 0 1px rgba(130, 96, 58, 0.1);
-  --shadow-dashboard-hover: 0 24px 50px -28px rgba(74, 43, 20, 0.2),
-    0 0 0 1px rgba(132, 58, 38, 0.14);
+  --shadow-dashboard: 0 14px 40px -28px rgba(50, 26, 22, 0.14),
+    0 1px 2px rgba(15, 23, 42, 0.03);
+  --shadow-dashboard-hover: 0 22px 44px -28px rgba(50, 26, 22, 0.18),
+    0 4px 14px -12px rgba(15, 23, 42, 0.05);
 }
 
 .dark {
-  --background: oklch(0.132 0.017 20);
-  --foreground: oklch(0.97 0.004 20);
-  --card: oklch(0.17 0.016 20 / 0.84);
-  --card-foreground: oklch(0.97 0.004 20);
-  --popover: oklch(0.18 0.016 20 / 0.96);
-  --popover-foreground: oklch(0.97 0.004 20);
-  --primary: oklch(0.64 0.19 25);
-  --primary-foreground: oklch(0.985 0.003 20);
-  --secondary: oklch(0.23 0.015 20);
-  --secondary-foreground: oklch(0.97 0.004 20);
-  --muted: oklch(0.21 0.015 20 / 0.95);
-  --muted-foreground: oklch(0.74 0.014 24);
-  --accent: oklch(0.24 0.016 20 / 0.95);
-  --accent-foreground: oklch(0.97 0.004 20);
-  --destructive: oklch(0.7 0.2 24.5);
+  --background: oklch(0.145 0 0);
+  --foreground: oklch(0.972 0 0);
+  --card: oklch(0.182 0 0);
+  --card-foreground: oklch(0.972 0 0);
+  --popover: oklch(0.198 0 0);
+  --popover-foreground: oklch(0.972 0 0);
+  --primary: oklch(0.66 0.18 25);
+  --primary-foreground: oklch(0.15 0 0);
+  --secondary: oklch(0.214 0 0);
+  --secondary-foreground: oklch(0.952 0 0);
+  --muted: oklch(0.206 0 0);
+  --muted-foreground: oklch(0.722 0 0);
+  --accent: oklch(0.228 0 0);
+  --accent-foreground: oklch(0.972 0 0);
+  --destructive: oklch(0.69 0.2 25);
   --border: oklch(1 0 0 / 0.08);
-  --input: oklch(1 0 0 / 0.09);
-  --ring: oklch(0.64 0.19 25 / 0.35);
-  --chart-1: oklch(0.67 0.2 27);
-  --chart-2: oklch(0.61 0.16 18);
-  --chart-3: oklch(0.56 0.11 13);
-  --chart-4: oklch(0.74 0.13 40);
-  --chart-5: oklch(0.44 0.06 13);
-  --sidebar: oklch(0.16 0.016 20 / 0.88);
-  --sidebar-foreground: oklch(0.97 0.004 20);
-  --sidebar-primary: oklch(0.64 0.19 25);
-  --sidebar-primary-foreground: oklch(0.985 0.003 20);
-  --sidebar-accent: oklch(0.22 0.016 20 / 0.9);
-  --sidebar-accent-foreground: oklch(0.97 0.004 20);
+  --input: oklch(1 0 0 / 0.08);
+  --ring: oklch(0.66 0.18 25 / 0.28);
+  --chart-1: oklch(0.68 0.18 25);
+  --chart-2: oklch(0.66 0.13 160);
+  --chart-3: oklch(0.76 0.12 70);
+  --chart-4: oklch(0.62 0.11 12);
+  --chart-5: oklch(0.48 0.05 25);
+  --sidebar: oklch(0.165 0 0 / 0.98);
+  --sidebar-foreground: oklch(0.972 0 0);
+  --sidebar-primary: oklch(0.66 0.18 25);
+  --sidebar-primary-foreground: oklch(0.15 0 0);
+  --sidebar-accent: oklch(0.206 0 0);
+  --sidebar-accent-foreground: oklch(0.972 0 0);
   --sidebar-border: oklch(1 0 0 / 0.08);
-  --sidebar-ring: oklch(0.64 0.19 25 / 0.38);
-  --surface-panel: color-mix(in oklch, var(--card) 90%, var(--background));
-  --surface-subtle: color-mix(in oklch, var(--card) 72%, var(--background));
-  --surface-feature: color-mix(in oklch, var(--card) 84%, var(--primary) 4%);
-  --control-surface: color-mix(in oklch, var(--card) 76%, var(--background));
-  --control-hover: color-mix(in oklch, var(--card) 60%, var(--accent));
-  --popover-surface: color-mix(in oklch, var(--card) 94%, var(--background));
-  --surface-hover-border: color-mix(in oklch, var(--primary) 28%, var(--border));
-  --ambient-1: rgba(143, 18, 32, 0.18);
-  --ambient-2: rgba(74, 9, 16, 0.15);
-  --ambient-3: rgba(54, 10, 16, 0.1);
-  --shadow-dashboard: 0 18px 44px -22px rgba(24, 7, 10, 0.64),
-    0 0 0 1px rgba(255, 255, 255, 0.05);
-  --shadow-dashboard-hover: 0 24px 56px -22px rgba(24, 7, 10, 0.8),
-    0 0 0 1px rgba(255, 255, 255, 0.07);
+  --sidebar-ring: oklch(0.66 0.18 25 / 0.24);
+  --surface-panel: color-mix(in oklch, var(--card) 96%, var(--background));
+  --surface-subtle: color-mix(in oklch, var(--card) 88%, var(--muted));
+  --surface-feature: color-mix(in oklch, var(--card) 95%, var(--primary) 3%);
+  --surface-dialog: color-mix(in oklch, var(--popover) 96%, var(--card));
+  --control-surface: color-mix(in oklch, var(--card) 88%, var(--background));
+  --control-hover: color-mix(in oklch, var(--accent) 60%, var(--card));
+  --popover-surface: color-mix(in oklch, var(--popover) 96%, var(--background));
+  --surface-hover-border: color-mix(in oklch, var(--primary) 18%, var(--border));
+  --shadow-dashboard: 0 20px 48px -30px rgba(0, 0, 0, 0.6),
+    0 1px 2px rgba(0, 0, 0, 0.22);
+  --shadow-dashboard-hover: 0 26px 58px -30px rgba(0, 0, 0, 0.72),
+    0 8px 20px -18px rgba(0, 0, 0, 0.26);
 }
 
 @layer base {
@@ -156,15 +151,23 @@
 
   body {
     @apply min-h-full bg-background text-foreground antialiased;
-    background-image:
-      radial-gradient(circle at top left, var(--ambient-1), transparent 28%),
-      radial-gradient(circle at 88% 10%, var(--ambient-2), transparent 20%),
-      linear-gradient(180deg, color-mix(in oklch, var(--background) 92%, var(--accent) 8%), transparent 24%),
-      linear-gradient(180deg, var(--ambient-3), transparent 32%);
+    background-image: linear-gradient(
+      180deg,
+      color-mix(in oklch, var(--background) 92%, var(--accent) 8%),
+      var(--background) 24rem
+    );
+  }
+
+  .dark body {
+    background-image: linear-gradient(
+      180deg,
+      color-mix(in oklch, var(--background) 94%, var(--secondary) 6%),
+      var(--background) 22rem
+    );
   }
 
   ::selection {
-    background: color-mix(in oklch, var(--primary) 30%, transparent);
+    background: color-mix(in oklch, var(--primary) 24%, transparent);
     color: var(--foreground);
   }
 }
@@ -172,50 +175,39 @@
 @layer utilities {
   .app-shell-grid {
     background-image:
-      linear-gradient(rgba(148, 163, 184, 0.08) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(148, 163, 184, 0.08) 1px, transparent 1px);
-    background-size: 48px 48px;
-    mask-image: radial-gradient(circle at center, black 48%, transparent 90%);
+      linear-gradient(rgba(148, 163, 184, 0.06) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(148, 163, 184, 0.06) 1px, transparent 1px);
+    background-size: 52px 52px;
+    mask-image: linear-gradient(180deg, black 0%, transparent 100%);
   }
 
   .glass-panel {
-    backdrop-filter: blur(24px);
-    background:
-      linear-gradient(180deg, rgba(255, 255, 255, 0.04), transparent 22%),
-      color-mix(in oklch, var(--surface-panel) 92%, transparent);
+    background: color-mix(in oklch, var(--surface-panel) 92%, transparent);
+    backdrop-filter: blur(18px);
   }
 
   .surface-panel {
-    border-color: color-mix(in oklch, var(--border) 88%, transparent);
-    background:
-      linear-gradient(180deg, rgba(255, 255, 255, 0.045), transparent 18%),
-      linear-gradient(135deg, color-mix(in oklch, var(--primary) 4%, transparent), transparent 55%),
-      var(--surface-panel);
+    border-color: color-mix(in oklch, var(--border) 92%, transparent);
+    background: var(--surface-panel);
     box-shadow: var(--shadow-dashboard);
-    backdrop-filter: blur(20px);
   }
 
   .surface-feature {
-    border-color: color-mix(in oklch, var(--primary) 16%, var(--border));
+    border-color: color-mix(in oklch, var(--primary) 14%, var(--border));
     background:
-      linear-gradient(180deg, rgba(255, 255, 255, 0.02), transparent 34%),
-      radial-gradient(circle at top left, color-mix(in oklch, var(--primary) 18%, transparent), transparent 44%),
+      linear-gradient(180deg, color-mix(in oklch, var(--primary) 5%, transparent), transparent 6rem),
       var(--surface-feature);
     box-shadow: var(--shadow-dashboard);
-    backdrop-filter: blur(22px);
   }
 
   .surface-subtle {
-    border-color: color-mix(in oklch, var(--border) 86%, transparent);
-    background:
-      linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent 24%),
-      var(--surface-subtle);
+    border-color: color-mix(in oklch, var(--border) 90%, transparent);
+    background: var(--surface-subtle);
   }
 
   .control-surface {
-    border-color: color-mix(in oklch, var(--border) 86%, transparent);
+    border-color: color-mix(in oklch, var(--border) 92%, transparent);
     background: var(--control-surface);
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18);
   }
 
   .control-surface:hover {
@@ -224,41 +216,32 @@
   }
 
   .popover-surface {
-    border-color: color-mix(in oklch, var(--border) 84%, transparent);
-    background:
-      linear-gradient(180deg, rgba(255, 255, 255, 0.045), transparent 18%),
-      var(--popover-surface);
+    border-color: color-mix(in oklch, var(--border) 90%, transparent);
+    background: var(--popover-surface);
     box-shadow: var(--shadow-dashboard-hover);
-    backdrop-filter: blur(18px);
   }
 
   .surface-hover {
     transition:
-      border-color 180ms ease,
-      box-shadow 180ms ease,
-      transform 180ms ease;
+      border-color 160ms ease,
+      box-shadow 160ms ease,
+      background-color 160ms ease;
   }
 
   .surface-hover:hover {
     border-color: var(--surface-hover-border);
     box-shadow: var(--shadow-dashboard-hover);
-    transform: translateY(-1px);
   }
 
   .brand-badge {
-    border-color: color-mix(in oklch, var(--primary) 22%, var(--border));
-    background:
-      linear-gradient(135deg, color-mix(in oklch, var(--primary) 16%, transparent), transparent 58%),
-      var(--surface-panel);
-    box-shadow: var(--shadow-dashboard);
+    border-color: color-mix(in oklch, var(--primary) 14%, var(--border));
+    background: color-mix(in oklch, var(--surface-panel) 94%, var(--primary) 2%);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14);
   }
 
   .meta-chip {
-    border-color: color-mix(in oklch, var(--border) 88%, transparent);
-    background:
-      linear-gradient(180deg, rgba(255, 255, 255, 0.05), transparent 22%),
-      var(--surface-subtle);
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
+    border-color: color-mix(in oklch, var(--border) 90%, transparent);
+    background: var(--surface-subtle);
   }
 
   .data-grid {
@@ -271,15 +254,15 @@
   .text-shimmer {
     background-image: linear-gradient(
       110deg,
-      var(--foreground) 25%,
-      color-mix(in oklch, var(--primary) 45%, white) 45%,
-      var(--foreground) 65%
+      var(--foreground) 15%,
+      color-mix(in oklch, var(--primary) 30%, var(--foreground)) 45%,
+      var(--foreground) 80%
     );
     background-size: 200% 100%;
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
-    animation: shimmer 2.6s linear infinite;
+    animation: shimmer 2.8s linear infinite;
   }
 
   .shadow-dashboard {
@@ -297,7 +280,7 @@
 }
 
 ::-webkit-scrollbar-thumb {
-  background: color-mix(in oklch, var(--muted-foreground) 35%, transparent);
+  background: color-mix(in oklch, var(--muted-foreground) 30%, transparent);
   border-radius: 999px;
   border: 2px solid transparent;
   background-clip: padding-box;

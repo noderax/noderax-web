@@ -15,9 +15,9 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { SectionPanel } from "@/components/ui/section-panel";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { SectionPanel } from "@/components/ui/section-panel";
 import {
   Table,
   TableBody,
@@ -80,14 +80,14 @@ export const NodesTable = ({
   if (isLoading) {
     return (
       <SectionPanel
-        eyebrow="Fleet Directory"
+        eyebrow="Directory"
         title="Node inventory"
-        description="A standardized control panel for filtering the fleet and opening deeper node inspection."
+        description="Filter the fleet and open node-level detail or quick inspection."
         action={filterControl}
-        contentClassName="space-y-3 p-4"
+        contentClassName="space-y-3"
       >
         {Array.from({ length: 5 }).map((_, index) => (
-          <Skeleton key={index} className="h-14 rounded-2xl" />
+          <Skeleton key={index} className="h-14 rounded-[18px]" />
         ))}
       </SectionPanel>
     );
@@ -96,11 +96,10 @@ export const NodesTable = ({
   if (!filteredNodes.length) {
     return (
       <SectionPanel
-        eyebrow="Fleet Directory"
+        eyebrow="Directory"
         title="Node inventory"
-        description="A standardized control panel for filtering the fleet and opening deeper node inspection."
+        description="Filter the fleet and open node-level detail or quick inspection."
         action={filterControl}
-        contentClassName="p-6"
       >
         <EmptyState
           title="No nodes match the current filters"
@@ -113,121 +112,127 @@ export const NodesTable = ({
 
   return (
     <SectionPanel
-      eyebrow="Fleet Directory"
+      eyebrow="Directory"
       title="Node inventory"
-      description="A standardized control panel for filtering the fleet and opening deeper node inspection."
+      description="Filter the fleet and open node-level detail or quick inspection."
       action={filterControl}
-      contentClassName="px-3 pb-3 pt-4"
+      contentClassName="p-0"
     >
-      <div className="surface-subtle overflow-hidden rounded-[28px] border">
-        <Table>
-          <TableHeader>
-            <TableRow className="hover:bg-transparent">
-              <TableHead className="pl-4">Name</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Last seen</TableHead>
-              <TableHead>OS / Arch</TableHead>
-              <TableHead>Latest CPU</TableHead>
-              <TableHead className="pr-4 text-right">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {filteredNodes.map((node) => (
-              <TableRow key={node.id}>
-                <TableCell className="pl-4">
-                  <div>
-                    <p className="font-medium">{node.name}</p>
-                    <p className="text-xs text-muted-foreground">{node.hostname}</p>
-                  </div>
-                </TableCell>
-                <TableCell>
-                  <NodeStatusBadge status={node.status} />
-                </TableCell>
-                <TableCell className="text-muted-foreground">
-                  <TimeDisplay value={node.lastSeenAt} mode="relative" emptyLabel="Never" />
-                </TableCell>
-                <TableCell className="text-muted-foreground">
-                  {node.os} / {node.arch}
-                </TableCell>
-                <TableCell className="text-muted-foreground">
-                  {node.latestMetric ? `${node.latestMetric.cpu}%` : "N/A"}
-                </TableCell>
-                <TableCell className="pr-4 text-right">
-                  <div className="flex items-center justify-end gap-2">
-                    <Dialog
-                      open={selectedNode?.id === node.id}
-                      onOpenChange={(open) => setSelectedNode(open ? node : null)}
+      <Table>
+        <TableHeader>
+          <TableRow className="hover:bg-transparent">
+            <TableHead>Name</TableHead>
+            <TableHead>Status</TableHead>
+            <TableHead>Last seen</TableHead>
+            <TableHead>OS / Arch</TableHead>
+            <TableHead>Latest CPU</TableHead>
+            <TableHead className="text-right">Actions</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {filteredNodes.map((node) => (
+            <TableRow key={node.id}>
+              <TableCell>
+                <div>
+                  <p className="font-medium">{node.name}</p>
+                  <p className="text-xs text-muted-foreground">{node.hostname}</p>
+                </div>
+              </TableCell>
+              <TableCell>
+                <NodeStatusBadge status={node.status} />
+              </TableCell>
+              <TableCell className="text-muted-foreground">
+                <TimeDisplay value={node.lastSeenAt} mode="relative" emptyLabel="Never" />
+              </TableCell>
+              <TableCell className="text-muted-foreground">
+                {node.os} / {node.arch}
+              </TableCell>
+              <TableCell>{node.latestMetric ? `${node.latestMetric.cpu}%` : "N/A"}</TableCell>
+              <TableCell className="text-right">
+                <div className="flex items-center justify-end gap-2">
+                  <Dialog
+                    open={selectedNode?.id === node.id}
+                    onOpenChange={(open) => setSelectedNode(open ? node : null)}
+                  >
+                    <DialogTrigger
+                      className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
                     >
-                      <DialogTrigger
-                        className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
-                      >
-                        Inspect
-                      </DialogTrigger>
-                      <DialogContent className="max-w-lg rounded-3xl">
-                        <DialogHeader>
-                          <DialogTitle>{node.name}</DialogTitle>
-                          <DialogDescription>
-                            Quick operational snapshot before opening the full node detail surface.
-                          </DialogDescription>
-                        </DialogHeader>
-                        <div className="grid gap-4 sm:grid-cols-2">
-                          <div className="surface-subtle rounded-2xl border p-4">
-                            <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
-                              Runtime
-                            </p>
-                            <p className="mt-2 text-sm font-medium">{node.os}</p>
-                            <p className="text-sm text-muted-foreground">{node.arch}</p>
-                          </div>
-                          <div className="surface-subtle rounded-2xl border p-4">
-                            <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
-                              Activity
-                            </p>
+                      Inspect
+                    </DialogTrigger>
+                    <DialogContent className="max-w-xl">
+                      <DialogHeader>
+                        <DialogTitle>{node.name}</DialogTitle>
+                        <DialogDescription>
+                          A concise operational snapshot before opening the full node detail view.
+                        </DialogDescription>
+                      </DialogHeader>
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <div className="surface-subtle rounded-[16px] border p-4">
+                          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                            Runtime
+                          </p>
+                          <p className="mt-2 text-sm font-medium">{node.os}</p>
+                          <p className="text-sm text-muted-foreground">{node.arch}</p>
+                        </div>
+                        <div className="surface-subtle rounded-[16px] border p-4">
+                          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                            Status
+                          </p>
+                          <div className="mt-2 flex items-center gap-2">
+                            <NodeStatusBadge status={node.status} />
                             <TimeDisplay
                               value={node.lastSeenAt}
                               mode="relative"
                               emptyLabel="Never"
-                              className="mt-2 block text-sm font-medium"
+                              className="text-sm text-muted-foreground"
                             />
-                            <NodeStatusBadge status={node.status} />
-                          </div>
-                          <div className="surface-subtle rounded-2xl border p-4">
-                            <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
-                              Hostname
-                            </p>
-                            <p className="mt-2 text-sm font-medium">{node.hostname}</p>
-                            <div className="text-sm text-muted-foreground">
-                              Created{" "}
-                              <TimeDisplay value={node.createdAt} mode="datetime" />
-                            </div>
-                          </div>
-                          <div className="surface-subtle rounded-2xl border p-4">
-                            <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
-                              Latest telemetry
-                            </p>
-                            <p className="mt-2 text-sm font-medium">
-                              CPU {node.latestMetric ? `${node.latestMetric.cpu}%` : "N/A"}
-                            </p>
-                            <p className="text-sm text-muted-foreground">
-                              Memory {node.latestMetric ? `${node.latestMetric.memory}%` : "N/A"}
-                            </p>
                           </div>
                         </div>
-                      </DialogContent>
-                    </Dialog>
-                    <Link
-                      href={`/nodes/${node.id}`}
-                      className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}
-                    >
-                      Open
-                      <ExternalLink className="size-4" />
-                    </Link>
-                  </div>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
+                        <div className="surface-subtle rounded-[16px] border p-4">
+                          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                            Hostname
+                          </p>
+                          <p className="mt-2 text-sm font-medium">{node.hostname}</p>
+                          <p className="text-sm text-muted-foreground">
+                            Created <TimeDisplay value={node.createdAt} mode="datetime" />
+                          </p>
+                        </div>
+                        <div className="surface-subtle rounded-[16px] border p-4">
+                          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                            Latest telemetry
+                          </p>
+                          <p className="mt-2 text-sm font-medium">
+                            CPU {node.latestMetric ? `${node.latestMetric.cpu}%` : "N/A"}
+                          </p>
+                          <p className="text-sm text-muted-foreground">
+                            Memory {node.latestMetric ? `${node.latestMetric.memory}%` : "N/A"}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex justify-end pt-2">
+                        <Link
+                          href={`/nodes/${node.id}`}
+                          className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
+                        >
+                          Open node
+                          <ExternalLink className="size-4" />
+                        </Link>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+                  <Link
+                    href={`/nodes/${node.id}`}
+                    className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}
+                  >
+                    Open
+                    <ExternalLink className="size-4" />
+                  </Link>
+                </div>
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
     </SectionPanel>
   );
 };
