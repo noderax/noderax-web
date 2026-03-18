@@ -49,7 +49,7 @@ const realtimeConfig = {
   connecting: {
     icon: SignalLow,
     label: "Connecting",
-    className: "border-sky-500/20 bg-sky-500/10 text-sky-300",
+    className: "border-primary/20 bg-primary/10 text-primary",
   },
   reconnecting: {
     icon: SignalLow,

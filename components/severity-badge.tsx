@@ -3,7 +3,7 @@ import type { EventSeverity } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 const severityStyles: Record<EventSeverity, string> = {
-  info: "border-sky-500/20 bg-sky-500/10 text-sky-300",
+  info: "border-primary/20 bg-primary/10 text-primary",
   warning: "border-amber-500/20 bg-amber-500/10 text-amber-300",
   critical: "border-rose-500/20 bg-rose-500/10 text-rose-300",
 };

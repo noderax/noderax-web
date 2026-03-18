@@ -17,7 +17,7 @@ import { useAppStore } from "@/store/useAppStore";
 const streamStyles: Record<TaskLogLevel, string> = {
   stdout: "text-slate-100",
   stderr: "text-rose-300",
-  info: "text-sky-300",
+  info: "text-primary",
   error: "text-rose-200",
 };
 

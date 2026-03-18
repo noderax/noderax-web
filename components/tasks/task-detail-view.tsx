@@ -72,7 +72,7 @@ export const TaskDetailView = ({ id }: { id: string }) => {
             <CardDescription>Node currently associated with this task.</CardDescription>
           </CardHeader>
           <CardContent className="flex items-center gap-3">
-            <div className="rounded-2xl bg-sky-500/10 p-3 text-sky-300">
+            <div className="rounded-2xl bg-primary/10 p-3 text-primary">
               <ServerCog className="size-4" />
             </div>
             <div>

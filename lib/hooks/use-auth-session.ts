@@ -1,7 +1,13 @@
 "use client";
 
 import { useEffect } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  useMutation,
+  useQuery,
+  useQueryClient,
+  type Query,
+  type QueryClient,
+} from "@tanstack/react-query";
 
 import { apiClient } from "@/lib/api";
 import type { LoginPayload } from "@/lib/types";
@@ -9,7 +15,16 @@ import { useAppStore } from "@/store/useAppStore";
 
 export const sessionQueryKey = ["auth", "session"] as const;
 
+const isAccountScopedQuery = (query: Query) => query.queryKey[0] !== "auth";
+
+const refreshAccountQueries = (queryClient: QueryClient) =>
+  queryClient.invalidateQueries({
+    predicate: isAccountScopedQuery,
+    refetchType: "active",
+  });
+
 export const useAuthSession = () => {
+  const queryClient = useQueryClient();
   const setSession = useAppStore((state) => state.setSession);
   const clearSession = useAppStore((state) => state.clearSession);
   const storedSession = useAppStore((state) => state.session);
@@ -23,9 +38,13 @@ export const useAuthSession = () => {
 
   useEffect(() => {
     if (query.data) {
+      if (storedSession?.user.id && storedSession.user.id !== query.data.user.id) {
+        void refreshAccountQueries(queryClient);
+      }
+
       setSession(query.data);
     }
-  }, [query.data, setSession]);
+  }, [query.data, queryClient, setSession, storedSession?.user.id]);
 
   useEffect(() => {
     if (query.error) {
@@ -48,6 +67,7 @@ export const useLogin = () => {
     onSuccess: (session) => {
       setSession(session);
       queryClient.setQueryData(sessionQueryKey, session);
+      void refreshAccountQueries(queryClient);
     },
   });
 };

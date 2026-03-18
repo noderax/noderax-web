@@ -3,10 +3,11 @@
 import { startTransition, useState } from "react";
 import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { ShieldCheck, Sparkles, TerminalSquare } from "lucide-react";
+import { ShieldCheck, Sparkles } from "lucide-react";
 import { useForm, useWatch } from "react-hook-form";
 import { z } from "zod";
 
+import { BrandMark } from "@/components/brand/brand-mark";
 import { AnimatedCard } from "@/components/magic/animated-card";
 import { GlowOrb } from "@/components/magic/glow-orb";
 import { GridPattern } from "@/components/magic/grid-pattern";
@@ -54,6 +55,7 @@ export const LoginScreen = ({ nextPath }: { nextPath?: string }) => {
 
       startTransition(() => {
         router.replace(destination);
+        router.refresh();
       });
     } catch (error) {
       setErrorMessage(
@@ -69,19 +71,24 @@ export const LoginScreen = ({ nextPath }: { nextPath?: string }) => {
       <GlowOrb className="left-[-8rem] top-[-8rem] h-80 w-80" />
       <GlowOrb
         className="right-[-6rem] top-16 h-72 w-72"
-        color="rgba(45, 212, 191, 0.16)"
+        color="rgba(118, 13, 24, 0.2)"
       />
       <GridPattern className="opacity-35" />
 
       <div className="relative z-10 flex min-h-screen flex-col">
         <div className="flex items-center justify-between px-6 py-6">
-          <div>
-            <p className="text-sm font-semibold tracking-[0.24em] text-primary/80 uppercase">
-              Noderax
-            </p>
-            <p className="text-sm text-muted-foreground">
-              Secure control plane access
-            </p>
+          <div className="flex items-center gap-3">
+            <div className="rounded-[1.4rem] border border-primary/20 bg-card/60 p-2 shadow-dashboard">
+              <BrandMark className="size-9" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold tracking-[0.24em] text-primary/80 uppercase">
+                Noderax
+              </p>
+              <p className="text-sm text-muted-foreground">
+                Secure control plane access
+              </p>
+            </div>
           </div>
           <ThemeToggle />
         </div>
@@ -110,7 +117,7 @@ export const LoginScreen = ({ nextPath }: { nextPath?: string }) => {
                 </p>
               </div>
               <div className="rounded-3xl border border-border/70 bg-card/50 p-5 shadow-dashboard">
-                <div className="mb-4 inline-flex rounded-2xl bg-sky-500/10 p-3 text-sky-300">
+                <div className="mb-4 inline-flex rounded-2xl bg-primary/10 p-3 text-primary">
                   <Sparkles className="size-5" />
                 </div>
                 <p className="font-medium">Realtime orchestration</p>
@@ -124,8 +131,8 @@ export const LoginScreen = ({ nextPath }: { nextPath?: string }) => {
           <AnimatedCard className="mx-auto w-full max-w-md">
             <div className="relative rounded-[28px] border border-border/70 bg-card/80 p-7 shadow-dashboard backdrop-blur-xl">
               <div className="mb-6 flex items-center gap-3">
-                <div className="rounded-2xl bg-primary/10 p-3 text-primary">
-                  <TerminalSquare className="size-5" />
+                <div className="rounded-2xl border border-primary/15 bg-primary/8 p-2">
+                  <BrandMark className="size-9" />
                 </div>
                 <div>
                   <p className="font-semibold">Sign in to Noderax</p>

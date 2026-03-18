@@ -24,9 +24,9 @@ export const PageHeader = ({
       className,
     )}
   >
-    <GlowOrb className="right-[-4rem] top-[-5rem] h-40 w-40" color="rgba(59,130,246,0.18)" />
+    <GlowOrb className="right-[-4rem] top-[-5rem] h-40 w-40" color="rgba(138, 17, 30, 0.22)" />
     <GridPattern className="opacity-20" />
-    <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(59,130,246,0.12),transparent_42%),linear-gradient(180deg,rgba(255,255,255,0.02),transparent)]" />
+    <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(156,28,41,0.16),transparent_42%),linear-gradient(180deg,rgba(255,255,255,0.02),transparent)]" />
     <div className="relative z-10 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
       <div className="space-y-2">
         {eyebrow ? (

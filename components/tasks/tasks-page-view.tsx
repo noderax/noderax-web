@@ -26,7 +26,7 @@ export const TasksPageView = () => {
             value={tasks.filter((task) => task.status === "queued").length}
             description="Tasks waiting for agent pickup or available capacity."
             icon={Clock3}
-            tone="blue"
+            tone="brand"
           />
           <OverviewCard
             title="Running"

@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  ActivitySquare,
   Boxes,
   ChevronLeft,
   ChevronRight,
@@ -13,6 +12,7 @@ import {
   Workflow,
 } from "lucide-react";
 
+import { BrandMark } from "@/components/brand/brand-mark";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { buttonVariants, Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -39,8 +39,8 @@ const SidebarContent = ({
   return (
     <div className="flex h-full flex-col">
       <div className={cn("flex items-center gap-3 border-b border-sidebar-border px-5 py-5", collapsed && "justify-center px-3")}>
-        <div className="flex size-11 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-lg shadow-primary/25">
-          <ActivitySquare className="size-5" />
+        <div className="flex size-11 items-center justify-center rounded-[1.4rem] border border-primary/20 bg-gradient-to-br from-primary/22 via-primary/10 to-transparent shadow-lg shadow-[rgba(88,10,18,0.22)]">
+          <BrandMark className="size-8" />
         </div>
         {!collapsed ? (
           <div className="min-w-0">

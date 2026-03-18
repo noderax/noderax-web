@@ -11,7 +11,7 @@ interface GlowOrbProps {
 
 export const GlowOrb = ({
   className,
-  color = "rgba(56, 189, 248, 0.32)",
+  color = "rgba(148, 16, 30, 0.34)",
 }: GlowOrbProps) => (
   <motion.div
     className={cn("pointer-events-none absolute rounded-full blur-3xl", className)}

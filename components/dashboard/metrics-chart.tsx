@@ -53,7 +53,7 @@ export const MetricsChart = ({
   return (
     <Card className="relative overflow-hidden border-0 bg-card/70 shadow-dashboard">
       <GridPattern className="opacity-15" />
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(59,130,246,0.1),transparent_36%)]" />
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(156,28,41,0.14),transparent_36%)]" />
       <CardHeader className="relative z-10">
         <CardTitle>{title}</CardTitle>
         <CardDescription>{description}</CardDescription>

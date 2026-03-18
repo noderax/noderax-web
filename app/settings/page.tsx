@@ -90,7 +90,7 @@ export default function SettingsPage() {
           <Card className="border-0 bg-card/70 shadow-dashboard">
             <CardHeader>
               <div className="flex items-center gap-3">
-                <div className="rounded-2xl bg-sky-500/10 p-3 text-sky-300">
+                <div className="rounded-2xl bg-primary/10 p-3 text-primary">
                   <UserRound className="size-5" />
                 </div>
                 <div>

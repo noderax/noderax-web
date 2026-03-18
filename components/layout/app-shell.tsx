@@ -18,7 +18,7 @@ export const AppShell = ({ children }: { children: React.ReactNode }) => {
       <GlowOrb className="left-[-10rem] top-[-12rem] h-80 w-80" />
       <GlowOrb
         className="right-[-6rem] top-24 h-72 w-72"
-        color="rgba(59, 130, 246, 0.2)"
+        color="rgba(96, 12, 22, 0.24)"
       />
       <GridPattern className="opacity-30" />
       <AppSidebar />

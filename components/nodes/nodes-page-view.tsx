@@ -39,7 +39,7 @@ export const NodesPageView = () => {
             value={nodes.length}
             description="Registered infrastructure members currently tracked by Noderax."
             icon={Boxes}
-            tone="blue"
+            tone="brand"
           />
           <OverviewCard
             title="Online"

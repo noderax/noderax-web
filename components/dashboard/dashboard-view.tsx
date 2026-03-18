@@ -51,7 +51,7 @@ export const DashboardView = () => {
               value={overviewQuery.data.totals.totalNodes}
               description="Registered nodes currently known by the control plane."
               icon={Boxes}
-              tone="blue"
+              tone="brand"
               delay={0}
             />
             <OverviewCard

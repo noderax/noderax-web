@@ -11,14 +11,14 @@ interface OverviewCardProps {
   value: number | string;
   description: string;
   icon: LucideIcon;
-  tone: "blue" | "emerald" | "amber" | "rose";
+  tone: "brand" | "emerald" | "amber" | "rose";
   delay?: number;
 }
 
 const tones = {
-  blue: {
-    icon: "bg-sky-500/10 text-sky-300",
-    halo: "from-sky-500/18 via-sky-500/6 to-transparent",
+  brand: {
+    icon: "bg-primary/12 text-primary",
+    halo: "from-primary/24 via-primary/8 to-transparent",
   },
   emerald: {
     icon: "bg-emerald-500/10 text-emerald-300",
