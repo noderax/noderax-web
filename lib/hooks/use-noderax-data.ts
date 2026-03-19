@@ -9,8 +9,10 @@ import type {
   CreateTaskPayload,
   CreateUserPayload,
   EventFilters,
+  InstallPackagesPayload,
   MetricFilters,
   NodeFilters,
+  RemovePackagePayload,
   TaskFilters,
   TaskStatus,
 } from "@/lib/types";
@@ -39,6 +41,11 @@ export const queryKeys = {
   },
   metrics: {
     all: (filters?: MetricFilters) => ["metrics", "list", filters ?? {}] as const,
+  },
+  packages: {
+    installed: (nodeId: string) => ["packages", "installed", nodeId] as const,
+    search: (nodeId: string, term: string) =>
+      ["packages-search", nodeId, term] as const,
   },
 };
 
@@ -115,6 +122,53 @@ export const useMetrics = (filters?: MetricFilters) =>
     queryFn: () => apiClient.getMetrics(filters),
     staleTime: 10_000,
   });
+
+export const useNodePackages = (nodeId: string) =>
+  useQuery({
+    queryKey: queryKeys.packages.installed(nodeId),
+    queryFn: () => apiClient.getNodePackages(nodeId),
+    enabled: Boolean(nodeId),
+    staleTime: 15_000,
+  });
+
+export const useSearchPackages = (term: string, nodeId: string) => {
+  const normalizedTerm = term.trim();
+
+  return useQuery({
+    queryKey: queryKeys.packages.search(nodeId, normalizedTerm),
+    queryFn: () => apiClient.searchPackages(normalizedTerm, nodeId),
+    enabled: Boolean(nodeId) && normalizedTerm.length >= 2,
+    staleTime: 30_000,
+  });
+};
+
+const invalidatePackageQueries = async (
+  queryClient: ReturnType<typeof useQueryClient>,
+  nodeId: string,
+) => {
+  await Promise.all([
+    queryClient.invalidateQueries({
+      queryKey: queryKeys.packages.installed(nodeId),
+      refetchType: "active",
+    }),
+    queryClient.invalidateQueries({
+      queryKey: ["packages-search", nodeId],
+      refetchType: "active",
+    }),
+    queryClient.invalidateQueries({
+      queryKey: queryKeys.nodes.detail(nodeId),
+      refetchType: "active",
+    }),
+    queryClient.invalidateQueries({
+      queryKey: ["tasks", "list"],
+      refetchType: "active",
+    }),
+    queryClient.invalidateQueries({
+      queryKey: queryKeys.dashboard.overview,
+      refetchType: "active",
+    }),
+  ]);
+};
 
 export const useCreateUser = () => {
   const queryClient = useQueryClient();
@@ -235,6 +289,52 @@ export const useCreateTask = () => {
     },
     onError: (error) => {
       toast.error("Unable to create task", {
+        description: readMutationError(error),
+      });
+    },
+  });
+};
+
+export const useInstallPackages = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (payload: InstallPackagesPayload) => apiClient.installPackages(payload),
+    onSuccess: async (task, payload) => {
+      const packageLabel =
+        payload.names.length === 1 ? payload.names[0] : `${payload.names.length} packages`;
+
+      toast.success("Package install task queued", {
+        description: `${packageLabel} will be installed asynchronously on the selected node.`,
+      });
+
+      await invalidatePackageQueries(queryClient, payload.nodeId);
+      return task;
+    },
+    onError: (error) => {
+      toast.error("Unable to queue package install", {
+        description: readMutationError(error),
+      });
+    },
+  });
+};
+
+export const useRemovePackage = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (payload: RemovePackagePayload) => apiClient.removeNodePackage(payload),
+    onSuccess: async (_, payload) => {
+      toast.success("Package removal task queued", {
+        description: payload.purge
+          ? `${payload.name} and its configuration files will be removed asynchronously.`
+          : `${payload.name} will be removed asynchronously on the selected node.`,
+      });
+
+      await invalidatePackageQueries(queryClient, payload.nodeId);
+    },
+    onError: (error) => {
+      toast.error("Unable to queue package removal", {
         description: readMutationError(error),
       });
     },

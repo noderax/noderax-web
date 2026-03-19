@@ -5,11 +5,13 @@ import type {
   EventDto,
   EventRecord,
   EventSeverity,
+  InstalledPackage,
   MetricDto,
   MetricPoint,
   NodeDetail,
   NodeDto,
   NodeSummary,
+  PackageSearchResult,
   TaskDetail,
   TaskDto,
   TaskLogDto,
@@ -209,6 +211,34 @@ export const mapTaskSummary = (
     updatedAt: task.updatedAt,
     exitCode: getTaskExitCode(task),
     lastOutput: task.output,
+  };
+};
+
+export const mapInstalledPackage = (input: Record<string, unknown>): InstalledPackage => {
+  const record = readRecord(input);
+
+  return {
+    name: readFirstString(record, ["name", "package", "packageName"]) ?? "Unknown package",
+    version:
+      readFirstString(record, ["version", "installedVersion", "candidateVersion"]) ??
+      "Unknown version",
+    status: readFirstString(record, ["status", "state"]) ?? "unknown",
+  };
+};
+
+export const mapPackageSearchResult = (
+  input: Record<string, unknown>,
+): PackageSearchResult => {
+  const record = readRecord(input);
+
+  return {
+    name: readFirstString(record, ["name", "package", "packageName"]) ?? "Unknown package",
+    version:
+      readFirstString(record, ["version", "candidateVersion", "installedVersion"]) ??
+      "Unknown version",
+    description:
+      readFirstString(record, ["description", "summary", "shortDescription"]) ??
+      "No description available.",
   };
 };
 

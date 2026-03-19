@@ -142,6 +142,18 @@ export interface TaskDetail extends TaskSummary {
   relatedEvents: EventRecord[];
 }
 
+export interface InstalledPackage {
+  name: string;
+  version: string;
+  status: string;
+}
+
+export interface PackageSearchResult {
+  name: string;
+  version: string;
+  description: string;
+}
+
 export interface EventRecord {
   id: string;
   type: string;
@@ -197,6 +209,18 @@ export interface CreateTaskPayload {
   nodeId: string;
   type: string;
   payload?: Record<string, unknown>;
+}
+
+export interface InstallPackagesPayload {
+  nodeId: string;
+  names: string[];
+  purge?: boolean;
+}
+
+export interface RemovePackagePayload {
+  nodeId: string;
+  name: string;
+  purge?: boolean;
 }
 
 export interface DeleteNodeResponse {

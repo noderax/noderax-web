@@ -9,6 +9,7 @@ import { NodeOsIcon } from "@/components/nodes/node-os-icon";
 import { MetricsChart } from "@/components/dashboard/metrics-chart";
 import { EmptyState } from "@/components/empty-state";
 import { AppShell } from "@/components/layout/app-shell";
+import { NodePackagesScreen } from "@/components/packages/node-packages-screen";
 import { SeverityBadge } from "@/components/severity-badge";
 import { TaskStatusBadge } from "@/components/tasks/task-status-badge";
 import { SectionPanel } from "@/components/ui/section-panel";
@@ -112,9 +113,15 @@ export const NodeDetailView = ({ id }: { id: string }) => {
       />
 
       <Tabs defaultValue="metrics" className="space-y-4">
-        <TabsList variant="line" className="w-fit gap-1 rounded-xl bg-muted/70 p-1">
+        <TabsList
+          variant="line"
+          className="w-full gap-1 overflow-x-auto rounded-xl bg-muted/70 p-1 sm:w-fit"
+        >
           <TabsTrigger value="metrics" className="rounded-lg px-3 py-1.5 text-xs">
             Metrics
+          </TabsTrigger>
+          <TabsTrigger value="packages" className="rounded-lg px-3 py-1.5 text-xs">
+            Packages
           </TabsTrigger>
           <TabsTrigger value="tasks" className="rounded-lg px-3 py-1.5 text-xs">
             Running tasks
@@ -129,6 +136,9 @@ export const NodeDetailView = ({ id }: { id: string }) => {
             title="Node telemetry"
             description="CPU, memory, and disk samples ingested for this node."
           />
+        </TabsContent>
+        <TabsContent value="packages" className="mt-0">
+          <NodePackagesScreen nodeId={id} nodeName={node.name} />
         </TabsContent>
         <TabsContent value="tasks" className="mt-0">
           <SectionPanel

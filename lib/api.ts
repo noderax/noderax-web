@@ -3,7 +3,9 @@ import {
   buildNodeDetail,
   buildTaskDetail,
   mapEventRecord,
+  mapInstalledPackage,
   mapNodeSummary,
+  mapPackageSearchResult,
   mapTaskSummary,
 } from "@/lib/noderax";
 import type {
@@ -16,6 +18,7 @@ import type {
   EventDto,
   EventFilters,
   EventRecord,
+  InstallPackagesPayload,
   LoginPayload,
   MetricDto,
   MetricFilters,
@@ -23,6 +26,9 @@ import type {
   NodeDto,
   NodeFilters,
   NodeSummary,
+  PackageSearchResult,
+  InstalledPackage,
+  RemovePackagePayload,
   TaskDetail,
   TaskDto,
   TaskFilters,
@@ -182,6 +188,53 @@ export const apiClient = {
   },
   getNode(id: string) {
     return request<NodeDto>(`/api/proxy/nodes/${id}`);
+  },
+  async getNodePackages(nodeId: string): Promise<InstalledPackage[]> {
+    const packages = await request<Record<string, unknown>[]>(
+      `/api/proxy/nodes/${nodeId}/packages`,
+    );
+
+    return packages.map(mapInstalledPackage);
+  },
+  async searchPackages(
+    term: string,
+    nodeId: string,
+  ): Promise<PackageSearchResult[]> {
+    const packages = await request<Record<string, unknown>[]>(
+      `/api/proxy/packages/search${buildQueryString({
+        term,
+        nodeId,
+      })}`,
+    );
+
+    return packages.map(mapPackageSearchResult);
+  },
+  installPackages({
+    nodeId,
+    names,
+    purge,
+  }: InstallPackagesPayload) {
+    return request<TaskDto>(`/api/proxy/nodes/${nodeId}/packages`, {
+      method: "POST",
+      body: JSON.stringify({
+        names,
+        ...(purge !== undefined ? { purge } : {}),
+      }),
+    });
+  },
+  removeNodePackage({
+    nodeId,
+    name,
+    purge,
+  }: RemovePackagePayload) {
+    return request<TaskDto>(
+      `/api/proxy/nodes/${nodeId}/packages/${encodeURIComponent(name)}${buildQueryString({
+        purge: purge !== undefined ? String(purge) : undefined,
+      })}`,
+      {
+        method: "DELETE",
+      },
+    );
   },
   deleteNode(id: string) {
     return request<DeleteNodeResponse>(`/api/proxy/nodes/${id}`, {

@@ -4,7 +4,7 @@ import { buildAuthSession } from "@/lib/noderax";
 export const AUTH_TOKEN_COOKIE = "noderax_token";
 export const AUTH_SESSION_COOKIE = "noderax_session";
 export const AUTH_PERSIST_COOKIE = "noderax_persist";
-const API_PREFIX = "/v1";
+const API_PREFIX = "/api/v1";
 
 const DURATION_UNITS: Record<string, number> = {
   s: 1_000,
@@ -39,7 +39,7 @@ const resolveRestBaseUrl = (baseUrl: string) => {
     return url;
   }
 
-  if (normalizedBasePath === "/api/v1") {
+  if (normalizedBasePath === "/v1" || normalizedBasePath === "/api/v1") {
     url.pathname = API_PREFIX;
     return url;
   }

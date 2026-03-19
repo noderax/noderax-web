@@ -169,11 +169,11 @@ Current variables:
 
 ```bash
 # Required: backend REST base used by Next server routes.
-# The current Noderax backend serves browser REST traffic from /v1.
-NODERAX_API_URL=http://localhost:3000/v1
+# The current Noderax backend serves browser REST traffic from /api/v1.
+NODERAX_API_URL=http://localhost:3000/api/v1
 
-# Optional: client-side REST base fallback. Use the same /v1 base.
-NEXT_PUBLIC_NODERAX_API_URL=http://localhost:3000/v1
+# Optional: client-side REST base fallback. Use the same /api/v1 base.
+NEXT_PUBLIC_NODERAX_API_URL=http://localhost:3000/api/v1
 
 # Optional: Socket.IO namespace target. Examples:
 # http://localhost:3000
