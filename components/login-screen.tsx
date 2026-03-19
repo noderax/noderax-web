@@ -3,23 +3,40 @@
 import { startTransition, useState } from "react";
 import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { ArrowRight, KeyRound, Radar, ShieldCheck } from "lucide-react";
+import {
+  ArrowRight,
+  BellRing,
+  KeyRound,
+  LayoutDashboard,
+  Server,
+  ShieldCheck,
+  type LucideIcon,
+} from "lucide-react";
+import { useReducedMotion } from "motion/react";
+import { useTheme } from "next-themes";
 import { useForm, useWatch } from "react-hook-form";
 import { z } from "zod";
 
 import { BrandBadge } from "@/components/brand/brand-mark";
-import { GlowOrb } from "@/components/magic/glow-orb";
-import { GridPattern } from "@/components/magic/grid-pattern";
-import { Reveal } from "@/components/magic/reveal";
-import { ShineBorder } from "@/components/magic/shine-border";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
+import { Reveal } from "@/components/magic/reveal";
 import { Button } from "@/components/ui/button";
+import { BorderBeam } from "@/components/ui/border-beam";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { MagicCard } from "@/components/ui/magic-card";
+import { Particles } from "@/components/ui/particles";
 import { Switch } from "@/components/ui/switch";
 import { ApiError } from "@/lib/api";
 import { useLogin } from "@/lib/hooks/use-auth-session";
+import { cn } from "@/lib/utils";
 
 const loginSchema = z.object({
   email: z.string().email("Enter a valid work email."),
@@ -29,32 +46,75 @@ const loginSchema = z.object({
 
 type LoginValues = z.infer<typeof loginSchema>;
 
-const featureRows = [
+const overviewChips = [
+  "JWT cookie session",
+  "Next.js proxy /v1",
+  "Socket.IO /realtime",
+] as const;
+
+const workspaceHighlights: readonly {
+  title: string;
+  description: string;
+  icon: LucideIcon;
+  toneClassName: string;
+}[] = [
   {
-    title: "Secure access",
-    description: "JWT-backed auth and protected workspace routes.",
-    icon: ShieldCheck,
+    title: "Dashboard snapshots",
+    description: "Quick operational context, telemetry cards, and recent activity.",
+    icon: LayoutDashboard,
+    toneClassName: "tone-brand",
   },
   {
-    title: "Realtime events",
-    description: "Nodes, tasks, and alerts reconcile into the UI live.",
-    icon: Radar,
+    title: "Nodes and tasks",
+    description: "Inventory, execution state, live logs, and per-node detail.",
+    icon: Server,
+    toneClassName: "tone-success",
   },
   {
-    title: "Operator workflow",
-    description: "A quieter control surface for logs, metrics, and execution state.",
-    icon: KeyRound,
+    title: "Events in realtime",
+    description: "Status changes, metrics, task updates, and event flow after auth.",
+    icon: BellRing,
+    toneClassName: "tone-warning",
   },
 ] as const;
 
-const overviewChips = [
-  "Socket.IO /realtime",
-  "REST /v1",
-  "System theme",
-] as const;
+function LoginBackdrop() {
+  const { resolvedTheme } = useTheme();
+  const reduceMotion = Boolean(useReducedMotion());
+  const particleColor = resolvedTheme === "dark" ? "#f5f5f5" : "#7f1d1d";
+
+  return (
+    <>
+      <div className="absolute inset-0 bg-[linear-gradient(180deg,color-mix(in_oklch,var(--background)_94%,white),var(--background))]" />
+
+      <div
+        aria-hidden="true"
+        className="absolute inset-0"
+        style={{
+          backgroundImage:
+            "radial-gradient(circle at 18% 20%, color-mix(in oklch, var(--primary) 14%, transparent), transparent 26%), radial-gradient(circle at 84% 18%, color-mix(in oklch, var(--primary) 10%, transparent), transparent 22%), linear-gradient(180deg, transparent, color-mix(in oklch, var(--background) 86%, transparent))",
+        }}
+      />
+
+      {!reduceMotion ? (
+        <Particles
+          className="absolute inset-0"
+          quantity={70}
+          ease={80}
+          staticity={45}
+          size={0.8}
+          color={particleColor}
+        />
+      ) : null}
+
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_0%,color-mix(in_oklch,var(--background)_52%,transparent)_70%,var(--background)_100%)]" />
+    </>
+  );
+}
 
 export const LoginScreen = ({ nextPath }: { nextPath?: string }) => {
   const router = useRouter();
+  const reduceMotion = Boolean(useReducedMotion());
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const loginMutation = useLogin();
 
@@ -92,18 +152,10 @@ export const LoginScreen = ({ nextPath }: { nextPath?: string }) => {
   });
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-background">
-      <GridPattern className="opacity-18 [mask-image:radial-gradient(circle_at_center,black,transparent_78%)]" />
-      <GlowOrb
-        className="left-[-7rem] top-[-5rem] size-[22rem]"
-        color="rgba(220, 38, 38, 0.14)"
-      />
-      <GlowOrb
-        className="bottom-[-8rem] right-[-4rem] size-[18rem]"
-        color="rgba(127, 29, 29, 0.1)"
-      />
+    <div className="relative h-dvh overflow-hidden bg-background">
+      <LoginBackdrop />
 
-      <div className="relative z-10 mx-auto flex min-h-screen w-full max-w-6xl flex-col px-6 py-6">
+      <div className="relative z-10 mx-auto flex h-full w-full max-w-7xl flex-col px-4 py-4 sm:px-6 lg:px-8">
         <Reveal
           delay={0.03}
           className="flex items-center justify-between gap-4"
@@ -113,40 +165,35 @@ export const LoginScreen = ({ nextPath }: { nextPath?: string }) => {
             <div>
               <p className="text-sm font-semibold tracking-tight">Noderax</p>
               <p className="text-xs text-muted-foreground">
-                Secure control plane access
+                Noderax is an agent-based infrastructure management platform.
               </p>
             </div>
           </div>
           <ThemeToggle />
         </Reveal>
 
-        <div className="grid flex-1 items-center gap-10 py-8 lg:grid-cols-[1.08fr_0.92fr]">
-          <Reveal delay={0.08}>
-            <MagicCard
-              className="rounded-[32px]"
-              mode="orb"
-              glowFrom="rgba(248, 113, 113, 0.18)"
-              glowTo="rgba(69, 10, 10, 0.08)"
-              glowSize={340}
-              glowBlur={84}
-              glowOpacity={0.28}
-            >
-              <div className="rounded-[inherit] px-7 py-8 sm:px-9 sm:py-10">
+        <div className="grid min-h-0 flex-1 items-center gap-8 py-4 lg:grid-cols-[minmax(0,1fr)_26rem] lg:gap-14">
+          <Reveal
+            delay={0.08}
+            className="hidden lg:flex lg:min-h-0 lg:flex-col lg:justify-center"
+          >
+            <div className="max-w-xl space-y-7">
+              <div className="space-y-4">
                 <div className="tone-brand w-fit rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em]">
-                  Operator Workspace
+                  Operator workspace
                 </div>
 
-                <div className="mt-6 max-w-xl space-y-4">
-                  <h1 className="text-balance text-4xl font-semibold tracking-tight sm:text-5xl">
-                    Enter the Noderax control plane.
-                  </h1>
-                  <p className="text-base leading-8 text-muted-foreground">
-                    Manage node health, inspect task execution, and follow platform
-                    events from a cleaner operational interface built for focus.
-                  </p>
-                </div>
+                <h1 className="text-balance text-5xl font-semibold tracking-tight xl:text-[3.6rem] xl:leading-[1.02]">
+                  Secure access to the Noderax control plane.
+                </h1>
 
-                <div className="mt-6 flex flex-wrap gap-2">
+                <p className="max-w-lg text-base leading-8 text-muted-foreground">
+                  Sign in to reach dashboard snapshots, node inventory, task
+                  execution, event history, settings, and authenticated realtime
+                  updates through the Next.js proxy layer.
+                </p>
+
+                <div className="flex flex-wrap gap-2">
                   {overviewChips.map((chip) => (
                     <div
                       key={chip}
@@ -156,130 +203,175 @@ export const LoginScreen = ({ nextPath }: { nextPath?: string }) => {
                     </div>
                   ))}
                 </div>
+              </div>
 
-                <div className="mt-8 space-y-3">
-                  {featureRows.map((feature) => (
-                    <div
-                      key={feature.title}
-                      className="flex items-start gap-4 rounded-[22px] border border-border/70 bg-background/72 px-4 py-4 backdrop-blur-xl"
-                    >
-                      <div className="tone-brand flex size-11 shrink-0 items-center justify-center rounded-2xl border">
-                        <feature.icon className="size-4.5" />
+              <div className="grid gap-3">
+                {workspaceHighlights.map((item) => (
+                  <div
+                    key={item.title}
+                    className="rounded-[22px] border border-border/70 bg-background/68 px-4 py-4 backdrop-blur-xl"
+                  >
+                    <div className="flex items-start gap-3">
+                      <div
+                        className={cn(
+                          "flex size-10 items-center justify-center rounded-2xl border",
+                          item.toneClassName,
+                        )}
+                      >
+                        <item.icon className="size-4" />
                       </div>
                       <div className="min-w-0">
-                        <p className="font-medium">{feature.title}</p>
+                        <p className="font-medium">{item.title}</p>
                         <p className="mt-1 text-sm leading-6 text-muted-foreground">
-                          {feature.description}
+                          {item.description}
                         </p>
                       </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </Reveal>
+
+          <Reveal delay={0.14} className="mx-auto w-full max-w-md lg:max-w-none">
+            <Card className="relative overflow-hidden border-border/70 bg-background/82 shadow-[0_18px_60px_-30px_rgba(0,0,0,0.35)] backdrop-blur-xl">
+              <CardHeader className="border-border/70 border-b px-6 py-5 sm:px-7">
+                <div className="flex items-center gap-3">
+                  <BrandBadge size="md" />
+                  <div className="min-w-0">
+                    <CardTitle className="text-[1.65rem]">Sign in</CardTitle>
+                    <CardDescription className="mt-1">
+                      Enter your operator credentials to access the workspace.
+                    </CardDescription>
+                  </div>
+                </div>
+              </CardHeader>
+
+              <CardContent className="space-y-4 px-6 py-5 sm:px-7">
+                <div className="flex flex-wrap gap-2 lg:hidden">
+                  {overviewChips.map((chip) => (
+                    <div
+                      key={chip}
+                      className="rounded-full border border-border/70 bg-background/80 px-3 py-1.5 text-[11px] font-medium text-muted-foreground"
+                    >
+                      {chip}
                     </div>
                   ))}
                 </div>
-              </div>
-            </MagicCard>
-          </Reveal>
 
-          <Reveal delay={0.14} className="mx-auto w-full max-w-md">
-            <MagicCard
-              className="rounded-[30px]"
-              gradientSize={260}
-              gradientOpacity={0.56}
-              gradientColor="rgba(220, 38, 38, 0.08)"
-              gradientFrom="rgba(248, 113, 113, 0.42)"
-              gradientTo="rgba(69, 10, 10, 0.16)"
-            >
-              <div className="relative overflow-hidden rounded-[inherit]">
-                <ShineBorder
-                  shineColor={["#f87171", "#dc2626", "#7f1d1d"]}
-                  duration={16}
-                  className="opacity-70"
-                />
-
-                <div className="relative z-10 space-y-6 px-6 py-7 sm:px-8 sm:py-8">
-                  <div className="flex items-center gap-3">
-                    <BrandBadge size="md" />
-                    <div>
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-                        Sign In
+                <form className="space-y-3.5" onSubmit={onSubmit}>
+                  <div className="space-y-2">
+                    <Label htmlFor="email">Work email</Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      autoComplete="email"
+                      placeholder="operator@noderax.io"
+                      aria-invalid={Boolean(form.formState.errors.email)}
+                      className="h-11 rounded-[16px] px-4"
+                      {...form.register("email")}
+                    />
+                    {form.formState.errors.email ? (
+                      <p className="text-sm text-tone-danger">
+                        {form.formState.errors.email.message}
                       </p>
-                      <h2 className="mt-1 text-2xl font-semibold tracking-tight">
-                        Welcome back
-                      </h2>
-                    </div>
+                    ) : null}
                   </div>
 
-                  <p className="text-sm leading-7 text-muted-foreground">
-                    Authenticate to access the protected dashboard and continue
-                    your operator session.
-                  </p>
-
-                  <form className="space-y-4" onSubmit={onSubmit}>
-                    <div className="space-y-2">
-                      <Label htmlFor="email">Work email</Label>
-                      <Input
-                        id="email"
-                        type="email"
-                        placeholder="operator@noderax.io"
-                        {...form.register("email")}
-                      />
-                      {form.formState.errors.email ? (
-                        <p className="text-sm text-tone-danger">
-                          {form.formState.errors.email.message}
-                        </p>
-                      ) : null}
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="password">Password</Label>
-                      <Input
-                        id="password"
-                        type="password"
-                        placeholder="Enter your password"
-                        {...form.register("password")}
-                      />
-                      {form.formState.errors.password ? (
-                        <p className="text-sm text-tone-danger">
-                          {form.formState.errors.password.message}
-                        </p>
-                      ) : null}
-                    </div>
-
-                    <div className="surface-subtle flex items-center justify-between rounded-[18px] border px-4 py-3">
-                      <div>
-                        <p className="text-sm font-medium">Remember this browser</p>
-                        <p className="text-xs text-muted-foreground">
-                          Keeps the secure cookie session available for return visits.
-                        </p>
-                      </div>
-                      <Switch
-                        checked={rememberValue}
-                        onCheckedChange={(checked) =>
-                          form.setValue("remember", Boolean(checked), {
-                            shouldDirty: true,
-                          })
-                        }
-                      />
-                    </div>
-
-                    {errorMessage ? (
-                      <div className="tone-danger rounded-[18px] border px-4 py-3 text-sm">
-                        {errorMessage}
-                      </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="password">Password</Label>
+                    <Input
+                      id="password"
+                      type="password"
+                      autoComplete="current-password"
+                      placeholder="Enter your password"
+                      aria-invalid={Boolean(form.formState.errors.password)}
+                      className="h-11 rounded-[16px] px-4"
+                      {...form.register("password")}
+                    />
+                    {form.formState.errors.password ? (
+                      <p className="text-sm text-tone-danger">
+                        {form.formState.errors.password.message}
+                      </p>
                     ) : null}
+                  </div>
 
-                    <Button
-                      type="submit"
-                      size="lg"
-                      className="group h-12 w-full rounded-[18px] text-base"
-                      disabled={loginMutation.isPending}
-                    >
-                      {loginMutation.isPending ? "Signing in..." : "Enter dashboard"}
-                      <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />
-                    </Button>
-                  </form>
+                  <div className="surface-subtle flex items-center justify-between gap-4 rounded-[18px] border px-4 py-3">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium">Remember this browser</p>
+                      <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                        Keep the secure cookie session available on this device.
+                      </p>
+                    </div>
+                    <Switch
+                      checked={rememberValue}
+                      onCheckedChange={(checked) =>
+                        form.setValue("remember", Boolean(checked), {
+                          shouldDirty: true,
+                        })
+                      }
+                    />
+                  </div>
+
+                  {errorMessage ? (
+                    <div className="tone-danger rounded-[18px] border px-4 py-3 text-sm leading-6">
+                      {errorMessage}
+                    </div>
+                  ) : null}
+
+                  <Button
+                    type="submit"
+                    size="lg"
+                    className="group h-11 w-full rounded-[16px] text-base"
+                    disabled={loginMutation.isPending}
+                  >
+                    {loginMutation.isPending ? "Signing in..." : "Enter dashboard"}
+                    <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />
+                  </Button>
+                </form>
+              </CardContent>
+
+              <CardFooter className="flex-col items-stretch gap-3 border-border/70 px-6 py-5 sm:px-7">
+                <div className="flex items-center gap-3 rounded-[18px] border border-border/70 bg-background/76 px-4 py-3">
+                  <div className="tone-brand flex size-9 items-center justify-center rounded-2xl border">
+                    <ShieldCheck className="size-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium">Protected route access</p>
+                    <p className="text-xs leading-5 text-muted-foreground">
+                      `/login` unlocks the proxy layer and workspace routes after
+                      authentication.
+                    </p>
+                  </div>
                 </div>
-              </div>
-            </MagicCard>
+
+                <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                  <div className="tone-brand flex size-8 items-center justify-center rounded-full border">
+                    <KeyRound className="size-4" />
+                  </div>
+                  <p>Admins also gain access to user management after sign-in.</p>
+                </div>
+              </CardFooter>
+
+              {!reduceMotion ? (
+                <>
+                  <BorderBeam
+                    duration={8}
+                    size={110}
+                    colorFrom="#fb923c"
+                    colorTo="#ef4444"
+                  />
+                  <BorderBeam
+                    duration={8}
+                    delay={4}
+                    size={110}
+                    reverse
+                    colorFrom="#7f1d1d"
+                    colorTo="#fca5a5"
+                  />
+                </>
+              ) : null}
+            </Card>
           </Reveal>
         </div>
       </div>
