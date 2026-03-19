@@ -8,7 +8,11 @@ import {
 } from "@/lib/noderax";
 import type {
   AuthSession,
+  CreateNodePayload,
+  CreateTaskPayload,
+  CreateUserPayload,
   DashboardOverview,
+  DeleteNodeResponse,
   EventDto,
   EventFilters,
   EventRecord,
@@ -151,6 +155,15 @@ export const apiClient = {
   getCurrentUser() {
     return request<UserDto>("/api/proxy/users/me");
   },
+  getUsers() {
+    return request<UserDto[]>("/api/proxy/users");
+  },
+  createUser(payload: CreateUserPayload) {
+    return request<UserDto>("/api/proxy/users", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  },
   getNodes(filters?: NodeFilters) {
     return request<NodeDto[]>(
       `/api/proxy/nodes${buildQueryString({
@@ -161,8 +174,19 @@ export const apiClient = {
       })}`,
     );
   },
+  createNode(payload: CreateNodePayload) {
+    return request<NodeDto>("/api/proxy/nodes", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  },
   getNode(id: string) {
     return request<NodeDto>(`/api/proxy/nodes/${id}`);
+  },
+  deleteNode(id: string) {
+    return request<DeleteNodeResponse>(`/api/proxy/nodes/${id}`, {
+      method: "DELETE",
+    });
   },
   getTasks(filters?: TaskFilters) {
     return request<TaskDto[]>(
@@ -173,6 +197,12 @@ export const apiClient = {
         offset: filters?.offset,
       })}`,
     );
+  },
+  createTask(payload: CreateTaskPayload) {
+    return request<TaskDto>("/api/proxy/tasks", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
   },
   getTask(id: string) {
     return request<TaskDto>(`/api/proxy/tasks/${id}`);
@@ -205,7 +235,7 @@ export const apiClient = {
   async getDashboardOverview(): Promise<DashboardOverview> {
     const [nodes, tasks, events, metrics] = await Promise.all([
       this.getNodes({ limit: 100 }),
-      this.getTasks({ limit: 50 }),
+      this.getTasks({ limit: 100 }),
       this.getEvents({ limit: 12 }),
       this.getMetrics({ limit: 100 }),
     ]);
@@ -266,7 +296,7 @@ export const apiClient = {
     const [node, metrics, logs, events] = await Promise.all([
       this.getNode(task.nodeId),
       this.getMetrics({ nodeId: task.nodeId, limit: 1 }),
-      this.getTaskLogs(id, { limit: 200 }),
+      this.getTaskLogs(id, { limit: 100 }),
       this.getEvents({ nodeId: task.nodeId, limit: 50 }),
     ]);
 

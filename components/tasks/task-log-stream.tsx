@@ -33,7 +33,7 @@ export const TaskLogStream = ({
   const bottomRef = useRef<HTMLDivElement>(null);
   const realtimeStatus = useAppStore((state) => state.realtimeStatus);
   const logsQuery = useTaskLogs(taskId, {
-    limit: 200,
+    limit: 100,
     liveForStatus: taskStatus,
   });
 

@@ -1,12 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
 import { TerminalSquare } from "lucide-react";
 
 import { EmptyState } from "@/components/empty-state";
 import { TaskStatusBadge } from "@/components/tasks/task-status-badge";
-import { buttonVariants } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { SectionPanel } from "@/components/ui/section-panel";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -19,43 +18,48 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { TimeDisplay } from "@/components/ui/time-display";
-import type { TaskSummary } from "@/lib/types";
+import type { NodeSummary, TaskSummary } from "@/lib/types";
 import { cn } from "@/lib/utils";
-import { useAppStore } from "@/store/useAppStore";
 
 export const TasksTable = ({
   tasks,
+  rawTaskCount,
+  nodes,
   isLoading,
+  isError,
+  onRetry,
+  statusFilter,
+  onStatusFilterChange,
+  nodeFilter,
+  onNodeFilterChange,
+  page,
+  onPreviousPage,
+  onNextPage,
+  hasNextPage,
+  createAction,
 }: {
   tasks: TaskSummary[];
+  rawTaskCount: number;
+  nodes: NodeSummary[];
   isLoading?: boolean;
+  isError?: boolean;
+  onRetry?: () => void;
+  statusFilter: "all" | "queued" | "running" | "success" | "failed" | "cancelled";
+  onStatusFilterChange: (
+    value: "all" | "queued" | "running" | "success" | "failed" | "cancelled",
+  ) => void;
+  nodeFilter: "all" | string;
+  onNodeFilterChange: (value: "all" | string) => void;
+  page: number;
+  onPreviousPage: () => void;
+  onNextPage: () => void;
+  hasNextPage: boolean;
+  createAction?: React.ReactNode;
 }) => {
-  const [statusFilter, setStatusFilter] = useState<
-    "all" | "queued" | "running" | "success" | "failed" | "cancelled"
-  >("all");
-  const searchQuery = useAppStore((state) => state.searchQuery);
-
-  const filteredTasks = useMemo(
-    () =>
-      tasks.filter((task) => {
-        const matchesStatus =
-          statusFilter === "all" ? true : task.status === statusFilter;
-        const matchesQuery = searchQuery
-          ? [task.name, task.command ?? "", task.nodeName, task.type]
-              .join(" ")
-              .toLowerCase()
-              .includes(searchQuery.toLowerCase())
-          : true;
-
-        return matchesStatus && matchesQuery;
-      }),
-    [searchQuery, statusFilter, tasks],
-  );
-
-  const filterControl = (
+  const statusControl = (
     <Select
       value={statusFilter}
-      onValueChange={(value) => setStatusFilter(value as typeof statusFilter)}
+      onValueChange={(value) => onStatusFilterChange((value ?? "all") as typeof statusFilter)}
     >
       <SelectTrigger className="min-w-44">
         <SelectValue placeholder="Filter task status" />
@@ -71,13 +75,50 @@ export const TasksTable = ({
     </Select>
   );
 
+  const nodeControl = (
+    <Select value={nodeFilter} onValueChange={(value) => onNodeFilterChange(value ?? "all")}>
+      <SelectTrigger className="min-w-52">
+        <SelectValue placeholder="Filter node" />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value="all">All nodes</SelectItem>
+        {nodes.map((node) => (
+          <SelectItem key={node.id} value={node.id}>
+            {node.name}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+
+  const pager = (
+    <div className="flex items-center gap-2">
+      <Button variant="outline" size="sm" onClick={onPreviousPage} disabled={page === 0}>
+        Previous
+      </Button>
+      <span className="px-1 text-xs font-medium text-muted-foreground">
+        Page {page + 1}
+      </span>
+      <Button variant="outline" size="sm" onClick={onNextPage} disabled={!hasNextPage}>
+        Next
+      </Button>
+    </div>
+  );
+
   if (isLoading) {
     return (
       <SectionPanel
         eyebrow="Ledger"
         title="Task list"
         description="Filter current execution work and open full task detail."
-        action={filterControl}
+        action={
+          <>
+            {statusControl}
+            {nodeControl}
+            {pager}
+            {createAction}
+          </>
+        }
         contentClassName="space-y-3"
       >
         {Array.from({ length: 5 }).map((_, index) => (
@@ -87,17 +128,54 @@ export const TasksTable = ({
     );
   }
 
-  if (!filteredTasks.length) {
+  if (isError) {
     return (
       <SectionPanel
         eyebrow="Ledger"
         title="Task list"
         description="Filter current execution work and open full task detail."
-        action={filterControl}
+        action={
+          <>
+            {statusControl}
+            {nodeControl}
+            {pager}
+            {createAction}
+          </>
+        }
       >
         <EmptyState
-          title="No tasks match the current filters"
-          description="Broaden the page search or switch the execution status filter to inspect additional tasks."
+          title="Task list is unavailable"
+          description="The task inventory could not be loaded from the authenticated API connection."
+          icon={TerminalSquare}
+          actionLabel="Retry"
+          onAction={onRetry}
+        />
+      </SectionPanel>
+    );
+  }
+
+  if (!tasks.length) {
+    return (
+      <SectionPanel
+        eyebrow="Ledger"
+        title="Task list"
+        description="Filter current execution work and open full task detail."
+        action={
+          <>
+            {statusControl}
+            {nodeControl}
+            {pager}
+            {createAction}
+          </>
+        }
+      >
+        <EmptyState
+          title={rawTaskCount ? "No tasks match the current search" : "No tasks found"}
+          description={
+            rawTaskCount
+              ? "The current page has tasks, but the global search did not match any of them."
+              : "No tasks were returned for the current server-side filters or page."
+          }
           icon={TerminalSquare}
         />
       </SectionPanel>
@@ -109,7 +187,14 @@ export const TasksTable = ({
       eyebrow="Ledger"
       title="Task list"
       description="Filter current execution work and open full task detail."
-      action={filterControl}
+      action={
+        <>
+          {statusControl}
+          {nodeControl}
+          {pager}
+          {createAction}
+        </>
+      }
       contentClassName="p-0"
     >
       <Table>
@@ -124,7 +209,7 @@ export const TasksTable = ({
           </TableRow>
         </TableHeader>
         <TableBody>
-          {filteredTasks.map((task) => (
+          {tasks.map((task) => (
             <TableRow key={task.id}>
               <TableCell>
                 <TaskStatusBadge status={task.status} />

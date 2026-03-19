@@ -1,12 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { ExternalLink, MonitorCog } from "lucide-react";
 
+import { DeleteNodeDialog } from "@/components/nodes/delete-node-dialog";
 import { EmptyState } from "@/components/empty-state";
 import { NodeStatusBadge } from "@/components/nodes/node-status-badge";
-import { buttonVariants } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -29,42 +30,40 @@ import {
 import { TimeDisplay } from "@/components/ui/time-display";
 import type { NodeSummary } from "@/lib/types";
 import { cn } from "@/lib/utils";
-import { useAppStore } from "@/store/useAppStore";
 
 export const NodesTable = ({
   nodes,
   isLoading,
+  isError,
+  onRetry,
+  statusFilter,
+  onStatusFilterChange,
+  page,
+  onPreviousPage,
+  onNextPage,
+  hasNextPage,
+  isAdmin,
+  createAction,
 }: {
   nodes: NodeSummary[];
   isLoading?: boolean;
+  isError?: boolean;
+  onRetry?: () => void;
+  statusFilter: "all" | "online" | "offline";
+  onStatusFilterChange: (value: "all" | "online" | "offline") => void;
+  page: number;
+  onPreviousPage: () => void;
+  onNextPage: () => void;
+  hasNextPage: boolean;
+  isAdmin?: boolean;
+  createAction?: React.ReactNode;
 }) => {
-  const [statusFilter, setStatusFilter] = useState<"all" | "online" | "offline">(
-    "all",
-  );
   const [selectedNode, setSelectedNode] = useState<NodeSummary | null>(null);
-  const searchQuery = useAppStore((state) => state.searchQuery);
-
-  const filteredNodes = useMemo(
-    () =>
-      nodes.filter((node) => {
-        const matchesStatus =
-          statusFilter === "all" ? true : node.status === statusFilter;
-        const matchesQuery = searchQuery
-          ? [node.name, node.hostname, node.os, node.arch]
-              .join(" ")
-              .toLowerCase()
-              .includes(searchQuery.toLowerCase())
-          : true;
-
-        return matchesStatus && matchesQuery;
-      }),
-    [nodes, searchQuery, statusFilter],
-  );
 
   const filterControl = (
     <Select
       value={statusFilter}
-      onValueChange={(value) => setStatusFilter(value as typeof statusFilter)}
+      onValueChange={(value) => onStatusFilterChange((value ?? "all") as typeof statusFilter)}
     >
       <SelectTrigger className="min-w-40">
         <SelectValue placeholder="Filter status" />
@@ -77,13 +76,33 @@ export const NodesTable = ({
     </Select>
   );
 
+  const pager = (
+    <div className="flex items-center gap-2">
+      <Button variant="outline" size="sm" onClick={onPreviousPage} disabled={page === 0}>
+        Previous
+      </Button>
+      <span className="px-1 text-xs font-medium text-muted-foreground">
+        Page {page + 1}
+      </span>
+      <Button variant="outline" size="sm" onClick={onNextPage} disabled={!hasNextPage}>
+        Next
+      </Button>
+    </div>
+  );
+
   if (isLoading) {
     return (
       <SectionPanel
         eyebrow="Directory"
         title="Node inventory"
-        description="Filter the fleet and open node-level detail or quick inspection."
-        action={filterControl}
+        description="Filter the fleet, page through nodes, and open node-level detail."
+        action={
+          <>
+            {filterControl}
+            {pager}
+            {createAction}
+          </>
+        }
         contentClassName="space-y-3"
       >
         {Array.from({ length: 5 }).map((_, index) => (
@@ -93,17 +112,48 @@ export const NodesTable = ({
     );
   }
 
-  if (!filteredNodes.length) {
+  if (isError) {
     return (
       <SectionPanel
         eyebrow="Directory"
         title="Node inventory"
-        description="Filter the fleet and open node-level detail or quick inspection."
-        action={filterControl}
+        description="Filter the fleet, page through nodes, and open node-level detail."
+        action={
+          <>
+            {filterControl}
+            {pager}
+            {createAction}
+          </>
+        }
       >
         <EmptyState
-          title="No nodes match the current filters"
-          description="Adjust the global search or the status filter to inspect another part of the fleet."
+          title="Node inventory is unavailable"
+          description="The node list could not be loaded from the authenticated API connection."
+          icon={MonitorCog}
+          actionLabel="Retry"
+          onAction={onRetry}
+        />
+      </SectionPanel>
+    );
+  }
+
+  if (!nodes.length) {
+    return (
+      <SectionPanel
+        eyebrow="Directory"
+        title="Node inventory"
+        description="Filter the fleet, page through nodes, and open node-level detail."
+        action={
+          <>
+            {filterControl}
+            {pager}
+            {createAction}
+          </>
+        }
+      >
+        <EmptyState
+          title="No nodes found"
+          description="No nodes were returned for the current search, status filter, or page."
           icon={MonitorCog}
         />
       </SectionPanel>
@@ -114,8 +164,14 @@ export const NodesTable = ({
     <SectionPanel
       eyebrow="Directory"
       title="Node inventory"
-      description="Filter the fleet and open node-level detail or quick inspection."
-      action={filterControl}
+      description="Filter the fleet, page through nodes, and open node-level detail."
+      action={
+        <>
+          {filterControl}
+          {pager}
+          {createAction}
+        </>
+      }
       contentClassName="p-0"
     >
       <Table>
@@ -130,7 +186,7 @@ export const NodesTable = ({
           </TableRow>
         </TableHeader>
         <TableBody>
-          {filteredNodes.map((node) => (
+          {nodes.map((node) => (
             <TableRow key={node.id}>
               <TableCell>
                 <div>
@@ -154,9 +210,7 @@ export const NodesTable = ({
                     open={selectedNode?.id === node.id}
                     onOpenChange={(open) => setSelectedNode(open ? node : null)}
                   >
-                    <DialogTrigger
-                      className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
-                    >
+                    <DialogTrigger className={cn(buttonVariants({ variant: "outline", size: "sm" }))}>
                       Inspect
                     </DialogTrigger>
                     <DialogContent className="max-w-xl">
@@ -220,6 +274,11 @@ export const NodesTable = ({
                       </div>
                     </DialogContent>
                   </Dialog>
+
+                  {isAdmin ? (
+                    <DeleteNodeDialog nodeId={node.id} nodeName={node.name} />
+                  ) : null}
+
                   <Link
                     href={`/nodes/${node.id}`}
                     className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}

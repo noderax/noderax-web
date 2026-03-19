@@ -9,6 +9,7 @@ import {
   Home,
   Settings,
   Siren,
+  Users,
   Workflow,
 } from "lucide-react";
 
@@ -17,25 +18,6 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/store/useAppStore";
-
-const navigation = [
-  {
-    label: "Overview",
-    items: [{ href: "/dashboard", label: "Dashboard", icon: Home }],
-  },
-  {
-    label: "Operations",
-    items: [
-      { href: "/nodes", label: "Nodes", icon: Boxes },
-      { href: "/tasks", label: "Tasks", icon: Workflow },
-      { href: "/events", label: "Events", icon: Siren },
-    ],
-  },
-  {
-    label: "Workspace",
-    items: [{ href: "/settings", label: "Settings", icon: Settings }],
-  },
-] as const;
 
 const realtimeLabels = {
   connected: "Realtime connected",
@@ -55,6 +37,30 @@ const SidebarContent = ({
   const pathname = usePathname();
   const toggleSidebar = useAppStore((state) => state.toggleSidebar);
   const realtimeStatus = useAppStore((state) => state.realtimeStatus);
+  const session = useAppStore((state) => state.session);
+  const navigation = [
+    {
+      label: "Overview",
+      items: [{ href: "/dashboard", label: "Dashboard", icon: Home }],
+    },
+    {
+      label: "Operations",
+      items: [
+        { href: "/nodes", label: "Nodes", icon: Boxes },
+        { href: "/tasks", label: "Tasks", icon: Workflow },
+        { href: "/events", label: "Events", icon: Siren },
+      ],
+    },
+    {
+      label: "Workspace",
+      items: [
+        ...(session?.user.role === "admin"
+          ? [{ href: "/users", label: "Users", icon: Users }]
+          : []),
+        { href: "/settings", label: "Settings", icon: Settings },
+      ],
+    },
+  ] as const;
 
   return (
     <div className="flex h-full flex-col">

@@ -37,6 +37,7 @@ const sectionNames: Record<string, string> = {
   "/nodes": "Nodes",
   "/tasks": "Tasks",
   "/events": "Events",
+  "/users": "Users",
   "/settings": "Settings",
 };
 
@@ -45,6 +46,7 @@ const sectionDescriptions: Record<string, string> = {
   "/nodes": "Inspect node connectivity, telemetry, and runtime state.",
   "/tasks": "Track executions, outcomes, and live operational work.",
   "/events": "Review alerts, warnings, and platform event history.",
+  "/users": "Manage operators, access roles, and workspace accounts.",
   "/settings": "Manage appearance, session metadata, and preferences.",
 };
 

@@ -2,6 +2,7 @@ export type NodeStatus = "online" | "offline";
 export type TaskStatus = "queued" | "running" | "success" | "failed" | "cancelled";
 export type EventSeverity = "info" | "warning" | "critical";
 export type TaskLogLevel = "info" | "stdout" | "stderr" | "error";
+export type UserRole = "admin" | "user";
 export type RealtimeStatus =
   | "idle"
   | "connecting"
@@ -68,7 +69,7 @@ export interface UserDto {
   id: string;
   email: string;
   name: string;
-  role: string;
+  role: UserRole;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -159,7 +160,7 @@ export interface AuthUser {
   id: string;
   name: string;
   email: string;
-  role: string;
+  role: UserRole;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -176,6 +177,31 @@ export interface LoginPayload {
   email: string;
   password: string;
   remember: boolean;
+}
+
+export interface CreateUserPayload {
+  email: string;
+  name: string;
+  password: string;
+  role?: UserRole;
+}
+
+export interface CreateNodePayload {
+  name?: string;
+  hostname: string;
+  os: string;
+  arch: string;
+}
+
+export interface CreateTaskPayload {
+  nodeId: string;
+  type: string;
+  payload?: Record<string, unknown>;
+}
+
+export interface DeleteNodeResponse {
+  deleted: true;
+  id: string;
 }
 
 export interface DashboardOverview {

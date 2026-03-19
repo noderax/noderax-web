@@ -52,30 +52,30 @@ export const DashboardView = () => {
           <StatStrip
             items={[
               {
-                label: "Total nodes",
+                label: "Node snapshot",
                 value: overviewQuery.data.totals.totalNodes,
-                description: "Registered infrastructure members currently visible in the fleet.",
+                description: "Nodes currently loaded into this dashboard snapshot window.",
                 icon: Boxes,
                 tone: "brand",
               },
               {
-                label: "Online nodes",
+                label: "Online snapshot",
                 value: overviewQuery.data.totals.onlineNodes,
-                description: "Hosts actively reporting recent state to the control plane.",
+                description: "Loaded snapshot nodes actively reporting recent state.",
                 icon: ServerCog,
                 tone: "success",
               },
               {
-                label: "Running tasks",
+                label: "Task snapshot",
                 value: overviewQuery.data.totals.runningTasks,
-                description: "Executions currently consuming node capacity.",
+                description: "Running tasks currently present in the dashboard task window.",
                 icon: CirclePlay,
                 tone: "warning",
               },
               {
-                label: "Failed tasks",
+                label: "Failed snapshot",
                 value: overviewQuery.data.totals.failedTasks,
-                description: "Workflows that still need operator review or retry.",
+                description: "Failed tasks currently visible in the dashboard snapshot.",
                 icon: AlertTriangle,
                 tone: "danger",
               },

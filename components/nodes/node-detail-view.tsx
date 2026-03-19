@@ -1,8 +1,10 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Network, Timer } from "lucide-react";
 
+import { DeleteNodeDialog } from "@/components/nodes/delete-node-dialog";
 import { MetricsChart } from "@/components/dashboard/metrics-chart";
 import { EmptyState } from "@/components/empty-state";
 import { AppShell } from "@/components/layout/app-shell";
@@ -11,14 +13,19 @@ import { TaskStatusBadge } from "@/components/tasks/task-status-badge";
 import { SectionPanel } from "@/components/ui/section-panel";
 import { StatStrip } from "@/components/ui/stat-strip";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useAuthSession } from "@/lib/hooks/use-auth-session";
 import { useNode } from "@/lib/hooks/use-noderax-data";
 import { useNodeRealtimeSubscription } from "@/lib/hooks/use-realtime";
 
 export const NodeDetailView = ({ id }: { id: string }) => {
+  const router = useRouter();
+  const authQuery = useAuthSession();
+
   useNodeRealtimeSubscription(id);
 
   const nodeQuery = useNode(id);
   const node = nodeQuery.data;
+  const isAdmin = authQuery.session?.user.role === "admin";
 
   if (nodeQuery.isError || (!nodeQuery.isPending && !node)) {
     return (
@@ -46,6 +53,24 @@ export const NodeDetailView = ({ id }: { id: string }) => {
 
   return (
     <AppShell>
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div className="min-w-0">
+          <h1 className="truncate text-2xl font-semibold tracking-tight">{node.name}</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {node.hostname} • {node.os} / {node.arch}
+          </p>
+        </div>
+        {isAdmin ? (
+          <DeleteNodeDialog
+            nodeId={node.id}
+            nodeName={node.name}
+            triggerLabel="Delete node"
+            triggerVariant="destructive"
+            onDeleted={() => router.replace("/nodes")}
+          />
+        ) : null}
+      </div>
+
       <StatStrip
         items={[
           {
