@@ -14,7 +14,7 @@ interface ShineBorderProps {
 
 export const ShineBorder = ({
   className,
-  shineColor = ["#f87171", "#991b1b", "#fb7185"],
+  shineColor = ["#f87171", "#dc2626", "#7f1d1d"],
   borderWidth = 1,
   duration = 14,
 }: ShineBorderProps) => {

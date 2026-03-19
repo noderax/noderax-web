@@ -16,16 +16,14 @@ export const AppShell = ({ children }: { children: React.ReactNode }) => {
       <AppSidebar />
       <div
         className={cn(
-          "min-h-screen transition-[padding] duration-300 lg:pl-72",
-          sidebarCollapsed && "lg:pl-24",
+          "min-h-screen transition-[padding] duration-300 lg:pl-64",
+          sidebarCollapsed && "lg:pl-20",
         )}
       >
-        <div className="mx-auto w-full max-w-[1520px] px-4 py-4 sm:px-5 lg:px-8 lg:py-6">
-          <Topbar />
-          <main className="pt-6">
-            <div className="space-y-6">{children}</div>
-          </main>
-        </div>
+        <Topbar />
+        <main className="px-4 py-6 sm:px-6 lg:px-8">
+          <div className="mx-auto w-full max-w-[1600px] space-y-6">{children}</div>
+        </main>
       </div>
     </div>
   );

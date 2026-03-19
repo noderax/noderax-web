@@ -3,11 +3,9 @@ import type { EventSeverity } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 const severityStyles: Record<EventSeverity, string> = {
-  info: "border-primary/16 bg-primary/[0.08] text-primary",
-  warning:
-    "border-amber-500/16 bg-amber-500/[0.08] text-amber-800 dark:text-amber-300",
-  critical:
-    "border-rose-500/16 bg-rose-500/[0.08] text-rose-800 dark:text-rose-300",
+  info: "tone-brand",
+  warning: "tone-warning",
+  critical: "tone-danger",
 };
 
 export const SeverityBadge = ({ severity }: { severity: EventSeverity }) => (

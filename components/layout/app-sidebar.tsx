@@ -18,13 +18,32 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/store/useAppStore";
 
-const items = [
-  { href: "/dashboard", label: "Dashboard", icon: Home },
-  { href: "/nodes", label: "Nodes", icon: Boxes },
-  { href: "/tasks", label: "Tasks", icon: Workflow },
-  { href: "/events", label: "Events", icon: Siren },
-  { href: "/settings", label: "Settings", icon: Settings },
-];
+const navigation = [
+  {
+    label: "Overview",
+    items: [{ href: "/dashboard", label: "Dashboard", icon: Home }],
+  },
+  {
+    label: "Operations",
+    items: [
+      { href: "/nodes", label: "Nodes", icon: Boxes },
+      { href: "/tasks", label: "Tasks", icon: Workflow },
+      { href: "/events", label: "Events", icon: Siren },
+    ],
+  },
+  {
+    label: "Workspace",
+    items: [{ href: "/settings", label: "Settings", icon: Settings }],
+  },
+] as const;
+
+const realtimeLabels = {
+  connected: "Realtime connected",
+  connecting: "Connecting",
+  reconnecting: "Reconnecting",
+  disconnected: "Offline",
+  idle: "Standby",
+} as const;
 
 const SidebarContent = ({
   collapsed,
@@ -35,13 +54,14 @@ const SidebarContent = ({
 }) => {
   const pathname = usePathname();
   const toggleSidebar = useAppStore((state) => state.toggleSidebar);
+  const realtimeStatus = useAppStore((state) => state.realtimeStatus);
 
   return (
     <div className="flex h-full flex-col">
       <div
         className={cn(
-          "flex items-center gap-3 border-b border-sidebar-border px-4 py-4",
-          collapsed && "justify-center px-2.5",
+          "flex h-16 items-center gap-3 border-b border-sidebar-border px-5",
+          collapsed && "justify-center px-0",
         )}
       >
         <BrandBadge size={collapsed ? "sm" : "md"} />
@@ -50,63 +70,70 @@ const SidebarContent = ({
             <p className="text-sm font-semibold tracking-tight text-sidebar-foreground">
               Noderax
             </p>
-            <p className="text-xs text-muted-foreground">Operations workspace</p>
+            <p className="text-xs text-muted-foreground">Operations center</p>
           </div>
         ) : null}
       </div>
 
-      <div className="flex-1 px-3 py-4">
+      <div className="flex-1 overflow-y-auto px-3 py-4">
+        <div className="space-y-6">
+          {navigation.map((group) => (
+            <div key={group.label} className="space-y-1.5">
+              {!collapsed ? (
+                <p className="px-3 text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+                  {group.label}
+                </p>
+              ) : null}
+              <nav className="space-y-1">
+                {group.items.map((item) => {
+                  const isActive =
+                    pathname === item.href || pathname.startsWith(`${item.href}/`);
+
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      onClick={onNavigate}
+                      className={cn(
+                        "flex h-10 items-center gap-3 rounded-xl border border-transparent px-3 text-sm font-medium transition-colors",
+                        collapsed && "justify-center px-0",
+                        isActive
+                          ? "tone-brand shadow-sm"
+                          : "text-sidebar-foreground/72 hover:border-sidebar-border hover:bg-sidebar-accent hover:text-sidebar-foreground",
+                      )}
+                    >
+                      <item.icon
+                        className={cn(
+                          "size-4",
+                          isActive ? "text-tone-brand" : "text-muted-foreground",
+                        )}
+                      />
+                      {!collapsed ? <span>{item.label}</span> : null}
+                    </Link>
+                  );
+                })}
+              </nav>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className={cn("border-t border-sidebar-border p-3", collapsed && "p-2.5")}>
         {!collapsed ? (
-          <div className="px-2 pb-3">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-              Navigation
+          <div className="mb-3 rounded-2xl border border-sidebar-border bg-background/70 px-3.5 py-3">
+            <p className="text-xs font-medium text-sidebar-foreground">Workspace</p>
+            <p className="mt-1 text-sm font-semibold text-sidebar-foreground">
+              {realtimeLabels[realtimeStatus]}
             </p>
-          </div>
-        ) : null}
-        <nav className="space-y-1.5">
-          {items.map((item) => {
-            const isActive =
-              pathname === item.href || pathname.startsWith(`${item.href}/`);
-
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                onClick={onNavigate}
-                className={cn(
-                  "flex h-11 items-center gap-3 rounded-[16px] px-3 text-sm font-medium transition",
-                  collapsed && "justify-center px-0",
-                  isActive
-                    ? "bg-sidebar-primary/10 text-sidebar-foreground"
-                    : "text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground",
-                )}
-              >
-                <item.icon
-                  className={cn(
-                    "size-4",
-                    isActive && "text-primary",
-                  )}
-                />
-                {!collapsed ? <span>{item.label}</span> : null}
-              </Link>
-            );
-          })}
-        </nav>
-      </div>
-
-      <div className={cn("border-t border-sidebar-border p-3", collapsed && "p-2")}>
-        {!collapsed ? (
-          <div className="mb-3 px-2">
-            <p className="text-sm font-medium">Secure workspace</p>
-            <p className="text-xs text-muted-foreground">
-              Nodes, tasks, metrics, and events in one place.
+            <p className="mt-1 text-xs text-muted-foreground">
+              Nodes, tasks, metrics, and events in one control surface.
             </p>
           </div>
         ) : null}
         <Button
           variant="ghost"
           size={collapsed ? "icon-lg" : "lg"}
-          className={cn("w-full rounded-[16px]", !collapsed && "justify-between px-3")}
+          className={cn("w-full rounded-xl", !collapsed && "justify-between px-3")}
           onClick={toggleSidebar}
         >
           {!collapsed ? <span>Collapse</span> : null}
@@ -127,7 +154,7 @@ export const AppSidebar = () => {
       <aside
         className={cn(
           "fixed inset-y-0 left-0 z-30 hidden border-r border-sidebar-border bg-sidebar text-sidebar-foreground lg:block",
-          collapsed ? "w-24" : "w-72",
+          collapsed ? "w-20" : "w-64",
         )}
       >
         <SidebarContent collapsed={collapsed} />
@@ -136,7 +163,7 @@ export const AppSidebar = () => {
       <Sheet open={mobileOpen} onOpenChange={setMobileSidebarOpen}>
         <SheetContent
           side="left"
-          className="w-[88vw] max-w-sm border-r border-sidebar-border bg-sidebar p-0 text-sidebar-foreground"
+          className="w-[88vw] max-w-xs border-r border-sidebar-border bg-sidebar p-0 text-sidebar-foreground"
         >
           <SheetHeader className="sr-only">
             <SheetTitle>Noderax navigation</SheetTitle>

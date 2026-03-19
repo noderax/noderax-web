@@ -24,12 +24,12 @@ export const EmptyState = ({
 }: EmptyStateProps) => (
   <div
     className={cn(
-      "flex min-h-56 flex-col items-center justify-center rounded-[24px] border border-dashed px-6 py-10 text-center",
+      "flex min-h-56 flex-col items-center justify-center rounded-2xl border border-dashed px-6 py-10 text-center",
       variant === "plain" ? "bg-transparent" : "surface-subtle",
       className,
     )}
   >
-    <div className="mb-4 flex size-12 items-center justify-center rounded-full border bg-background text-primary shadow-sm">
+    <div className="tone-brand mb-4 flex size-12 items-center justify-center rounded-xl border shadow-sm">
       <Icon className="size-5" />
     </div>
     <h3 className="text-lg font-medium tracking-tight">{title}</h3>

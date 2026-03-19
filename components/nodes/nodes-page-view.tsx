@@ -41,21 +41,21 @@ export const NodesPageView = () => {
               value: onlineNodes.length,
               description: "Nodes with healthy status and recent agent activity.",
               icon: ShieldCheck,
-              tone: "emerald",
+              tone: "success",
             },
             {
               label: "Offline",
               value: offlineNodes.length,
               description: "Hosts that need follow-up because reporting has stopped.",
               icon: WifiOff,
-              tone: "rose",
+              tone: "danger",
             },
             {
               label: "Avg CPU load",
               value: `${averageLoad}%`,
               description: "Latest reported CPU usage across nodes with recent telemetry.",
               icon: Cpu,
-              tone: "amber",
+              tone: "warning",
             },
           ]}
         />

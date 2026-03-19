@@ -12,7 +12,7 @@ function Card({
       data-slot="card"
       data-size={size}
       className={cn(
-        "surface-panel flex flex-col overflow-hidden rounded-[22px] border text-sm text-card-foreground data-[size=sm]:rounded-[18px]",
+        "surface-panel flex flex-col overflow-hidden rounded-2xl border text-sm text-card-foreground data-[size=sm]:rounded-xl",
         className,
       )}
       {...props}
@@ -78,7 +78,7 @@ function CardFooter({ className, ...props }: React.ComponentProps<"div">) {
     <div
       data-slot="card-footer"
       className={cn(
-        "surface-subtle flex items-center gap-2 border-t px-5 py-4",
+        "flex items-center gap-2 border-t px-5 py-4",
         className,
       )}
       {...props}

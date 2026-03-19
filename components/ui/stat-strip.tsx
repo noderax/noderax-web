@@ -3,7 +3,7 @@ import type { LucideIcon } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
-type StatTone = "brand" | "emerald" | "amber" | "rose" | "neutral";
+type StatTone = "brand" | "success" | "warning" | "danger" | "neutral";
 
 type StatStripItem = {
   label: string;
@@ -14,11 +14,11 @@ type StatStripItem = {
 };
 
 const tones: Record<StatTone, string> = {
-  brand: "text-primary bg-primary/8 border-primary/12",
-  emerald: "text-emerald-700 bg-emerald-500/8 border-emerald-500/12 dark:text-emerald-300",
-  amber: "text-amber-700 bg-amber-500/8 border-amber-500/12 dark:text-amber-300",
-  rose: "text-rose-700 bg-rose-500/8 border-rose-500/12 dark:text-rose-300",
-  neutral: "text-foreground bg-muted/60 border-border/70",
+  brand: "tone-brand",
+  success: "tone-success",
+  warning: "tone-warning",
+  danger: "tone-danger",
+  neutral: "tone-neutral",
 };
 
 export const StatStrip = ({
@@ -35,7 +35,7 @@ export const StatStrip = ({
       return (
         <div
           key={`${item.label}-${index}`}
-          className="surface-panel flex min-h-[132px] flex-col justify-between rounded-[22px] border p-5"
+          className="surface-panel flex min-h-[140px] flex-col justify-between rounded-2xl border p-5"
         >
           <div className="flex items-start justify-between gap-3">
             <div className="space-y-2">
@@ -49,7 +49,7 @@ export const StatStrip = ({
             {Icon ? (
               <div
                 className={cn(
-                  "flex size-9 items-center justify-center rounded-full border",
+                  "flex size-10 items-center justify-center rounded-xl border",
                   tones[item.tone ?? "neutral"],
                 )}
               >

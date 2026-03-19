@@ -16,7 +16,7 @@ export const BrandMark = ({
     src={logoSrc}
     alt={alt}
     priority={priority}
-    className={cn("size-10 object-contain scale-[1.16]", className)}
+    className={cn("size-10 object-contain scale-[1.3]", className)}
   />
 );
 
@@ -35,15 +35,15 @@ export const BrandBadge = ({
 }) => {
   const sizes = {
     sm: {
-      frame: "size-12 rounded-[1.2rem] p-1.5",
+      frame: "size-14 rounded-xl p-1",
       mark: "size-full",
     },
     md: {
-      frame: "size-14 rounded-[1.35rem] p-1.5",
+      frame: "size-12 rounded-[1rem] p-1",
       mark: "size-full",
     },
     lg: {
-      frame: "size-16 rounded-[1.55rem] p-2",
+      frame: "size-14 rounded-[1.15rem] p-1.5",
       mark: "size-full",
     },
   } as const;

@@ -58,13 +58,13 @@ export const NodeDetailView = ({ id }: { id: string }) => {
             label: "Latest memory",
             value: node.latestMetric ? `${node.latestMetric.memory}%` : "N/A",
             description: "Most recent reported memory usage.",
-            tone: "emerald",
+            tone: "success",
           },
           {
             label: "Latest disk",
             value: node.latestMetric ? `${node.latestMetric.disk}%` : "N/A",
             description: "Most recent reported disk usage.",
-            tone: "amber",
+            tone: "warning",
           },
           {
             label: "Network summary",
@@ -76,14 +76,14 @@ export const NodeDetailView = ({ id }: { id: string }) => {
       />
 
       <Tabs defaultValue="metrics" className="space-y-4">
-        <TabsList variant="line" className="w-fit gap-1 rounded-[14px] bg-muted/55 p-1">
-          <TabsTrigger value="metrics" className="rounded-[10px] px-3 py-1.5 text-xs">
+        <TabsList variant="line" className="w-fit gap-1 rounded-xl bg-muted/70 p-1">
+          <TabsTrigger value="metrics" className="rounded-lg px-3 py-1.5 text-xs">
             Metrics
           </TabsTrigger>
-          <TabsTrigger value="tasks" className="rounded-[10px] px-3 py-1.5 text-xs">
+          <TabsTrigger value="tasks" className="rounded-lg px-3 py-1.5 text-xs">
             Running tasks
           </TabsTrigger>
-          <TabsTrigger value="events" className="rounded-[10px] px-3 py-1.5 text-xs">
+          <TabsTrigger value="events" className="rounded-lg px-3 py-1.5 text-xs">
             Event history
           </TabsTrigger>
         </TabsList>

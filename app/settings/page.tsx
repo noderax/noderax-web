@@ -24,7 +24,7 @@ export default function SettingsPage() {
           contentClassName="space-y-6"
         >
           <div className="flex items-start gap-3">
-            <div className="flex size-11 items-center justify-center rounded-full border bg-muted/60 text-primary">
+            <div className="tone-brand flex size-11 items-center justify-center rounded-full border">
               <Palette className="size-4.5" />
             </div>
             <div className="min-w-0">
@@ -48,7 +48,7 @@ export default function SettingsPage() {
 
           <div id="token-management" className="space-y-4">
             <div className="flex items-start gap-3">
-              <div className="flex size-11 items-center justify-center rounded-full border bg-muted/60 text-primary">
+              <div className="tone-brand flex size-11 items-center justify-center rounded-full border">
                 <KeyRound className="size-4.5" />
               </div>
               <div className="min-w-0">
@@ -85,7 +85,7 @@ export default function SettingsPage() {
           contentClassName="space-y-6"
         >
           <div className="flex items-start gap-3">
-            <div className="flex size-11 items-center justify-center rounded-full border bg-muted/60 text-primary">
+            <div className="tone-brand flex size-11 items-center justify-center rounded-full border">
               <UserRound className="size-4.5" />
             </div>
             <div className="min-w-0">
@@ -116,7 +116,7 @@ export default function SettingsPage() {
 
           <div className="space-y-4">
             <div className="flex items-start gap-3">
-              <div className="flex size-11 items-center justify-center rounded-full border bg-muted/60 text-primary">
+              <div className="tone-brand flex size-11 items-center justify-center rounded-full border">
                 <Shield className="size-4.5" />
               </div>
               <div className="min-w-0">

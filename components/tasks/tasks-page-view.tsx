@@ -32,21 +32,21 @@ export const TasksPageView = () => {
               value: runningCount,
               description: "Executions currently consuming cluster resources.",
               icon: CirclePlay,
-              tone: "amber",
+              tone: "warning",
             },
             {
               label: "Successful",
               value: successCount,
               description: "Completed tasks with a successful exit outcome.",
               icon: CircleCheckBig,
-              tone: "emerald",
+              tone: "success",
             },
             {
               label: "Failed",
               value: failedCount,
               description: "Workflows that require retry, rollback, or review.",
               icon: AlertTriangle,
-              tone: "rose",
+              tone: "danger",
             },
           ]}
         />

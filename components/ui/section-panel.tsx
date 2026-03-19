@@ -34,7 +34,7 @@ export const SectionPanel = ({
   return (
     <Card
       className={cn(
-        "overflow-hidden rounded-[24px] border",
+        "overflow-hidden rounded-2xl border",
         variants[variant],
         className,
       )}
@@ -42,18 +42,18 @@ export const SectionPanel = ({
       {hasHeader ? (
         <CardHeader
           className={cn(
-            "border-b border-border/80 px-5 py-4 sm:px-6",
+            "border-b border-border/80 bg-muted/20 px-5 py-4 sm:px-6",
             headerClassName,
           )}
         >
           <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
             <div className="min-w-0 space-y-1.5">
               {eyebrow ? (
-                <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+                <p className="text-[10px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
                   {eyebrow}
                 </p>
               ) : null}
-              {title ? <CardTitle className="text-lg">{title}</CardTitle> : null}
+              {title ? <CardTitle className="text-base font-semibold">{title}</CardTitle> : null}
               {description ? (
                 <CardDescription className="max-w-3xl">{description}</CardDescription>
               ) : null}

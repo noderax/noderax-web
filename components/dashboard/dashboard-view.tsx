@@ -63,21 +63,21 @@ export const DashboardView = () => {
                 value: overviewQuery.data.totals.onlineNodes,
                 description: "Hosts actively reporting recent state to the control plane.",
                 icon: ServerCog,
-                tone: "emerald",
+                tone: "success",
               },
               {
                 label: "Running tasks",
                 value: overviewQuery.data.totals.runningTasks,
                 description: "Executions currently consuming node capacity.",
                 icon: CirclePlay,
-                tone: "amber",
+                tone: "warning",
               },
               {
                 label: "Failed tasks",
                 value: overviewQuery.data.totals.failedTasks,
                 description: "Workflows that still need operator review or retry.",
                 icon: AlertTriangle,
-                tone: "rose",
+                tone: "danger",
               },
             ]}
           />

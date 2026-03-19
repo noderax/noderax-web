@@ -9,22 +9,22 @@ interface OverviewCardProps {
   value: number | string;
   description: string;
   icon: LucideIcon;
-  tone: "brand" | "emerald" | "amber" | "rose";
+  tone: "brand" | "success" | "warning" | "danger";
   delay?: number;
 }
 
 const tones = {
   brand: {
-    icon: "bg-primary/[0.08] text-primary",
+    icon: "tone-brand",
   },
-  emerald: {
-    icon: "bg-emerald-500/[0.08] text-emerald-800 dark:text-emerald-300",
+  success: {
+    icon: "tone-success",
   },
-  amber: {
-    icon: "bg-amber-500/[0.08] text-amber-800 dark:text-amber-300",
+  warning: {
+    icon: "tone-warning",
   },
-  rose: {
-    icon: "bg-rose-500/[0.08] text-rose-800 dark:text-rose-300",
+  danger: {
+    icon: "tone-danger",
   },
 };
 
@@ -48,7 +48,7 @@ export const OverviewCard = ({
           </p>
           <p className="text-3xl font-semibold tracking-tight">{value}</p>
         </div>
-        <div className={`rounded-xl border border-border/70 p-3 ${tones[tone].icon}`}>
+        <div className={`rounded-xl border p-3 ${tones[tone].icon}`}>
           <Icon className="size-5" />
         </div>
       </div>

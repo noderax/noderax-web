@@ -54,32 +54,32 @@ export const TaskDetailView = ({ id }: { id: string }) => {
             value: task.nodeName,
             description: task.node?.hostname ?? "Hostname unavailable",
             icon: ServerCog,
-            tone: "emerald",
+            tone: "success",
           },
           {
             label: "Latest output",
             value: task.lastOutput ?? "No output",
             description: "Most recent task message or error.",
-            tone: "amber",
+            tone: "warning",
           },
           {
             label: "Exit code",
             value: task.exitCode ?? "N/A",
             description: "Resolved from task result metadata.",
-            tone: "rose",
+            tone: "danger",
           },
         ]}
       />
 
       <Tabs defaultValue="logs" className="space-y-4">
-        <TabsList variant="line" className="w-fit gap-1 rounded-[14px] bg-muted/55 p-1">
-          <TabsTrigger value="logs" className="rounded-[10px] px-3 py-1.5 text-xs">
+        <TabsList variant="line" className="w-fit gap-1 rounded-xl bg-muted/70 p-1">
+          <TabsTrigger value="logs" className="rounded-lg px-3 py-1.5 text-xs">
             Live logs
           </TabsTrigger>
-          <TabsTrigger value="execution" className="rounded-[10px] px-3 py-1.5 text-xs">
+          <TabsTrigger value="execution" className="rounded-lg px-3 py-1.5 text-xs">
             Execution info
           </TabsTrigger>
-          <TabsTrigger value="events" className="rounded-[10px] px-3 py-1.5 text-xs">
+          <TabsTrigger value="events" className="rounded-lg px-3 py-1.5 text-xs">
             Related events
           </TabsTrigger>
         </TabsList>

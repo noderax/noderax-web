@@ -62,19 +62,19 @@ export const MetricsChart = ({
 
   return (
     <Card className="border">
-      <CardHeader className="border-b border-border/80">
+      <CardHeader className="border-b border-border/80 bg-muted/20">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
             <CardTitle>{title}</CardTitle>
             <CardDescription>{description}</CardDescription>
           </div>
           <Tabs value={metric} onValueChange={(value) => setMetric(value as keyof typeof chartConfig)}>
-            <TabsList variant="line" className="h-auto gap-1 rounded-[14px] bg-muted/55 p-1">
+            <TabsList variant="line" className="h-auto gap-1 rounded-xl bg-muted/70 p-1">
               {Object.keys(chartConfig).map((key) => (
                 <TabsTrigger
                   key={key}
                   value={key}
-                  className="rounded-[10px] px-3 py-1.5 text-xs"
+                  className="rounded-lg px-3 py-1.5 text-xs"
                 >
                   {chartConfig[key as keyof typeof chartConfig].label}
                 </TabsTrigger>
@@ -95,7 +95,7 @@ export const MetricsChart = ({
           <>
             <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
               <div className="flex items-center gap-3">
-                <div className="flex size-11 items-center justify-center rounded-full border bg-muted/60 text-primary">
+                <div className="tone-brand flex size-11 items-center justify-center rounded-xl border">
                   <MetricIcon className="size-4.5" />
                 </div>
                 <div>
@@ -112,7 +112,7 @@ export const MetricsChart = ({
                     ["Memory", latestPoint.memory],
                     ["Disk", latestPoint.disk],
                   ] as const).map(([label, value]) => (
-                    <div key={label} className="surface-subtle rounded-[16px] border px-3 py-2">
+                    <div key={label} className="surface-subtle rounded-xl border px-3 py-2">
                       <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
                         {label}
                       </p>

@@ -63,19 +63,19 @@ export function MagicCard(props: MagicCardProps) {
     children,
     className,
     gradientSize = 220,
-    gradientColor = "rgba(127, 29, 29, 0.18)",
+    gradientColor = "rgba(185, 28, 28, 0.16)",
     gradientOpacity = 0.72,
-    gradientFrom = "rgba(248, 113, 113, 0.9)",
-    gradientTo = "rgba(127, 29, 29, 0.3)",
+    gradientFrom = "rgba(248, 113, 113, 0.72)",
+    gradientTo = "rgba(69, 10, 10, 0.24)",
     mode = "gradient",
   } = props;
 
   const glowFrom = isOrbMode(props)
-    ? props.glowFrom ?? "rgba(239, 68, 68, 0.48)"
-    : "rgba(239, 68, 68, 0.48)";
+    ? props.glowFrom ?? "rgba(239, 68, 68, 0.4)"
+    : "rgba(239, 68, 68, 0.4)";
   const glowTo = isOrbMode(props)
-    ? props.glowTo ?? "rgba(127, 29, 29, 0.18)"
-    : "rgba(127, 29, 29, 0.18)";
+    ? props.glowTo ?? "rgba(69, 10, 10, 0.14)"
+    : "rgba(69, 10, 10, 0.14)";
   const glowAngle = isOrbMode(props) ? props.glowAngle ?? 90 : 90;
   const glowSize = isOrbMode(props) ? props.glowSize ?? 420 : 420;
   const glowBlur = isOrbMode(props) ? props.glowBlur ?? 60 : 60;

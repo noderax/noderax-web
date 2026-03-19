@@ -20,7 +20,7 @@ const getEventHref = (event: EventRecord) => {
 
 export const RecentEventsFeed = ({ events }: { events: EventRecord[] }) => (
   <Card className="border">
-    <CardHeader className="border-b border-border/80">
+    <CardHeader className="border-b border-border/80 bg-muted/20">
       <CardTitle>Recent events</CardTitle>
       <CardDescription>
         Alerts, state changes, and task transitions ordered by recency.
@@ -33,7 +33,7 @@ export const RecentEventsFeed = ({ events }: { events: EventRecord[] }) => (
             <Link
               key={event.id}
               href={getEventHref(event)}
-              className="flex items-start gap-3 px-5 py-4 transition hover:bg-muted/35"
+              className="flex items-start gap-3 px-5 py-4 transition hover:bg-muted/25"
             >
               <div className="pt-0.5">
                 <SeverityBadge severity={event.severity} />
