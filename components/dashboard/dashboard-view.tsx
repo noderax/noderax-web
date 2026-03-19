@@ -2,7 +2,7 @@
 
 import { AlertTriangle, Boxes, CirclePlay, ServerCog } from "lucide-react";
 
-import { MetricsChart } from "@/components/dashboard/metrics-chart";
+import { NodeTelemetryBoard } from "@/components/dashboard/node-telemetry-board";
 import { RecentEventsFeed } from "@/components/dashboard/recent-events-feed";
 import { EmptyState } from "@/components/empty-state";
 import { AppShell } from "@/components/layout/app-shell";
@@ -82,55 +82,58 @@ export const DashboardView = () => {
             ]}
           />
 
-          <div className="grid gap-6 xl:grid-cols-[1.55fr_0.95fr]">
-            <MetricsChart data={overviewQuery.data.metricSeries} />
-            <RecentEventsFeed events={overviewQuery.data.recentEvents} />
-          </div>
+          <NodeTelemetryBoard nodes={overviewQuery.data.nodes} />
 
-          <SectionPanel
-            eyebrow="Fleet Snapshot"
-            title="Recent node activity"
-            description="A concise view of the nodes contributing the most recent telemetry."
-            contentClassName="p-0"
-          >
-            <Table>
-              <TableHeader>
-                <TableRow className="hover:bg-transparent">
-                  <TableHead>Name</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>CPU</TableHead>
-                  <TableHead>Memory</TableHead>
-                  <TableHead>Last seen</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {overviewQuery.data.nodes.slice(0, 6).map((node) => (
-                  <TableRow key={node.id}>
-                    <TableCell>
-                      <div>
-                        <p className="font-medium">{node.name}</p>
-                        <p className="text-xs text-muted-foreground">{node.hostname}</p>
-                      </div>
-                    </TableCell>
-                    <TableCell className="capitalize text-muted-foreground">
-                      {node.status}
-                    </TableCell>
-                    <TableCell>{node.latestMetric ? `${node.latestMetric.cpu}%` : "N/A"}</TableCell>
-                    <TableCell>
-                      {node.latestMetric ? `${node.latestMetric.memory}%` : "N/A"}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      <TimeDisplay
-                        value={node.lastSeenAt}
-                        mode="relative"
-                        emptyLabel="Never"
-                      />
-                    </TableCell>
+          <div className="grid gap-6 xl:grid-cols-[0.92fr_1.08fr]">
+            <RecentEventsFeed events={overviewQuery.data.recentEvents} />
+
+            <SectionPanel
+              eyebrow="Fleet Snapshot"
+              title="Recent node activity"
+              description="A concise view of the nodes contributing the most recent telemetry."
+              contentClassName="p-0"
+            >
+              <Table>
+                <TableHeader>
+                  <TableRow className="hover:bg-transparent">
+                    <TableHead>Name</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>CPU</TableHead>
+                    <TableHead>Memory</TableHead>
+                    <TableHead>Last seen</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </SectionPanel>
+                </TableHeader>
+                <TableBody>
+                  {overviewQuery.data.nodes.slice(0, 6).map((node) => (
+                    <TableRow key={node.id}>
+                      <TableCell>
+                        <div>
+                          <p className="font-medium">{node.name}</p>
+                          <p className="text-xs text-muted-foreground">{node.hostname}</p>
+                        </div>
+                      </TableCell>
+                      <TableCell className="capitalize text-muted-foreground">
+                        {node.status}
+                      </TableCell>
+                      <TableCell>
+                        {node.latestMetric ? `${node.latestMetric.cpu}%` : "N/A"}
+                      </TableCell>
+                      <TableCell>
+                        {node.latestMetric ? `${node.latestMetric.memory}%` : "N/A"}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">
+                        <TimeDisplay
+                          value={node.lastSeenAt}
+                          mode="relative"
+                          emptyLabel="Never"
+                        />
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </SectionPanel>
+          </div>
         </div>
       ) : null}
     </AppShell>

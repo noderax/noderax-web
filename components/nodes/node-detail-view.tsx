@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Network, Timer } from "lucide-react";
 
 import { DeleteNodeDialog } from "@/components/nodes/delete-node-dialog";
+import { NodeOsIcon } from "@/components/nodes/node-os-icon";
 import { MetricsChart } from "@/components/dashboard/metrics-chart";
 import { EmptyState } from "@/components/empty-state";
 import { AppShell } from "@/components/layout/app-shell";
@@ -54,11 +55,21 @@ export const NodeDetailView = ({ id }: { id: string }) => {
   return (
     <AppShell>
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-        <div className="min-w-0">
+        <div className="flex min-w-0 items-start gap-3">
+          <div className="surface-subtle flex size-12 shrink-0 items-center justify-center rounded-2xl border">
+            <NodeOsIcon os={node.os} className="size-6" />
+          </div>
+          <div className="min-w-0">
           <h1 className="truncate text-2xl font-semibold tracking-tight">{node.name}</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {node.hostname} • {node.os} / {node.arch}
+          <p className="mt-1 flex items-center gap-2 text-sm text-muted-foreground">
+            <span>{node.hostname}</span>
+            <span>•</span>
+            <span className="inline-flex items-center gap-1.5">
+              <NodeOsIcon os={node.os} className="size-4" />
+              {node.os} / {node.arch}
+            </span>
           </p>
+        </div>
         </div>
         {isAdmin ? (
           <DeleteNodeDialog

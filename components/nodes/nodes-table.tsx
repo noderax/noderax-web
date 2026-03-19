@@ -5,6 +5,7 @@ import { useState } from "react";
 import { ExternalLink, MonitorCog } from "lucide-react";
 
 import { DeleteNodeDialog } from "@/components/nodes/delete-node-dialog";
+import { NodeOsIcon } from "@/components/nodes/node-os-icon";
 import { EmptyState } from "@/components/empty-state";
 import { NodeStatusBadge } from "@/components/nodes/node-status-badge";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -201,7 +202,12 @@ export const NodesTable = ({
                 <TimeDisplay value={node.lastSeenAt} mode="relative" emptyLabel="Never" />
               </TableCell>
               <TableCell className="text-muted-foreground">
-                {node.os} / {node.arch}
+                <div className="flex items-center gap-2">
+                  <NodeOsIcon os={node.os} className="size-4" />
+                  <span>
+                    {node.os} / {node.arch}
+                  </span>
+                </div>
               </TableCell>
               <TableCell>{node.latestMetric ? `${node.latestMetric.cpu}%` : "N/A"}</TableCell>
               <TableCell className="text-right">
@@ -225,7 +231,10 @@ export const NodesTable = ({
                           <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
                             Runtime
                           </p>
-                          <p className="mt-2 text-sm font-medium">{node.os}</p>
+                          <div className="mt-2 flex items-center gap-2">
+                            <NodeOsIcon os={node.os} className="size-4.5" />
+                            <p className="text-sm font-medium">{node.os}</p>
+                          </div>
                           <p className="text-sm text-muted-foreground">{node.arch}</p>
                         </div>
                         <div className="surface-subtle rounded-[16px] border p-4">
