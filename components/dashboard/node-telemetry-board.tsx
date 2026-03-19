@@ -21,6 +21,7 @@ import { Button } from "@/components/ui/button";
 import { MagicCard } from "@/components/ui/magic-card";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { TimeDisplay } from "@/components/ui/time-display";
 import type { NodeSummary } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -77,6 +78,7 @@ const serverLights = ["bg-primary", "bg-[var(--semantic-success)]", "bg-[var(--s
 
 export const NodeTelemetryBoard = ({ nodes }: { nodes: NodeSummary[] }) => {
   const [pageIndex, setPageIndex] = useState(0);
+  const [mobileNodeId, setMobileNodeId] = useState<string | null>(null);
   const sortedNodes = useMemo(() => sortNodes(nodes), [nodes]);
   const pages = useMemo(() => chunkNodes(sortedNodes, PAGE_SIZE), [sortedNodes]);
   const lastPageIndex = Math.max(pages.length - 1, 0);
@@ -84,6 +86,8 @@ export const NodeTelemetryBoard = ({ nodes }: { nodes: NodeSummary[] }) => {
   const currentNodes = pages[currentPageIndex] ?? [];
   const rangeStart = currentPageIndex * PAGE_SIZE + 1;
   const rangeEnd = currentPageIndex * PAGE_SIZE + currentNodes.length;
+  const activeMobileNode =
+    sortedNodes.find((node) => node.id === mobileNodeId) ?? sortedNodes[0] ?? null;
 
   return (
     <Card className="border">
@@ -97,38 +101,213 @@ export const NodeTelemetryBoard = ({ nodes }: { nodes: NodeSummary[] }) => {
           </div>
 
           {pages.length ? (
-            <div className="flex items-center gap-2">
-              <div className="rounded-full border px-3 py-1.5 text-xs text-muted-foreground">
-                {rangeStart}-{rangeEnd} of {sortedNodes.length}
+            <>
+              <div className="w-fit rounded-full border px-3 py-1.5 text-xs text-muted-foreground md:hidden">
+                {sortedNodes.length} nodes
               </div>
-              <Button
-                variant="outline"
-                size="icon-sm"
-                onClick={() => setPageIndex((current) => Math.max(0, current - 1))}
-                disabled={currentPageIndex === 0}
-                aria-label="Previous node group"
-              >
-                <ChevronLeft className="size-4" />
-              </Button>
-              <Button
-                variant="outline"
-                size="icon-sm"
-                onClick={() =>
-                  setPageIndex((current) => Math.min(lastPageIndex, current + 1))
-                }
-                disabled={currentPageIndex >= lastPageIndex}
-                aria-label="Next node group"
-              >
-                <ChevronRight className="size-4" />
-              </Button>
-            </div>
+              <div className="hidden items-center gap-2 md:flex">
+                <div className="rounded-full border px-3 py-1.5 text-xs text-muted-foreground">
+                  {rangeStart}-{rangeEnd} of {sortedNodes.length}
+                </div>
+                <Button
+                  variant="outline"
+                  size="icon-sm"
+                  onClick={() => setPageIndex((current) => Math.max(0, current - 1))}
+                  disabled={currentPageIndex === 0}
+                  aria-label="Previous node group"
+                >
+                  <ChevronLeft className="size-4" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="icon-sm"
+                  onClick={() =>
+                    setPageIndex((current) => Math.min(lastPageIndex, current + 1))
+                  }
+                  disabled={currentPageIndex >= lastPageIndex}
+                  aria-label="Next node group"
+                >
+                  <ChevronRight className="size-4" />
+                </Button>
+              </div>
+            </>
           ) : null}
         </div>
       </CardHeader>
       <CardContent className="space-y-5">
         {currentNodes.length ? (
           <>
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <div className="space-y-4 md:hidden">
+              <div className="space-y-2">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                  Select node
+                </p>
+                <ScrollArea className="w-full">
+                  <div className="flex w-max gap-2 pb-2">
+                    {sortedNodes.map((node) => (
+                      <button
+                        key={node.id}
+                        type="button"
+                        onClick={() => setMobileNodeId(node.id)}
+                        aria-pressed={activeMobileNode?.id === node.id}
+                        className={cn(
+                          "flex items-center gap-2 rounded-full border px-3 py-2 text-sm transition-colors",
+                          activeMobileNode?.id === node.id
+                            ? "tone-brand"
+                            : "surface-subtle text-foreground",
+                        )}
+                      >
+                        <span
+                          className={cn(
+                            "size-2 rounded-full",
+                            node.status === "online"
+                              ? "bg-[var(--semantic-success)]"
+                              : "bg-destructive",
+                          )}
+                        />
+                        <span className="font-medium">{node.name}</span>
+                      </button>
+                    ))}
+                  </div>
+                </ScrollArea>
+              </div>
+
+              {activeMobileNode ? (
+                <Link href={`/nodes/${activeMobileNode.id}`} className="block">
+                  <MagicCard
+                    className="rounded-[22px]"
+                    gradientSize={180}
+                    gradientOpacity={0.42}
+                    gradientColor="rgba(220, 38, 38, 0.08)"
+                    gradientFrom="rgba(248, 113, 113, 0.42)"
+                    gradientTo="rgba(69, 10, 10, 0.12)"
+                  >
+                    <div className="surface-subtle relative overflow-hidden rounded-[22px] border p-4">
+                      <GridPattern className="opacity-18 [mask-image:linear-gradient(180deg,black,transparent_78%)]" />
+                      {activeMobileNode.status === "online" ? (
+                        <ShineBorder
+                          className="opacity-35"
+                          shineColor={["#f87171", "#dc2626", "#7f1d1d"]}
+                          duration={18}
+                        />
+                      ) : null}
+
+                      <div className="relative z-10 space-y-4">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex min-w-0 items-start gap-3">
+                            <div
+                              className={cn(
+                                "flex size-11 shrink-0 items-center justify-center rounded-2xl border",
+                                activeMobileNode.status === "online"
+                                  ? "tone-brand"
+                                  : "tone-neutral",
+                              )}
+                            >
+                              <NodeOsIcon os={activeMobileNode.os} className="size-5" />
+                            </div>
+                            <div className="min-w-0">
+                              <p className="truncate font-semibold tracking-tight">
+                                {activeMobileNode.name}
+                              </p>
+                              <p className="truncate text-xs text-muted-foreground">
+                                {activeMobileNode.hostname}
+                              </p>
+                            </div>
+                          </div>
+                          <NodeStatusBadge status={activeMobileNode.status} />
+                        </div>
+
+                        <div className="grid grid-cols-3 gap-2">
+                          {metricRows.map((metric) => {
+                            const value = activeMobileNode.latestMetric?.[metric.key];
+                            const MetricIcon = metric.icon;
+
+                            return (
+                              <div
+                                key={metric.key}
+                                className="rounded-2xl border border-border/70 bg-background/72 px-3 py-3"
+                              >
+                                <div className="flex items-center gap-2">
+                                  <MetricIcon className="size-3.5 text-muted-foreground" />
+                                  <span className="text-[11px] font-medium text-muted-foreground">
+                                    {metric.label}
+                                  </span>
+                                </div>
+                                <p className="mt-2 text-sm font-semibold text-foreground">
+                                  {typeof value === "number" ? `${value}%` : "N/A"}
+                                </p>
+                                <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted/90">
+                                  <div
+                                    className={`h-full rounded-full transition-[width] ${metric.toneClassName}`}
+                                    style={{
+                                      width: `${Math.max(
+                                        0,
+                                        Math.min(100, value ?? 0),
+                                      )}%`,
+                                    }}
+                                  />
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+
+                        <div className="grid gap-2 sm:grid-cols-2">
+                          <div className="rounded-2xl border border-border/70 bg-background/62 px-3 py-3">
+                            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                              Runtime
+                            </p>
+                            <div className="mt-2 flex flex-wrap gap-2">
+                              <Badge
+                                variant="outline"
+                                className="rounded-full px-2.5 py-1 text-[10px] font-medium"
+                              >
+                                <NodeOsIcon os={activeMobileNode.os} className="size-3.5" />
+                                {activeMobileNode.os}
+                              </Badge>
+                              <Badge
+                                variant="outline"
+                                className="rounded-full px-2.5 py-1 text-[10px] font-medium"
+                              >
+                                {activeMobileNode.arch}
+                              </Badge>
+                            </div>
+                          </div>
+
+                          <div className="rounded-2xl border border-border/70 bg-background/62 px-3 py-3">
+                            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                              Last seen
+                            </p>
+                            <TimeDisplay
+                              value={activeMobileNode.lastSeenAt}
+                              mode="relative"
+                              emptyLabel="Never"
+                              className="mt-2 block font-medium text-foreground"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-between rounded-2xl border border-border/70 bg-background/60 px-3 py-3">
+                          <div>
+                            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                              Node details
+                            </p>
+                            <p className="mt-1 text-xs font-medium text-foreground">
+                              Open full telemetry and task context
+                            </p>
+                          </div>
+                          <div className="tone-brand flex size-9 items-center justify-center rounded-2xl border">
+                            <ChevronRight className="size-4" />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </MagicCard>
+                </Link>
+              ) : null}
+            </div>
+
+            <div className="hidden gap-4 md:grid md:grid-cols-2 xl:grid-cols-4">
               {currentNodes.map((node) => (
                 <Link
                   key={node.id}
@@ -302,7 +481,7 @@ export const NodeTelemetryBoard = ({ nodes }: { nodes: NodeSummary[] }) => {
             </div>
 
             {pages.length > 1 ? (
-              <div className="flex flex-col gap-3 border-t border-border/80 pt-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="hidden flex-col gap-3 border-t border-border/80 pt-4 md:flex md:flex-row md:items-center md:justify-between">
                 <div className="flex items-center gap-2">
                   {pages.map((_, index) => (
                     <button
