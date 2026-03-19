@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useEffectEvent } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { type QueryClient, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 import { mapEventRecord, mapMetricDtoToPoint } from "@/lib/noderax";
@@ -16,6 +16,60 @@ const prependUnique = <T extends { id: string }>(items: T[] | undefined, value: 
     (item, index, collection) =>
       collection.findIndex((candidate) => candidate.id === item.id) === index,
   );
+};
+
+const updateDashboardNodes = (
+  current: DashboardOverview | undefined,
+  updater: (node: NodeSummary) => NodeSummary,
+) => {
+  if (!current) {
+    return current;
+  }
+
+  const nextNodes = current.nodes.map(updater);
+
+  return {
+    ...current,
+    nodes: nextNodes,
+    totals: {
+      ...current.totals,
+      onlineNodes: nextNodes.filter((node) => node.status === "online").length,
+    },
+  };
+};
+
+const collectTrackedNodeIds = (queryClient: QueryClient) => {
+  const trackedNodeIds = new Set<string>();
+
+  queryClient
+    .getQueriesData<NodeSummary[]>({ queryKey: ["nodes", "list"] })
+    .forEach(([, nodes]) => {
+      nodes?.forEach((node) => trackedNodeIds.add(node.id));
+    });
+
+  queryClient
+    .getQueriesData<NodeDetail>({ queryKey: ["nodes", "detail"] })
+    .forEach(([, node]) => {
+      if (node) {
+        trackedNodeIds.add(node.id);
+      }
+    });
+
+  queryClient
+    .getQueriesData<TaskDetail>({ queryKey: ["tasks", "detail"] })
+    .forEach(([, task]) => {
+      if (task?.node?.id) {
+        trackedNodeIds.add(task.node.id);
+      }
+    });
+
+  queryClient
+    .getQueriesData<DashboardOverview>({ queryKey: queryKeys.dashboard.overview })
+    .forEach(([, overview]) => {
+      overview?.nodes.forEach((node) => trackedNodeIds.add(node.id));
+    });
+
+  return trackedNodeIds;
 };
 
 export const useRealtimeBridge = () => {
@@ -50,6 +104,35 @@ export const useRealtimeBridge = () => {
               }
             : current,
       );
+
+      queryClient.setQueryData<DashboardOverview | undefined>(
+        queryKeys.dashboard.overview,
+        (current) =>
+          updateDashboardNodes(current, (node) =>
+            node.id === message.data.nodeId
+              ? {
+                  ...node,
+                  status: message.data.status,
+                  lastSeenAt: message.data.lastSeenAt,
+                }
+              : node,
+          ),
+      );
+
+      queryClient.setQueriesData<TaskDetail | undefined>(
+        { queryKey: ["tasks", "detail"] },
+        (current) =>
+          current?.node?.id === message.data.nodeId
+            ? {
+                ...current,
+                node: {
+                  ...current.node,
+                  status: message.data.status,
+                  lastSeenAt: message.data.lastSeenAt,
+                },
+              }
+            : current,
+      );
     }
 
     if (message.type === "metrics.ingested") {
@@ -79,6 +162,33 @@ export const useRealtimeBridge = () => {
                 metrics: [...current.metrics, point]
                   .sort((left, right) => left.timestamp.localeCompare(right.timestamp))
                   .slice(-24),
+              }
+            : current,
+      );
+
+      queryClient.setQueryData<DashboardOverview | undefined>(
+        queryKeys.dashboard.overview,
+        (current) =>
+          updateDashboardNodes(current, (node) =>
+            node.id === message.data.nodeId
+              ? {
+                  ...node,
+                  latestMetric: point,
+                }
+              : node,
+          ),
+      );
+
+      queryClient.setQueriesData<TaskDetail | undefined>(
+        { queryKey: ["tasks", "detail"] },
+        (current) =>
+          current?.node?.id === message.data.nodeId
+            ? {
+                ...current,
+                node: {
+                  ...current.node,
+                  latestMetric: point,
+                },
               }
             : current,
       );
@@ -166,6 +276,44 @@ export const useRealtimeBridge = () => {
       unsubscribeStatus();
     };
   }, [session, setRealtimeStatus]);
+
+  useEffect(() => {
+    if (!session?.user.id) {
+      return;
+    }
+
+    const client = getRealtimeClient();
+    const subscribedNodeIds = new Set<string>();
+
+    const syncNodeSubscriptions = () => {
+      const nextNodeIds = collectTrackedNodeIds(queryClient);
+
+      subscribedNodeIds.forEach((nodeId) => {
+        if (!nextNodeIds.has(nodeId)) {
+          client.unsubscribeNode(nodeId);
+          subscribedNodeIds.delete(nodeId);
+        }
+      });
+
+      nextNodeIds.forEach((nodeId) => {
+        if (!subscribedNodeIds.has(nodeId)) {
+          client.subscribeNode(nodeId);
+          subscribedNodeIds.add(nodeId);
+        }
+      });
+    };
+
+    syncNodeSubscriptions();
+
+    const unsubscribeCache = queryClient.getQueryCache().subscribe(() => {
+      syncNodeSubscriptions();
+    });
+
+    return () => {
+      unsubscribeCache();
+      subscribedNodeIds.forEach((nodeId) => client.unsubscribeNode(nodeId));
+    };
+  }, [queryClient, session?.user.id]);
 };
 
 export const useNodeRealtimeSubscription = (nodeId: string | null | undefined) => {

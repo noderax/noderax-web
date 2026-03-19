@@ -6,6 +6,7 @@ import { NodeTelemetryBoard } from "@/components/dashboard/node-telemetry-board"
 import { RecentEventsFeed } from "@/components/dashboard/recent-events-feed";
 import { EmptyState } from "@/components/empty-state";
 import { AppShell } from "@/components/layout/app-shell";
+import { NodeStatusBadge } from "@/components/nodes/node-status-badge";
 import { SectionPanel } from "@/components/ui/section-panel";
 import { Skeleton } from "@/components/ui/skeleton";
 import { StatStrip } from "@/components/ui/stat-strip";
@@ -112,8 +113,8 @@ export const DashboardView = () => {
                           <p className="text-xs text-muted-foreground">{node.hostname}</p>
                         </div>
                       </TableCell>
-                      <TableCell className="capitalize text-muted-foreground">
-                        {node.status}
+                      <TableCell>
+                        <NodeStatusBadge status={node.status} />
                       </TableCell>
                       <TableCell>
                         {node.latestMetric ? `${node.latestMetric.cpu}%` : "N/A"}

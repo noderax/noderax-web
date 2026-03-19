@@ -5,6 +5,7 @@ import { Binary, FolderTree, ServerCog, ShieldAlert } from "lucide-react";
 
 import { EmptyState } from "@/components/empty-state";
 import { AppShell } from "@/components/layout/app-shell";
+import { NodeStatusBadge } from "@/components/nodes/node-status-badge";
 import { SeverityBadge } from "@/components/severity-badge";
 import { TaskLogStream } from "@/components/tasks/task-log-stream";
 import { Badge } from "@/components/ui/badge";
@@ -155,6 +156,7 @@ export const TaskDetailView = ({ id }: { id: string }) => {
                 <Badge variant="outline" className="rounded-full px-3 py-1">
                   Node: {task.nodeName}
                 </Badge>
+                {task.node ? <NodeStatusBadge status={task.node.status} /> : null}
                 <Badge variant="outline" className="rounded-full px-3 py-1">
                   Status: {task.status}
                 </Badge>
