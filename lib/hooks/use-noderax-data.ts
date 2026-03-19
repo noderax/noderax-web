@@ -45,7 +45,7 @@ export const queryKeys = {
 export const useDashboardOverview = () =>
   useQuery({
     queryKey: queryKeys.dashboard.overview,
-    queryFn: apiClient.getDashboardOverview,
+    queryFn: () => apiClient.getDashboardOverview(),
     staleTime: 15_000,
   });
 
