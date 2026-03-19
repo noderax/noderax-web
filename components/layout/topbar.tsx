@@ -172,6 +172,7 @@ export const Topbar = () => {
           <div className="relative hidden w-[280px] md:block lg:w-[360px]">
             <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input
+              id="workspace-search-input"
               value={searchQuery}
               onChange={(event) => setSearchQuery(event.target.value)}
               placeholder="Search nodes, tasks, and events..."
@@ -180,7 +181,10 @@ export const Topbar = () => {
           </div>
           <ThemeToggle />
           <DropdownMenu>
-            <DropdownMenuTrigger className="control-surface flex h-10 items-center gap-3 rounded-xl border px-2.5 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+            <DropdownMenuTrigger
+              id="account-menu-trigger"
+              className="control-surface flex h-10 items-center gap-3 rounded-xl border px-2.5 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
               <Avatar className="size-8.5 border border-border/70">
                 <AvatarFallback>{initials}</AvatarFallback>
               </Avatar>

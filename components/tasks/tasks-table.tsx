@@ -56,6 +56,8 @@ export const TasksTable = ({
   hasNextPage: boolean;
   createAction?: React.ReactNode;
 }) => {
+  const selectedNode = nodes.find((node) => node.id === nodeFilter);
+
   const statusControl = (
     <Select
       value={statusFilter}
@@ -78,7 +80,9 @@ export const TasksTable = ({
   const nodeControl = (
     <Select value={nodeFilter} onValueChange={(value) => onNodeFilterChange(value ?? "all")}>
       <SelectTrigger className="min-w-52">
-        <SelectValue placeholder="Filter node" />
+        <SelectValue placeholder="Filter node">
+          {nodeFilter === "all" ? "All nodes" : selectedNode?.name}
+        </SelectValue>
       </SelectTrigger>
       <SelectContent>
         <SelectItem value="all">All nodes</SelectItem>

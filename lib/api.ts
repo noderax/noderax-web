@@ -15,9 +15,12 @@ import type {
   CreateUserPayload,
   DashboardOverview,
   DeleteNodeResponse,
+  EnrollmentStatusResponse,
   EventDto,
   EventFilters,
   EventRecord,
+  FinalizeEnrollmentPayload,
+  FinalizeEnrollmentResponse,
   InstallPackagesPayload,
   LoginPayload,
   MetricDto,
@@ -185,6 +188,20 @@ export const apiClient = {
       method: "POST",
       body: JSON.stringify(payload),
     });
+  },
+  finalizeNodeEnrollment(token: string, payload: FinalizeEnrollmentPayload) {
+    return request<FinalizeEnrollmentResponse>(
+      `/api/proxy/enrollments/${encodeURIComponent(token)}/finalize`,
+      {
+        method: "POST",
+        body: JSON.stringify(payload),
+      },
+    );
+  },
+  checkEnrollmentStatus(token: string) {
+    return request<EnrollmentStatusResponse>(
+      `/api/proxy/enrollments/${encodeURIComponent(token)}`,
+    );
   },
   getNode(id: string) {
     return request<NodeDto>(`/api/proxy/nodes/${id}`);

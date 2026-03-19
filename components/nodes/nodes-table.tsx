@@ -66,7 +66,7 @@ export const NodesTable = ({
       value={statusFilter}
       onValueChange={(value) => onStatusFilterChange((value ?? "all") as typeof statusFilter)}
     >
-      <SelectTrigger className="min-w-40">
+      <SelectTrigger id="node-status-filter" className="min-w-40">
         <SelectValue placeholder="Filter status" />
       </SelectTrigger>
       <SelectContent>

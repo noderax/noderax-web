@@ -9,6 +9,8 @@ import type {
   CreateTaskPayload,
   CreateUserPayload,
   EventFilters,
+  FinalizeEnrollmentPayload,
+  FinalizeEnrollmentResponse,
   InstallPackagesPayload,
   MetricFilters,
   NodeFilters,
@@ -41,6 +43,9 @@ export const queryKeys = {
   },
   metrics: {
     all: (filters?: MetricFilters) => ["metrics", "list", filters ?? {}] as const,
+  },
+  enrollments: {
+    status: (token: string) => ["enrollments", "status", token] as const,
   },
   packages: {
     installed: (nodeId: string) => ["packages", "installed", nodeId] as const,
@@ -123,6 +128,17 @@ export const useMetrics = (filters?: MetricFilters) =>
     staleTime: 10_000,
   });
 
+export const useCheckEnrollment = (token: string) => {
+  const normalizedToken = token.trim();
+
+  return useQuery({
+    queryKey: queryKeys.enrollments.status(normalizedToken),
+    queryFn: () => apiClient.checkEnrollmentStatus(normalizedToken),
+    enabled: normalizedToken.length >= 8,
+    staleTime: 5_000,
+  });
+};
+
 export const useNodePackages = (nodeId: string) =>
   useQuery({
     queryKey: queryKeys.packages.installed(nodeId),
@@ -168,6 +184,11 @@ const invalidatePackageQueries = async (
       refetchType: "active",
     }),
   ]);
+};
+
+type FinalizeEnrollmentMutationInput = {
+  token: string;
+  payload: FinalizeEnrollmentPayload;
 };
 
 export const useCreateUser = () => {
@@ -291,6 +312,40 @@ export const useCreateTask = () => {
       toast.error("Unable to create task", {
         description: readMutationError(error),
       });
+    },
+  });
+};
+
+export const useFinalizeEnrollment = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ token, payload }: FinalizeEnrollmentMutationInput) =>
+      apiClient.finalizeNodeEnrollment(token, payload),
+    onSuccess: async (
+      enrollment: FinalizeEnrollmentResponse,
+      variables: FinalizeEnrollmentMutationInput,
+    ) => {
+      toast.success("Node enrolled", {
+        description: `${variables.payload.nodeName} was added to the control plane inventory.`,
+      });
+
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: ["nodes", "list"],
+          refetchType: "active",
+        }),
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.dashboard.overview,
+          refetchType: "active",
+        }),
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.nodes.detail(enrollment.nodeId),
+          refetchType: "active",
+        }),
+      ]);
+
+      return enrollment;
     },
   });
 };

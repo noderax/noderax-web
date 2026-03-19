@@ -3,6 +3,7 @@ export type TaskStatus = "queued" | "running" | "success" | "failed" | "cancelle
 export type EventSeverity = "info" | "warning" | "critical";
 export type TaskLogLevel = "info" | "stdout" | "stderr" | "error";
 export type UserRole = "admin" | "user";
+export type EnrollmentStatus = "pending" | "approved" | "revoked";
 export type RealtimeStatus =
   | "idle"
   | "connecting"
@@ -221,6 +222,24 @@ export interface RemovePackagePayload {
   nodeId: string;
   name: string;
   purge?: boolean;
+}
+
+export interface FinalizeEnrollmentPayload {
+  email: string;
+  nodeName: string;
+  description?: string;
+}
+
+export interface FinalizeEnrollmentResponse {
+  nodeId: string;
+  agentToken: string;
+}
+
+export interface EnrollmentStatusResponse {
+  status: EnrollmentStatus;
+  nodeId?: string | null;
+  agentToken?: string | null;
+  expiresAt?: string | null;
 }
 
 export interface DeleteNodeResponse {

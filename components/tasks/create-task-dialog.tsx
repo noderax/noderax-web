@@ -66,6 +66,7 @@ export const CreateTaskDialog = ({ nodes }: { nodes: NodeSummary[] }) => {
     control: form.control,
     name: "nodeId",
   });
+  const selectedNode = nodes.find((node) => node.id === nodeIdValue);
 
   const onSubmit = form.handleSubmit(async (values) => {
     setSubmissionError(null);
@@ -121,7 +122,11 @@ export const CreateTaskDialog = ({ nodes }: { nodes: NodeSummary[] }) => {
               }
             >
               <SelectTrigger id="task-node" className="w-full">
-                <SelectValue placeholder="Select a node" />
+                <SelectValue placeholder="Select a node">
+                  {selectedNode
+                    ? `${selectedNode.name} (${selectedNode.hostname})`
+                    : undefined}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 {nodes.map((node) => (
