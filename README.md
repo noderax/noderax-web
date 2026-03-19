@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="./public/logo.webp" alt="Noderax" width="120" />
+  <img src="./public/logo.webp" alt="Noderax" width="168" />
 </p>
 
 <h1 align="center">Noderax Web</h1>
@@ -195,16 +195,18 @@ Important notes:
 
 ## Local Development
 
+This repository uses `pnpm` as its package manager.
+
 Install dependencies:
 
 ```bash
-npm install
+pnpm install
 ```
 
 Start the development server:
 
 ```bash
-npm run dev
+pnpm dev
 ```
 
 By default:
@@ -213,18 +215,18 @@ By default:
 - backend target: whatever is configured in `NODERAX_API_URL`
 
 Note:
-`npm run dev` uses port `3000` by default for the frontend. If your API runs as
+`pnpm dev` uses port `3000` by default for the frontend. If your API runs as
 a separate local service, update `NODERAX_API_URL` to its real address. If you
 are using a reverse proxy on the same origin, the example values can remain as
 they are.
 
-## NPM Scripts
+## PNPM Scripts
 
-- `npm run dev` - start the development server
-- `npm run build` - create a production build
-- `npm run start` - start the production server
-- `npm run lint` - run ESLint
-- `npm run typecheck` - run TypeScript checks
+- `pnpm dev` - start the development server
+- `pnpm build` - create a production build
+- `pnpm start` - start the production server
+- `pnpm lint` - run ESLint
+- `pnpm typecheck` - run TypeScript checks
 
 ## Directory Structure
 
@@ -289,9 +291,9 @@ The UI hides admin-only actions for non-admin users.
 Recommended project checks:
 
 ```bash
-npm run lint
-npm run typecheck
-npm run build
+pnpm lint
+pnpm typecheck
+pnpm build
 ```
 
 ## Development Notes
