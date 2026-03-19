@@ -4,7 +4,6 @@ import { BellRing, RefreshCcw } from "lucide-react";
 
 import { EmptyState } from "@/components/empty-state";
 import { AppShell } from "@/components/layout/app-shell";
-import { PageHeader } from "@/components/layout/page-header";
 import { SeverityBadge } from "@/components/severity-badge";
 import { Button } from "@/components/ui/button";
 import { SectionPanel } from "@/components/ui/section-panel";
@@ -31,35 +30,14 @@ export default function EventsPage() {
     limit: 50,
   });
   const events = eventsQuery.data ?? [];
-  const infoCount = events.filter((event) => event.severity === "info").length;
-  const warningCount = events.filter((event) => event.severity === "warning").length;
-  const criticalCount = events.filter((event) => event.severity === "critical").length;
 
   return (
     <AppShell>
-      <PageHeader
-        eyebrow="Signals"
-        title="Operational events"
-        description="Filter platform events by severity and inspect alert history in a cleaner event ledger."
-        meta={
-          events.length ? (
-            <>
-              <div className="meta-chip rounded-full border px-3 py-2 text-sm">
-                <span className="text-muted-foreground">Info</span>{" "}
-                <span className="font-semibold">{infoCount}</span>
-              </div>
-              <div className="meta-chip rounded-full border px-3 py-2 text-sm">
-                <span className="text-muted-foreground">Warning</span>{" "}
-                <span className="font-semibold">{warningCount}</span>
-              </div>
-              <div className="meta-chip rounded-full border px-3 py-2 text-sm">
-                <span className="text-muted-foreground">Critical</span>{" "}
-                <span className="font-semibold">{criticalCount}</span>
-              </div>
-            </>
-          ) : null
-        }
-        actions={
+      <SectionPanel
+        eyebrow="Ledger"
+        title="Event stream"
+        description="Severity-aware operational events ordered by recency."
+        action={
           <>
             <Select
               value={eventSeverityFilter}
@@ -83,15 +61,9 @@ export default function EventsPage() {
             </Button>
           </>
         }
-      />
-
-      {events.length ? (
-        <SectionPanel
-          eyebrow="Ledger"
-          title="Event stream"
-          description="Severity-aware operational events ordered by recency."
-          contentClassName="p-0"
-        >
+        contentClassName={events.length ? "p-0" : undefined}
+      >
+        {events.length ? (
           <Table>
             <TableHeader>
               <TableRow className="hover:bg-transparent">
@@ -125,14 +97,14 @@ export default function EventsPage() {
               ))}
             </TableBody>
           </Table>
-        </SectionPanel>
-      ) : (
-        <EmptyState
-          title="No events found"
-          description="No events match the current severity and search criteria. Try broadening the filters."
-          icon={BellRing}
-        />
-      )}
+        ) : (
+          <EmptyState
+            title="No events found"
+            description="No events match the current severity and search criteria. Try broadening the filters."
+            icon={BellRing}
+          />
+        )}
+      </SectionPanel>
     </AppShell>
   );
 }

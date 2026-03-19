@@ -5,10 +5,8 @@ import { Binary, FolderTree, ServerCog, ShieldAlert } from "lucide-react";
 
 import { EmptyState } from "@/components/empty-state";
 import { AppShell } from "@/components/layout/app-shell";
-import { PageHeader } from "@/components/layout/page-header";
 import { SeverityBadge } from "@/components/severity-badge";
 import { TaskLogStream } from "@/components/tasks/task-log-stream";
-import { TaskStatusBadge } from "@/components/tasks/task-status-badge";
 import { Badge } from "@/components/ui/badge";
 import { SectionPanel } from "@/components/ui/section-panel";
 import { StatStrip } from "@/components/ui/stat-strip";
@@ -42,45 +40,6 @@ export const TaskDetailView = ({ id }: { id: string }) => {
 
   return (
     <AppShell>
-      <PageHeader
-        eyebrow="Task Detail"
-        title={task.name}
-        description={
-          <>
-            {task.command ?? task.type} • Scheduled on {task.nodeName} • Created{" "}
-            <TimeDisplay value={task.createdAt} mode="relative" />
-          </>
-        }
-        meta={
-          <>
-            <div className="meta-chip rounded-full border px-3 py-2 text-sm">
-              <span className="text-muted-foreground">Node</span>{" "}
-              <span className="font-semibold">{task.nodeName}</span>
-            </div>
-            <div className="meta-chip rounded-full border px-3 py-2 text-sm">
-              <span className="text-muted-foreground">Type</span>{" "}
-              <span className="font-semibold">{task.type}</span>
-            </div>
-            <div className="meta-chip rounded-full border px-3 py-2 text-sm">
-              <span className="text-muted-foreground">Exit</span>{" "}
-              <span className="font-semibold">{task.exitCode ?? "N/A"}</span>
-            </div>
-          </>
-        }
-        actions={
-          <>
-            <div className="space-y-1">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-                Execution state
-              </p>
-              <p className="text-sm font-medium">
-                {task.lastOutput ?? "No task output captured yet."}
-              </p>
-            </div>
-            <TaskStatusBadge status={task.status} />
-          </>
-        }
-      />
       <StatStrip
         items={[
           {

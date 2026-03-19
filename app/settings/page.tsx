@@ -3,7 +3,6 @@
 import { KeyRound, Palette, Shield, UserRound } from "lucide-react";
 
 import { AppShell } from "@/components/layout/app-shell";
-import { PageHeader } from "@/components/layout/page-header";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
 import { Badge } from "@/components/ui/badge";
 import { SectionPanel } from "@/components/ui/section-panel";
@@ -17,35 +16,6 @@ export default function SettingsPage() {
 
   return (
     <AppShell>
-      <PageHeader
-        eyebrow="Preferences"
-        title="Settings"
-        description="Manage appearance, inspect token metadata, and review your operator profile."
-        meta={
-          <>
-            <div className="meta-chip rounded-full border px-3 py-2 text-sm">
-              <span className="text-muted-foreground">Role</span>{" "}
-              <span className="font-semibold">{session?.user.role ?? "Platform Operator"}</span>
-            </div>
-            <div className="meta-chip rounded-full border px-3 py-2 text-sm">
-              <span className="text-muted-foreground">Scopes</span>{" "}
-              <span className="font-semibold">{session?.scopes.length ?? 0}</span>
-            </div>
-          </>
-        }
-        actions={
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-                Theme
-              </p>
-              <p className="text-sm font-medium">System-aware appearance</p>
-            </div>
-            <ThemeToggle />
-          </div>
-        }
-      />
-
       <div className="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
         <SectionPanel
           eyebrow="Workspace"

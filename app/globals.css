@@ -239,11 +239,6 @@
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14);
   }
 
-  .meta-chip {
-    border-color: color-mix(in oklch, var(--border) 90%, transparent);
-    background: var(--surface-subtle);
-  }
-
   .data-grid {
     background-image:
       linear-gradient(rgba(148, 163, 184, 0.06) 1px, transparent 1px),

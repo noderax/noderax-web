@@ -6,14 +6,11 @@ import { Network, Timer } from "lucide-react";
 import { MetricsChart } from "@/components/dashboard/metrics-chart";
 import { EmptyState } from "@/components/empty-state";
 import { AppShell } from "@/components/layout/app-shell";
-import { PageHeader } from "@/components/layout/page-header";
-import { NodeStatusBadge } from "@/components/nodes/node-status-badge";
 import { SeverityBadge } from "@/components/severity-badge";
 import { TaskStatusBadge } from "@/components/tasks/task-status-badge";
 import { SectionPanel } from "@/components/ui/section-panel";
 import { StatStrip } from "@/components/ui/stat-strip";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { TimeDisplay } from "@/components/ui/time-display";
 import { useNode } from "@/lib/hooks/use-noderax-data";
 import { useNodeRealtimeSubscription } from "@/lib/hooks/use-realtime";
 
@@ -49,43 +46,6 @@ export const NodeDetailView = ({ id }: { id: string }) => {
 
   return (
     <AppShell>
-      <PageHeader
-        eyebrow="Node Detail"
-        title={node.name}
-        description={
-          <>
-            {node.hostname} • {node.os} / {node.arch} • Last seen{" "}
-            <TimeDisplay value={node.lastSeenAt} mode="relative" emptyLabel="Never" />
-          </>
-        }
-        meta={
-          <>
-            <div className="meta-chip rounded-full border px-3 py-2 text-sm">
-              <span className="text-muted-foreground">Hostname</span>{" "}
-              <span className="font-semibold">{node.hostname}</span>
-            </div>
-            <div className="meta-chip rounded-full border px-3 py-2 text-sm">
-              <span className="text-muted-foreground">Created</span>{" "}
-              <TimeDisplay value={node.createdAt} mode="date" />
-            </div>
-          </>
-        }
-        actions={
-          <>
-            <div className="space-y-1">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-                Current state
-              </p>
-              <p className="text-sm font-medium">
-                {node.latestMetric
-                  ? `${node.latestMetric.cpu}% CPU / ${node.latestMetric.memory}% memory`
-                  : "Telemetry pending"}
-              </p>
-            </div>
-            <NodeStatusBadge status={node.status} />
-          </>
-        }
-      />
       <StatStrip
         items={[
           {

@@ -6,7 +6,6 @@ import { MetricsChart } from "@/components/dashboard/metrics-chart";
 import { RecentEventsFeed } from "@/components/dashboard/recent-events-feed";
 import { EmptyState } from "@/components/empty-state";
 import { AppShell } from "@/components/layout/app-shell";
-import { PageHeader } from "@/components/layout/page-header";
 import { SectionPanel } from "@/components/ui/section-panel";
 import { Skeleton } from "@/components/ui/skeleton";
 import { StatStrip } from "@/components/ui/stat-strip";
@@ -23,51 +22,9 @@ import { useDashboardOverview } from "@/lib/hooks/use-noderax-data";
 
 export const DashboardView = () => {
   const overviewQuery = useDashboardOverview();
-  const latestEvent = overviewQuery.data?.recentEvents[0];
-  const criticalEvents =
-    overviewQuery.data?.recentEvents.filter((event) => event.severity === "critical")
-      .length ?? 0;
 
   return (
     <AppShell>
-      <PageHeader
-        eyebrow="Overview"
-        title="Infrastructure overview"
-        description="A clean operational summary for node health, task throughput, and recent signals across the Noderax control plane."
-        meta={
-          overviewQuery.data ? (
-            <>
-              <div className="meta-chip rounded-full border px-3 py-2 text-sm">
-                <span className="text-muted-foreground">Nodes</span>{" "}
-                <span className="font-semibold">{overviewQuery.data.totals.totalNodes}</span>
-              </div>
-              <div className="meta-chip rounded-full border px-3 py-2 text-sm">
-                <span className="text-muted-foreground">Online</span>{" "}
-                <span className="font-semibold">{overviewQuery.data.totals.onlineNodes}</span>
-              </div>
-              <div className="meta-chip rounded-full border px-3 py-2 text-sm">
-                <span className="text-muted-foreground">Critical</span>{" "}
-                <span className="font-semibold">{criticalEvents}</span>
-              </div>
-            </>
-          ) : null
-        }
-        actions={
-          <div className="space-y-1">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-              Latest signal
-            </p>
-            <p className="text-sm font-medium">{latestEvent?.title ?? "No events yet"}</p>
-            <TimeDisplay
-              value={latestEvent?.createdAt}
-              mode="relative"
-              emptyLabel="Waiting"
-              className="block text-xs text-muted-foreground"
-            />
-          </div>
-        }
-      />
-
       {overviewQuery.isPending ? (
         <div className="space-y-6">
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
