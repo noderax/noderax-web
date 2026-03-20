@@ -50,6 +50,22 @@ const sectionDescriptions: Record<string, string> = {
   "/settings": "Manage appearance, session metadata, and preferences.",
 };
 
+const formatEventAge = (ageMs: number | null) => {
+  if (ageMs === null || !Number.isFinite(ageMs)) {
+    return "No events yet";
+  }
+
+  if (ageMs < 1_000) {
+    return "Just now";
+  }
+
+  if (ageMs < 60_000) {
+    return `${Math.round(ageMs / 1_000)}s ago`;
+  }
+
+  return `${Math.round(ageMs / 60_000)}m ago`;
+};
+
 const realtimeConfig = {
   connected: {
     icon: SignalHigh,
@@ -64,6 +80,11 @@ const realtimeConfig = {
   reconnecting: {
     icon: SignalLow,
     label: "Reconnecting",
+    className: "tone-warning",
+  },
+  degraded: {
+    icon: SignalLow,
+    label: "Degraded",
     className: "tone-warning",
   },
   disconnected: {
@@ -86,9 +107,12 @@ export const Topbar = () => {
   const { session } = authQuery;
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const realtimeStatus = useAppStore((state) => state.realtimeStatus);
+  const eventAgeMs = useAppStore((state) => state.realtimeHealth.eventAgeMs);
   const searchQuery = useAppStore((state) => state.searchQuery);
   const setSearchQuery = useAppStore((state) => state.setSearchQuery);
-  const setMobileSidebarOpen = useAppStore((state) => state.setMobileSidebarOpen);
+  const setMobileSidebarOpen = useAppStore(
+    (state) => state.setMobileSidebarOpen,
+  );
   const clearSession = useAppStore((state) => state.clearSession);
 
   const statusConfig = realtimeConfig[realtimeStatus];
@@ -121,11 +145,13 @@ export const Topbar = () => {
   };
 
   const section =
-    Object.entries(sectionNames).find(([key]) => pathname.startsWith(key))?.[1] ??
-    "Workspace";
+    Object.entries(sectionNames).find(([key]) =>
+      pathname.startsWith(key),
+    )?.[1] ?? "Workspace";
   const sectionDescription =
-    Object.entries(sectionDescriptions).find(([key]) => pathname.startsWith(key))?.[1] ??
-    "Manage your operations workspace.";
+    Object.entries(sectionDescriptions).find(([key]) =>
+      pathname.startsWith(key),
+    )?.[1] ?? "Manage your operations workspace.";
 
   useEffect(() => {
     if (authQuery.isError && !session) {
@@ -151,7 +177,9 @@ export const Topbar = () => {
           <div className="min-w-0">
             {/* <p className="text-xs font-medium text-muted-foreground">Control Center</p> */}
             <div className="mt-0.5 flex min-w-0 items-center gap-2">
-              <h1 className="truncate text-xl font-semibold tracking-tight">{section}</h1>
+              <h1 className="truncate text-xl font-semibold tracking-tight">
+                {section}
+              </h1>
               <div
                 className={cn(
                   "hidden items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium sm:inline-flex",
@@ -160,6 +188,9 @@ export const Topbar = () => {
               >
                 <StatusIcon className="size-3.5" />
                 {statusConfig.label}
+                <span className="text-muted-foreground">
+                  • {formatEventAge(eventAgeMs)}
+                </span>
               </div>
             </div>
             <p className="hidden truncate text-sm text-muted-foreground lg:block">

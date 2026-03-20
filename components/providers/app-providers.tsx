@@ -15,7 +15,7 @@ export const AppProviders = ({ children }: { children: React.ReactNode }) => {
           queries: {
             retry: 1,
             refetchOnWindowFocus: false,
-            staleTime: 15_000,
+            staleTime: 60_000,
           },
           mutations: {
             retry: 0,

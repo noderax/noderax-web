@@ -3,12 +3,20 @@
 import { io, type Socket } from "socket.io-client";
 
 import { apiClient } from "@/lib/api";
-import type { EventDto, MetricDto, NodeStatus, RealtimeStatus, TaskDto } from "@/lib/types";
+import type {
+  EventDto,
+  MetricDto,
+  NodeStatus,
+  RealtimeEventMeta,
+  RealtimeStatus,
+  TaskDto,
+} from "@/lib/types";
 
 export type RealtimeMessage =
   | {
       type: "node.status.updated";
       timestamp: string;
+      meta?: RealtimeEventMeta;
       data: {
         nodeId: string;
         hostname?: string;
@@ -19,16 +27,19 @@ export type RealtimeMessage =
   | {
       type: "metrics.ingested";
       timestamp: string;
+      meta?: RealtimeEventMeta;
       data: MetricDto;
     }
   | {
       type: "task.created" | "task.updated";
       timestamp: string;
+      meta?: RealtimeEventMeta;
       data: TaskDto;
     }
   | {
       type: "event.created";
       timestamp: string;
+      meta?: RealtimeEventMeta;
       data: EventDto;
     };
 
@@ -40,6 +51,8 @@ type NodeStatusUpdatedPayload = {
   hostname?: string;
   status: NodeStatus;
   lastSeenAt?: string | null;
+  sequence?: number;
+  sourceInstance?: string;
 };
 
 type RealtimeConnectError = Error & {
@@ -61,7 +74,8 @@ const normalizePathname = (value: string | null | undefined) => {
   return `/${value.replace(/^\/+|\/+$/g, "")}`;
 };
 
-const stripKnownApiPrefix = (value: string) => value.replace(API_PREFIX_PATTERN, "");
+const stripKnownApiPrefix = (value: string) =>
+  value.replace(API_PREFIX_PATTERN, "");
 
 const ensureAbsoluteUrl = (value: string) => {
   if (ABSOLUTE_URL_PATTERN.test(value)) {
@@ -90,7 +104,10 @@ const toRealtimeNamespaceUrl = (value: string) => {
       return `${parsedUrl.origin}${REALTIME_NAMESPACE}`;
     }
 
-    if (pathname.endsWith(REALTIME_NAMESPACE) && !API_PREFIX_PATTERN.test(pathname)) {
+    if (
+      pathname.endsWith(REALTIME_NAMESPACE) &&
+      !API_PREFIX_PATTERN.test(pathname)
+    ) {
       return `${parsedUrl.origin}${pathname}`;
     }
 
@@ -101,7 +118,9 @@ const toRealtimeNamespaceUrl = (value: string) => {
 
     if (
       withoutApiPrefix.endsWith(REALTIME_NAMESPACE) &&
-      !API_PREFIX_PATTERN.test(withoutApiPrefix.replace(REALTIME_NAMESPACE, "") || "/")
+      !API_PREFIX_PATTERN.test(
+        withoutApiPrefix.replace(REALTIME_NAMESPACE, "") || "/",
+      )
     ) {
       return withoutApiPrefix;
     }
@@ -132,7 +151,8 @@ const resolveRealtimeNamespaceUrl = () => {
   return `${window.location.origin}${REALTIME_NAMESPACE}`;
 };
 
-const asTimestamp = (value: string | null | undefined) => value ?? new Date().toISOString();
+const asTimestamp = (value: string | null | undefined) =>
+  value ?? new Date().toISOString();
 
 class NoderaxRealtimeClient {
   private socket: Socket | null = null;
@@ -142,6 +162,12 @@ class NoderaxRealtimeClient {
   private status: RealtimeStatus = "idle";
   private connectPromise: Promise<void> | null = null;
   private wantsConnection = false;
+  private staleTimer: ReturnType<typeof setInterval> | null = null;
+  private lastSignalAt = 0;
+  private didRetryAuth = false;
+
+  private readonly staleThresholdMs = 18_000;
+  private readonly staleCheckIntervalMs = 3_000;
 
   subscribe(listener: MessageListener) {
     this.listeners.add(listener);
@@ -207,37 +233,96 @@ class NoderaxRealtimeClient {
   }
 
   private setStatus(status: RealtimeStatus) {
+    if (this.status === status) {
+      return;
+    }
+
     this.status = status;
     this.statusListeners.forEach((listener) => listener(status));
   }
 
   private emit(message: RealtimeMessage) {
+    this.markSignal();
     this.listeners.forEach((listener) => listener(message));
+  }
+
+  private markSignal() {
+    this.lastSignalAt = Date.now();
+  }
+
+  private clearStaleTimer() {
+    if (this.staleTimer) {
+      clearInterval(this.staleTimer);
+      this.staleTimer = null;
+    }
+  }
+
+  private startStaleTimer() {
+    this.clearStaleTimer();
+
+    this.staleTimer = setInterval(() => {
+      if (!this.socket?.connected || !this.lastSignalAt) {
+        return;
+      }
+
+      const signalAge = Date.now() - this.lastSignalAt;
+      if (signalAge > this.staleThresholdMs) {
+        this.setStatus("degraded");
+      }
+    }, this.staleCheckIntervalMs);
   }
 
   private shouldMaintainConnection() {
     return this.listeners.size > 0 || this.nodeSubscriptionCounts.size > 0;
   }
 
-  private syncNodeSubscriptions() {
+  private async syncNodeSubscriptions() {
     if (!this.socket?.connected) {
       return;
     }
 
-    this.nodeSubscriptionCounts.forEach((_, nodeId) => {
-      this.socket?.emit("subscribe.node", { nodeId });
-    });
+    await Promise.all(
+      Array.from(this.nodeSubscriptionCounts.keys()).map(async (nodeId) => {
+        await this.emitWithAck("subscribe.node", { nodeId });
+      }),
+    );
   }
 
-  private readonly handleConnect = () => {
+  private readonly emitWithAck = async (
+    eventName: "subscribe.node" | "unsubscribe.node",
+    payload: { nodeId: string },
+  ) => {
+    if (!this.socket?.connected) {
+      return;
+    }
+
+    try {
+      await this.socket.timeout(2_500).emitWithAck(eventName, payload);
+    } catch {
+      this.socket.emit(eventName, payload);
+    }
+  };
+
+  private readonly handleConnect = async () => {
+    this.didRetryAuth = false;
+    this.markSignal();
     this.setStatus("connected");
-    this.syncNodeSubscriptions();
+    this.startStaleTimer();
+    await this.syncNodeSubscriptions();
   };
 
   private readonly handleConnectError = (error: RealtimeConnectError) => {
-    const message = error.data?.message ?? error.message ?? "Realtime connection failed.";
+    const message =
+      error.data?.message ?? error.message ?? "Realtime connection failed.";
 
     if (/auth|token|unauthorized/i.test(message)) {
+      if (!this.didRetryAuth) {
+        this.didRetryAuth = true;
+        this.setStatus("reconnecting");
+        void this.retryConnectionWithFreshToken();
+        return;
+      }
+
       console.warn(`[realtime] ${message}`);
       this.disconnect();
       return;
@@ -247,6 +332,7 @@ class NoderaxRealtimeClient {
   };
 
   private readonly handleDisconnect = () => {
+    this.clearStaleTimer();
     this.setStatus("disconnected");
   };
 
@@ -262,10 +348,23 @@ class NoderaxRealtimeClient {
     this.setStatus("disconnected");
   };
 
-  private readonly handleNodeStatusUpdated = (payload: NodeStatusUpdatedPayload) => {
+  private readonly handleAnySignal = () => {
+    this.markSignal();
+    if (this.socket?.connected && this.status === "degraded") {
+      this.setStatus("connected");
+    }
+  };
+
+  private readonly handleNodeStatusUpdated = (
+    payload: NodeStatusUpdatedPayload,
+  ) => {
     this.emit({
       type: "node.status.updated",
       timestamp: asTimestamp(payload?.lastSeenAt),
+      meta: {
+        sequence: payload.sequence,
+        sourceInstance: payload.sourceInstance,
+      },
       data: {
         nodeId: payload.nodeId,
         hostname: payload.hostname,
@@ -279,30 +378,61 @@ class NoderaxRealtimeClient {
     this.emit({
       type: "metrics.ingested",
       timestamp: asTimestamp(payload.recordedAt),
+      meta: {
+        sequence: payload.sequence,
+        sourceInstance: payload.sourceInstance,
+      },
       data: payload,
     });
   };
 
   private readonly handleTaskCreated = (payload: TaskDto) => {
+    const payloadWithMeta = payload as TaskDto & {
+      sequence?: number;
+      sourceInstance?: string;
+    };
+
     this.emit({
       type: "task.created",
       timestamp: asTimestamp(payload.createdAt),
+      meta: {
+        sequence: payloadWithMeta.sequence,
+        sourceInstance: payloadWithMeta.sourceInstance,
+      },
       data: payload,
     });
   };
 
   private readonly handleTaskUpdated = (payload: TaskDto) => {
+    const payloadWithMeta = payload as TaskDto & {
+      sequence?: number;
+      sourceInstance?: string;
+    };
+
     this.emit({
       type: "task.updated",
       timestamp: asTimestamp(payload.updatedAt),
+      meta: {
+        sequence: payloadWithMeta.sequence,
+        sourceInstance: payloadWithMeta.sourceInstance,
+      },
       data: payload,
     });
   };
 
   private readonly handleEventCreated = (payload: EventDto) => {
+    const payloadWithMeta = payload as EventDto & {
+      sequence?: number;
+      sourceInstance?: string;
+    };
+
     this.emit({
       type: "event.created",
       timestamp: asTimestamp(payload.createdAt),
+      meta: {
+        sequence: payloadWithMeta.sequence,
+        sourceInstance: payloadWithMeta.sourceInstance,
+      },
       data: payload,
     });
   };
@@ -314,6 +444,7 @@ class NoderaxRealtimeClient {
     socket.io.on("reconnect_attempt", this.handleReconnectAttempt);
     socket.io.on("reconnect_error", this.handleReconnectError);
     socket.io.on("reconnect_failed", this.handleReconnectFailed);
+    socket.onAny(this.handleAnySignal);
     socket.on("node.status.updated", this.handleNodeStatusUpdated);
     socket.on("metrics.ingested", this.handleMetricsIngested);
     socket.on("task.created", this.handleTaskCreated);
@@ -328,11 +459,26 @@ class NoderaxRealtimeClient {
     socket.io.off("reconnect_attempt", this.handleReconnectAttempt);
     socket.io.off("reconnect_error", this.handleReconnectError);
     socket.io.off("reconnect_failed", this.handleReconnectFailed);
+    socket.offAny(this.handleAnySignal);
     socket.off("node.status.updated", this.handleNodeStatusUpdated);
     socket.off("metrics.ingested", this.handleMetricsIngested);
     socket.off("task.created", this.handleTaskCreated);
     socket.off("task.updated", this.handleTaskUpdated);
     socket.off("event.created", this.handleEventCreated);
+  }
+
+  private async retryConnectionWithFreshToken() {
+    if (!this.socket || !this.wantsConnection) {
+      return;
+    }
+
+    try {
+      const response = await apiClient.getRealtimeToken();
+      this.socket.auth = { token: response.token };
+      this.socket.connect();
+    } catch {
+      this.setStatus("disconnected");
+    }
   }
 
   async connect() {
@@ -396,6 +542,9 @@ class NoderaxRealtimeClient {
 
   disconnect() {
     this.wantsConnection = false;
+    this.clearStaleTimer();
+    this.lastSignalAt = 0;
+    this.didRetryAuth = false;
 
     if (this.socket) {
       this.detachSocketListeners(this.socket);

@@ -12,10 +12,15 @@ import {
   ChartTooltipContent,
   type ChartConfig,
 } from "@/components/ui/chart";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { MetricPoint } from "@/lib/types";
-import { cn } from "@/lib/utils";
 
 const chartConfig = {
   cpu: {
@@ -45,7 +50,10 @@ const metricMeta = {
     label: "Disk utilization",
     icon: HardDrive,
   },
-} satisfies Record<keyof typeof chartConfig, { label: string; icon: typeof Cpu }>;
+} satisfies Record<
+  keyof typeof chartConfig,
+  { label: string; icon: typeof Cpu }
+>;
 
 export const MetricsChart = ({
   data,
@@ -68,8 +76,16 @@ export const MetricsChart = ({
             <CardTitle>{title}</CardTitle>
             <CardDescription>{description}</CardDescription>
           </div>
-          <Tabs value={metric} onValueChange={(value) => setMetric(value as keyof typeof chartConfig)}>
-            <TabsList variant="line" className="h-auto gap-1 rounded-xl bg-muted/70 p-1">
+          <Tabs
+            value={metric}
+            onValueChange={(value) =>
+              setMetric(value as keyof typeof chartConfig)
+            }
+          >
+            <TabsList
+              variant="line"
+              className="h-auto gap-1 rounded-xl bg-muted/70 p-1"
+            >
               {Object.keys(chartConfig).map((key) => (
                 <TabsTrigger
                   key={key}
@@ -99,7 +115,9 @@ export const MetricsChart = ({
                   <MetricIcon className="size-4.5" />
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">{metricMeta[metric].label}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {metricMeta[metric].label}
+                  </p>
                   <p className="text-2xl font-semibold tracking-tight">
                     {latestPoint?.[metric as keyof MetricPoint]}%
                   </p>
@@ -107,12 +125,17 @@ export const MetricsChart = ({
               </div>
               {latestPoint ? (
                 <div className="grid grid-cols-3 gap-2 text-sm">
-                  {([
-                    ["CPU", latestPoint.cpu],
-                    ["Memory", latestPoint.memory],
-                    ["Disk", latestPoint.disk],
-                  ] as const).map(([label, value]) => (
-                    <div key={label} className="surface-subtle rounded-xl border px-3 py-2">
+                  {(
+                    [
+                      ["CPU", latestPoint.cpu],
+                      ["Memory", latestPoint.memory],
+                      ["Disk", latestPoint.disk],
+                    ] as const
+                  ).map(([label, value]) => (
+                    <div
+                      key={label}
+                      className="surface-subtle rounded-xl border px-3 py-2"
+                    >
                       <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
                         {label}
                       </p>
@@ -127,13 +150,32 @@ export const MetricsChart = ({
               <AreaChart data={data}>
                 <defs>
                   {Object.keys(chartConfig).map((key) => (
-                    <linearGradient key={key} id={`gradient-${key}`} x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="8%" stopColor={`var(--color-${key})`} stopOpacity={0.24} />
-                      <stop offset="95%" stopColor={`var(--color-${key})`} stopOpacity={0} />
+                    <linearGradient
+                      key={key}
+                      id={`gradient-${key}`}
+                      x1="0"
+                      y1="0"
+                      x2="0"
+                      y2="1"
+                    >
+                      <stop
+                        offset="8%"
+                        stopColor={`var(--color-${key})`}
+                        stopOpacity={0.24}
+                      />
+                      <stop
+                        offset="95%"
+                        stopColor={`var(--color-${key})`}
+                        stopOpacity={0}
+                      />
                     </linearGradient>
                   ))}
                 </defs>
-                <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="var(--border)" />
+                <CartesianGrid
+                  vertical={false}
+                  strokeDasharray="3 3"
+                  stroke="var(--border)"
+                />
                 <XAxis
                   dataKey="timestamp"
                   tickFormatter={(value) => format(new Date(value), "HH:mm")}
@@ -150,23 +192,22 @@ export const MetricsChart = ({
                 <ChartTooltip
                   content={
                     <ChartTooltipContent
-                      formatter={(value) => <span className="font-mono tabular-nums">{value}%</span>}
-                      labelFormatter={(value) => format(new Date(String(value)), "MMM d, HH:mm")}
+                      formatter={(value) => (
+                        <span className="font-mono tabular-nums">{value}%</span>
+                      )}
+                      labelFormatter={(value) =>
+                        format(new Date(String(value)), "MMM d, HH:mm")
+                      }
                     />
                   }
                 />
-                {Object.keys(chartConfig).map((key) => (
-                  <Area
-                    key={key}
-                    hide={metric !== key}
-                    type="monotone"
-                    dataKey={key}
-                    stroke={`var(--color-${key})`}
-                    fill={`url(#gradient-${key})`}
-                    strokeWidth={2}
-                    className={cn(metric !== key && "opacity-0")}
-                  />
-                ))}
+                <Area
+                  type="monotone"
+                  dataKey={metric}
+                  stroke={`var(--color-${metric})`}
+                  fill={`url(#gradient-${metric})`}
+                  strokeWidth={2}
+                />
               </AreaChart>
             </ChartContainer>
           </>

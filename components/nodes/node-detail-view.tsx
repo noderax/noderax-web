@@ -19,6 +19,69 @@ import { useAuthSession } from "@/lib/hooks/use-auth-session";
 import { useNode } from "@/lib/hooks/use-noderax-data";
 import { useNodeRealtimeSubscription } from "@/lib/hooks/use-realtime";
 
+const readFirstNumber = (
+  record: Record<string, unknown> | null,
+  keys: string[],
+) => {
+  if (!record) {
+    return null;
+  }
+
+  for (const key of keys) {
+    const value = record[key];
+
+    if (typeof value === "number" && Number.isFinite(value)) {
+      return value;
+    }
+
+    if (typeof value === "string") {
+      const parsed = Number(value);
+      if (Number.isFinite(parsed)) {
+        return parsed;
+      }
+    }
+  }
+
+  return null;
+};
+
+const formatBytes = (value: number | null) => {
+  if (value === null || !Number.isFinite(value) || value < 0) {
+    return "N/A";
+  }
+
+  if (value === 0) {
+    return "0 B";
+  }
+
+  const units = ["B", "KB", "MB", "GB", "TB"];
+  const exponent = Math.min(
+    Math.floor(Math.log(value) / Math.log(1024)),
+    units.length - 1,
+  );
+  const normalized = value / 1024 ** exponent;
+  const precision = normalized >= 100 ? 0 : normalized >= 10 ? 1 : 2;
+
+  return `${normalized.toFixed(precision)} ${units[exponent]}`;
+};
+
+const formatNetworkSummary = (stats: Record<string, unknown> | null) => {
+  const rxBytes = readFirstNumber(stats, [
+    "rxBytes",
+    "receiveBytes",
+    "receivedBytes",
+    "rx",
+  ]);
+  const txBytes = readFirstNumber(stats, [
+    "txBytes",
+    "transmitBytes",
+    "sentBytes",
+    "tx",
+  ]);
+
+  return `RX ${formatBytes(rxBytes)} / TX ${formatBytes(txBytes)}`;
+};
+
 export const NodeDetailView = ({ id }: { id: string }) => {
   const router = useRouter();
   const authQuery = useAuthSession();
@@ -46,7 +109,10 @@ export const NodeDetailView = ({ id }: { id: string }) => {
       <AppShell>
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           {Array.from({ length: 4 }).map((_, index) => (
-            <div key={index} className="h-32 animate-pulse rounded-[22px] bg-muted" />
+            <div
+              key={index}
+              className="h-32 animate-pulse rounded-[22px] bg-muted"
+            />
           ))}
         </div>
       </AppShell>
@@ -61,16 +127,18 @@ export const NodeDetailView = ({ id }: { id: string }) => {
             <NodeOsIcon os={node.os} className="size-6" />
           </div>
           <div className="min-w-0">
-          <h1 className="truncate text-2xl font-semibold tracking-tight">{node.name}</h1>
-          <p className="mt-1 flex items-center gap-2 text-sm text-muted-foreground">
-            <span>{node.hostname}</span>
-            <span>•</span>
-            <span className="inline-flex items-center gap-1.5">
-              <NodeOsIcon os={node.os} className="size-4" />
-              {node.os} / {node.arch}
-            </span>
-          </p>
-        </div>
+            <h1 className="truncate text-2xl font-semibold tracking-tight">
+              {node.name}
+            </h1>
+            <p className="mt-1 flex items-center gap-2 text-sm text-muted-foreground">
+              <span>{node.hostname}</span>
+              <span>•</span>
+              <span className="inline-flex items-center gap-1.5">
+                <NodeOsIcon os={node.os} className="size-4" />
+                {node.os} / {node.arch}
+              </span>
+            </p>
+          </div>
         </div>
         {isAdmin ? (
           <DeleteNodeDialog
@@ -105,7 +173,7 @@ export const NodeDetailView = ({ id }: { id: string }) => {
           },
           {
             label: "Network summary",
-            value: `${String(node.networkStats?.rxBytes ?? "N/A")} / ${String(node.networkStats?.txBytes ?? "N/A")}`,
+            value: formatNetworkSummary(node.networkStats),
             description: "RX bytes / TX bytes from the latest metric sample.",
             tone: "neutral",
           },
@@ -117,16 +185,25 @@ export const NodeDetailView = ({ id }: { id: string }) => {
           variant="line"
           className="w-full gap-1 overflow-x-auto rounded-xl bg-muted/70 p-1 sm:w-fit"
         >
-          <TabsTrigger value="metrics" className="rounded-lg px-3 py-1.5 text-xs">
+          <TabsTrigger
+            value="metrics"
+            className="rounded-lg px-3 py-1.5 text-xs"
+          >
             Metrics
           </TabsTrigger>
-          <TabsTrigger value="packages" className="rounded-lg px-3 py-1.5 text-xs">
+          <TabsTrigger
+            value="packages"
+            className="rounded-lg px-3 py-1.5 text-xs"
+          >
             Packages
           </TabsTrigger>
           <TabsTrigger value="tasks" className="rounded-lg px-3 py-1.5 text-xs">
             Running tasks
           </TabsTrigger>
-          <TabsTrigger value="events" className="rounded-lg px-3 py-1.5 text-xs">
+          <TabsTrigger
+            value="events"
+            className="rounded-lg px-3 py-1.5 text-xs"
+          >
             Event history
           </TabsTrigger>
         </TabsList>
@@ -197,7 +274,9 @@ export const NodeDetailView = ({ id }: { id: string }) => {
                     </div>
                     <SeverityBadge severity={event.severity} />
                   </div>
-                  <p className="mt-2 text-sm text-muted-foreground">{event.message}</p>
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    {event.message}
+                  </p>
                 </div>
               ))
             ) : (

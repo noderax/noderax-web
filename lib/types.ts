@@ -1,5 +1,10 @@
 export type NodeStatus = "online" | "offline";
-export type TaskStatus = "queued" | "running" | "success" | "failed" | "cancelled";
+export type TaskStatus =
+  | "queued"
+  | "running"
+  | "success"
+  | "failed"
+  | "cancelled";
 export type EventSeverity = "info" | "warning" | "critical";
 export type TaskLogLevel = "info" | "stdout" | "stderr" | "error";
 export type UserRole = "admin" | "user";
@@ -8,8 +13,33 @@ export type RealtimeStatus =
   | "idle"
   | "connecting"
   | "connected"
+  | "degraded"
   | "reconnecting"
   | "disconnected";
+
+export interface RealtimeEventMeta {
+  sequence?: number | null;
+  sourceInstance?: string | null;
+}
+
+export interface RealtimeHealthSnapshot {
+  status: RealtimeStatus;
+  lastEventAt: string | null;
+  lastHeartbeatAt: string | null;
+  eventAgeMs: number | null;
+  degradedReason: string | null;
+}
+
+export interface RealtimeCounters {
+  reconnectAttempts: number;
+  reconnectSuccesses: number;
+  droppedStaleEvents: number;
+  droppedDuplicateEvents: number;
+  metricQueueDepth: number;
+  metricQueueHighWaterMark: number;
+  metricFlushCount: number;
+  metricDroppedFrames: number;
+}
 
 export interface NodeDto {
   id: string;
@@ -64,6 +94,8 @@ export interface MetricDto {
   diskUsage: number;
   networkStats: Record<string, unknown>;
   recordedAt: string;
+  sequence?: number;
+  sourceInstance?: string;
 }
 
 export interface UserDto {

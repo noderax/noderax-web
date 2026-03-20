@@ -42,7 +42,8 @@ export const queryKeys = {
     all: (filters?: EventFilters) => ["events", "list", filters ?? {}] as const,
   },
   metrics: {
-    all: (filters?: MetricFilters) => ["metrics", "list", filters ?? {}] as const,
+    all: (filters?: MetricFilters) =>
+      ["metrics", "list", filters ?? {}] as const,
   },
   enrollments: {
     status: (token: string) => ["enrollments", "status", token] as const,
@@ -58,7 +59,8 @@ export const useDashboardOverview = () =>
   useQuery({
     queryKey: queryKeys.dashboard.overview,
     queryFn: () => apiClient.getDashboardOverview(),
-    staleTime: 15_000,
+    staleTime: Infinity,
+    refetchOnWindowFocus: false,
   });
 
 export const useUsers = (enabled = true) =>
@@ -73,7 +75,8 @@ export const useNodes = (filters?: NodeFilters) =>
   useQuery({
     queryKey: queryKeys.nodes.all(filters),
     queryFn: () => apiClient.getNodeSummaries(filters),
-    staleTime: 15_000,
+    staleTime: Infinity,
+    refetchOnWindowFocus: false,
   });
 
 export const useNode = (id: string) =>
@@ -81,14 +84,16 @@ export const useNode = (id: string) =>
     queryKey: queryKeys.nodes.detail(id),
     queryFn: () => apiClient.getNodeDetail(id),
     enabled: Boolean(id),
-    staleTime: 15_000,
+    staleTime: Infinity,
+    refetchOnWindowFocus: false,
   });
 
 export const useTasks = (filters?: TaskFilters) =>
   useQuery({
     queryKey: queryKeys.tasks.all(filters),
     queryFn: () => apiClient.getTaskSummaries(filters),
-    staleTime: 15_000,
+    staleTime: Infinity,
+    refetchOnWindowFocus: false,
   });
 
 export const useTask = (id: string) =>
@@ -96,7 +101,8 @@ export const useTask = (id: string) =>
     queryKey: queryKeys.tasks.detail(id),
     queryFn: () => apiClient.getTaskDetail(id),
     enabled: Boolean(id),
-    staleTime: 10_000,
+    staleTime: Infinity,
+    refetchOnWindowFocus: false,
   });
 
 export const useTaskLogs = (
@@ -108,7 +114,8 @@ export const useTaskLogs = (
 ) =>
   useQuery({
     queryKey: queryKeys.tasks.logs(id, options?.limit ?? 100),
-    queryFn: () => apiClient.getTaskLogLines(id, { limit: options?.limit ?? 100 }),
+    queryFn: () =>
+      apiClient.getTaskLogLines(id, { limit: options?.limit ?? 100 }),
     enabled: Boolean(id),
     staleTime: 2_000,
     refetchInterval: options?.liveForStatus === "running" ? 2_000 : false,
@@ -118,14 +125,16 @@ export const useEvents = (filters?: EventFilters) =>
   useQuery({
     queryKey: queryKeys.events.all(filters),
     queryFn: () => apiClient.getEventRecords(filters),
-    staleTime: 10_000,
+    staleTime: Infinity,
+    refetchOnWindowFocus: false,
   });
 
 export const useMetrics = (filters?: MetricFilters) =>
   useQuery({
     queryKey: queryKeys.metrics.all(filters),
     queryFn: () => apiClient.getMetrics(filters),
-    staleTime: 10_000,
+    staleTime: Infinity,
+    refetchOnWindowFocus: false,
   });
 
 export const useCheckEnrollment = (token: string) => {
@@ -359,10 +368,13 @@ export const useInstallPackages = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (payload: InstallPackagesPayload) => apiClient.installPackages(payload),
+    mutationFn: (payload: InstallPackagesPayload) =>
+      apiClient.installPackages(payload),
     onSuccess: async (task, payload) => {
       const packageLabel =
-        payload.names.length === 1 ? payload.names[0] : `${payload.names.length} packages`;
+        payload.names.length === 1
+          ? payload.names[0]
+          : `${payload.names.length} packages`;
 
       toast.success("Package install task queued", {
         description: `${packageLabel} will be installed asynchronously on the selected node.`,
@@ -383,7 +395,8 @@ export const useRemovePackage = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (payload: RemovePackagePayload) => apiClient.removeNodePackage(payload),
+    mutationFn: (payload: RemovePackagePayload) =>
+      apiClient.removeNodePackage(payload),
     onSuccess: async (_, payload) => {
       toast.success("Package removal task queued", {
         description: payload.purge

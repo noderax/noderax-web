@@ -1,21 +1,92 @@
 "use client";
 
-import { useEffect, useEffectEvent } from "react";
+import { useEffect, useEffectEvent, useRef } from "react";
 import { type QueryClient, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 import { mapEventRecord, mapMetricDtoToPoint } from "@/lib/noderax";
 import { queryKeys } from "@/lib/hooks/use-noderax-data";
 import { getRealtimeClient, type RealtimeMessage } from "@/lib/websocket";
-import type { DashboardOverview, EventRecord, NodeDetail, NodeSummary, TaskDetail } from "@/lib/types";
+import type {
+  DashboardOverview,
+  EventRecord,
+  NodeDetail,
+  NodeSummary,
+  TaskDetail,
+} from "@/lib/types";
 import { useAppStore } from "@/store/useAppStore";
 
-const prependUnique = <T extends { id: string }>(items: T[] | undefined, value: T) => {
-  const nextItems = [value, ...(items ?? [])];
-  return nextItems.filter(
-    (item, index, collection) =>
-      collection.findIndex((candidate) => candidate.id === item.id) === index,
+const METRIC_FLUSH_MS = 300;
+const METRIC_WINDOW_LIMIT = 120;
+const METRIC_WINDOW_TTL_MS = 20 * 60 * 1000;
+
+const prependUnique = <T extends { id: string }>(
+  items: T[] | undefined,
+  value: T,
+) => {
+  const seen = new Set<string>();
+
+  return [value, ...(items ?? [])].filter((item) => {
+    if (seen.has(item.id)) {
+      return false;
+    }
+
+    seen.add(item.id);
+    return true;
+  });
+};
+
+const trimMetricWindow = (
+  points: NodeDetail["metrics"],
+  nowMs: number,
+): NodeDetail["metrics"] => {
+  const minTimestampMs = nowMs - METRIC_WINDOW_TTL_MS;
+  const filtered = points.filter((point) => {
+    const pointMs = new Date(point.timestamp).getTime();
+    return Number.isFinite(pointMs) && pointMs >= minTimestampMs;
+  });
+
+  if (filtered.length <= METRIC_WINDOW_LIMIT) {
+    return filtered;
+  }
+
+  return filtered.slice(-METRIC_WINDOW_LIMIT);
+};
+
+const upsertMetricPoint = (
+  current: NodeDetail["metrics"],
+  point: NodeDetail["metrics"][number],
+  nowMs: number,
+) => {
+  if (!current.length) {
+    return [point];
+  }
+
+  const lastPoint = current[current.length - 1];
+  if (lastPoint && lastPoint.timestamp <= point.timestamp) {
+    return trimMetricWindow([...current, point], nowMs);
+  }
+
+  const next = current.slice();
+  const existingIndex = next.findIndex(
+    (item) => item.timestamp === point.timestamp,
   );
+
+  if (existingIndex >= 0) {
+    next[existingIndex] = point;
+    return trimMetricWindow(next, nowMs);
+  }
+
+  const insertIndex = next.findIndex(
+    (item) => item.timestamp > point.timestamp,
+  );
+  if (insertIndex < 0) {
+    next.push(point);
+  } else {
+    next.splice(insertIndex, 0, point);
+  }
+
+  return trimMetricWindow(next, nowMs);
 };
 
 const updateDashboardNodes = (
@@ -64,7 +135,9 @@ const collectTrackedNodeIds = (queryClient: QueryClient) => {
     });
 
   queryClient
-    .getQueriesData<DashboardOverview>({ queryKey: queryKeys.dashboard.overview })
+    .getQueriesData<DashboardOverview>({
+      queryKey: queryKeys.dashboard.overview,
+    })
     .forEach(([, overview]) => {
       overview?.nodes.forEach((node) => trackedNodeIds.add(node.id));
     });
@@ -76,9 +149,182 @@ export const useRealtimeBridge = () => {
   const queryClient = useQueryClient();
   const session = useAppStore((state) => state.session);
   const setRealtimeStatus = useAppStore((state) => state.setRealtimeStatus);
+  const patchRealtimeHealth = useAppStore((state) => state.patchRealtimeHealth);
+  const bumpRealtimeCounter = useAppStore((state) => state.bumpRealtimeCounter);
+  const setRealtimeCounter = useAppStore((state) => state.setRealtimeCounter);
+
+  const sequenceByKeyRef = useRef(new Map<string, number>());
+  const timestampByKeyRef = useRef(new Map<string, string>());
+  const seenEventIdsRef = useRef(new Set<string>());
+  const metricQueueRef = useRef(
+    new Map<
+      string,
+      {
+        point: NodeDetail["metrics"][number];
+        networkStats: Record<string, unknown>;
+      }
+    >(),
+  );
+  const metricQueueTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
+  const previousStatusRef =
+    useRef<ReturnType<typeof useAppStore.getState>["realtimeStatus"]>("idle");
+
+  const shouldAcceptMessage = useEffectEvent(
+    (streamKey: string, message: RealtimeMessage) => {
+      const sequence = message.meta?.sequence;
+      const previousSequence = sequenceByKeyRef.current.get(streamKey);
+
+      if (typeof sequence === "number") {
+        if (
+          typeof previousSequence === "number" &&
+          sequence < previousSequence
+        ) {
+          bumpRealtimeCounter("droppedStaleEvents");
+          return false;
+        }
+
+        if (
+          typeof previousSequence === "number" &&
+          sequence === previousSequence
+        ) {
+          bumpRealtimeCounter("droppedDuplicateEvents");
+          return false;
+        }
+
+        sequenceByKeyRef.current.set(streamKey, sequence);
+        timestampByKeyRef.current.set(streamKey, message.timestamp);
+        return true;
+      }
+
+      const previousTimestamp = timestampByKeyRef.current.get(streamKey);
+      if (previousTimestamp && message.timestamp < previousTimestamp) {
+        bumpRealtimeCounter("droppedStaleEvents");
+        return false;
+      }
+
+      timestampByKeyRef.current.set(streamKey, message.timestamp);
+      return true;
+    },
+  );
+
+  const flushMetricQueue = useEffectEvent(() => {
+    const startedAt = performance.now();
+    const snapshot = Array.from(metricQueueRef.current.entries());
+
+    metricQueueRef.current.clear();
+    setRealtimeCounter("metricQueueDepth", 0);
+
+    snapshot.forEach(([nodeId, queued]) => {
+      queryClient.setQueriesData<NodeSummary[]>(
+        { queryKey: ["nodes", "list"] },
+        (current) =>
+          current?.map((node) =>
+            node.id === nodeId
+              ? {
+                  ...node,
+                  latestMetric: queued.point,
+                }
+              : node,
+          ),
+      );
+
+      queryClient.setQueryData<NodeDetail | undefined>(
+        queryKeys.nodes.detail(nodeId),
+        (current) =>
+          current
+            ? {
+                ...current,
+                latestMetric: queued.point,
+                networkStats: queued.networkStats,
+                metrics: upsertMetricPoint(
+                  current.metrics,
+                  queued.point,
+                  Date.now(),
+                ),
+              }
+            : current,
+      );
+
+      queryClient.setQueryData<DashboardOverview | undefined>(
+        queryKeys.dashboard.overview,
+        (current) =>
+          updateDashboardNodes(current, (node) =>
+            node.id === nodeId
+              ? {
+                  ...node,
+                  latestMetric: queued.point,
+                }
+              : node,
+          ),
+      );
+
+      queryClient.setQueriesData<TaskDetail | undefined>(
+        { queryKey: ["tasks", "detail"] },
+        (current) =>
+          current?.node?.id === nodeId
+            ? {
+                ...current,
+                node: {
+                  ...current.node,
+                  latestMetric: queued.point,
+                },
+              }
+            : current,
+      );
+    });
+
+    performance.measure("realtime:store-to-render", {
+      start: startedAt,
+      end: performance.now(),
+    });
+    bumpRealtimeCounter("metricFlushCount");
+  });
+
+  const enqueueMetric = useEffectEvent(
+    (
+      nodeId: string,
+      point: NodeDetail["metrics"][number],
+      networkStats: Record<string, unknown>,
+    ) => {
+      metricQueueRef.current.set(nodeId, { point, networkStats });
+
+      const queueDepth = metricQueueRef.current.size;
+      setRealtimeCounter("metricQueueDepth", queueDepth);
+
+      const currentHighWater =
+        useAppStore.getState().realtimeCounters.metricQueueHighWaterMark;
+      if (queueDepth > currentHighWater) {
+        setRealtimeCounter("metricQueueHighWaterMark", queueDepth);
+      }
+
+      if (metricQueueTimerRef.current) {
+        return;
+      }
+
+      metricQueueTimerRef.current = setTimeout(() => {
+        metricQueueTimerRef.current = null;
+        flushMetricQueue();
+      }, METRIC_FLUSH_MS);
+    },
+  );
 
   const onMessage = useEffectEvent((message: RealtimeMessage) => {
+    const receivedAt = Date.now();
+    patchRealtimeHealth({
+      lastEventAt: new Date(receivedAt).toISOString(),
+      eventAgeMs: 0,
+      degradedReason: null,
+    });
+
+    performance.mark("realtime:socket-receive");
+
     if (message.type === "node.status.updated") {
+      if (!shouldAcceptMessage(`node.status:${message.data.nodeId}`, message)) {
+        return;
+      }
+
       queryClient.setQueriesData<NodeSummary[]>(
         { queryKey: ["nodes", "list"] },
         (current) =>
@@ -133,68 +379,25 @@ export const useRealtimeBridge = () => {
               }
             : current,
       );
+
+      return;
     }
 
     if (message.type === "metrics.ingested") {
+      if (!shouldAcceptMessage(`node.metric:${message.data.nodeId}`, message)) {
+        return;
+      }
+
       const point = mapMetricDtoToPoint(message.data);
-
-      queryClient.setQueriesData<NodeSummary[]>(
-        { queryKey: ["nodes", "list"] },
-        (current) =>
-          current?.map((node) =>
-            node.id === message.data.nodeId
-              ? {
-                  ...node,
-                  latestMetric: point,
-                }
-              : node,
-          ),
-      );
-
-      queryClient.setQueryData<NodeDetail | undefined>(
-        queryKeys.nodes.detail(message.data.nodeId),
-        (current) =>
-          current
-            ? {
-                ...current,
-                latestMetric: point,
-                networkStats: message.data.networkStats,
-                metrics: [...current.metrics, point]
-                  .sort((left, right) => left.timestamp.localeCompare(right.timestamp))
-                  .slice(-24),
-              }
-            : current,
-      );
-
-      queryClient.setQueryData<DashboardOverview | undefined>(
-        queryKeys.dashboard.overview,
-        (current) =>
-          updateDashboardNodes(current, (node) =>
-            node.id === message.data.nodeId
-              ? {
-                  ...node,
-                  latestMetric: point,
-                }
-              : node,
-          ),
-      );
-
-      queryClient.setQueriesData<TaskDetail | undefined>(
-        { queryKey: ["tasks", "detail"] },
-        (current) =>
-          current?.node?.id === message.data.nodeId
-            ? {
-                ...current,
-                node: {
-                  ...current.node,
-                  latestMetric: point,
-                },
-              }
-            : current,
-      );
+      enqueueMetric(message.data.nodeId, point, message.data.networkStats);
+      return;
     }
 
     if (message.type === "task.updated" || message.type === "task.created") {
+      if (!shouldAcceptMessage(`task:${message.data.id}`, message)) {
+        return;
+      }
+
       queryClient.invalidateQueries({
         queryKey: ["tasks"],
         refetchType: "active",
@@ -226,9 +429,21 @@ export const useRealtimeBridge = () => {
               : current,
         );
       }
+
+      return;
     }
 
     if (message.type === "event.created") {
+      if (seenEventIdsRef.current.has(message.data.id)) {
+        bumpRealtimeCounter("droppedDuplicateEvents");
+        return;
+      }
+
+      if (!shouldAcceptMessage(`event:${message.data.id}`, message)) {
+        return;
+      }
+
+      seenEventIdsRef.current.add(message.data.id);
       const event = mapEventRecord(message.data);
 
       queryClient.setQueriesData<EventRecord[]>(
@@ -242,7 +457,10 @@ export const useRealtimeBridge = () => {
           current
             ? {
                 ...current,
-                recentEvents: prependUnique(current.recentEvents, event).slice(0, 6),
+                recentEvents: prependUnique(current.recentEvents, event).slice(
+                  0,
+                  6,
+                ),
               }
             : current,
       );
@@ -256,11 +474,21 @@ export const useRealtimeBridge = () => {
           description: event.message,
         });
       }
+
+      return;
     }
+
+    performance.mark("realtime:store-updated");
+    performance.measure(
+      "realtime:socket-to-store",
+      "realtime:socket-receive",
+      "realtime:store-updated",
+    );
   });
 
   useEffect(() => {
     const client = getRealtimeClient();
+    const metricQueue = metricQueueRef.current;
 
     if (!session) {
       client.disconnect();
@@ -268,14 +496,67 @@ export const useRealtimeBridge = () => {
       return;
     }
 
-    const unsubscribeMessages = client.subscribe((message) => onMessage(message));
-    const unsubscribeStatus = client.subscribeStatus(setRealtimeStatus);
+    const unsubscribeMessages = client.subscribe((message) =>
+      onMessage(message),
+    );
+    const unsubscribeStatus = client.subscribeStatus((status) => {
+      const previousStatus = previousStatusRef.current;
+      previousStatusRef.current = status;
+
+      setRealtimeStatus(status);
+
+      if (status === "reconnecting") {
+        bumpRealtimeCounter("reconnectAttempts");
+      }
+
+      if (status === "connected" && previousStatus === "reconnecting") {
+        bumpRealtimeCounter("reconnectSuccesses");
+      }
+
+      patchRealtimeHealth({
+        status,
+        degradedReason:
+          status === "degraded"
+            ? "No realtime frames received recently."
+            : null,
+      });
+    });
+
+    const eventAgeTimer = setInterval(() => {
+      const lastEventAt = useAppStore.getState().realtimeHealth.lastEventAt;
+      if (!lastEventAt) {
+        return;
+      }
+
+      const ageMs = Date.now() - new Date(lastEventAt).getTime();
+      patchRealtimeHealth({
+        eventAgeMs: Number.isFinite(ageMs) ? Math.max(0, ageMs) : null,
+      });
+    }, 1_000);
 
     return () => {
       unsubscribeMessages();
       unsubscribeStatus();
+      clearInterval(eventAgeTimer);
+
+      if (metricQueueTimerRef.current) {
+        clearTimeout(metricQueueTimerRef.current);
+        metricQueueTimerRef.current = null;
+      }
+
+      if (metricQueue.size > 0) {
+        bumpRealtimeCounter("metricDroppedFrames", metricQueue.size);
+        metricQueue.clear();
+        setRealtimeCounter("metricQueueDepth", 0);
+      }
     };
-  }, [session, setRealtimeStatus]);
+  }, [
+    bumpRealtimeCounter,
+    patchRealtimeHealth,
+    session,
+    setRealtimeCounter,
+    setRealtimeStatus,
+  ]);
 
   useEffect(() => {
     if (!session?.user.id) {
@@ -316,7 +597,9 @@ export const useRealtimeBridge = () => {
   }, [queryClient, session?.user.id]);
 };
 
-export const useNodeRealtimeSubscription = (nodeId: string | null | undefined) => {
+export const useNodeRealtimeSubscription = (
+  nodeId: string | null | undefined,
+) => {
   const sessionUserId = useAppStore((state) => state.session?.user.id);
 
   useEffect(() => {

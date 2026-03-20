@@ -15,7 +15,13 @@ import {
 
 import { BrandBadge } from "@/components/brand/brand-mark";
 import { Button } from "@/components/ui/button";
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/store/useAppStore";
 
@@ -23,6 +29,7 @@ const realtimeLabels = {
   connected: "Realtime connected",
   connecting: "Connecting",
   reconnecting: "Reconnecting",
+  degraded: "Degraded",
   disconnected: "Offline",
   idle: "Standby",
 } as const;
@@ -93,7 +100,8 @@ const SidebarContent = ({
               <nav className="space-y-1">
                 {group.items.map((item) => {
                   const isActive =
-                    pathname === item.href || pathname.startsWith(`${item.href}/`);
+                    pathname === item.href ||
+                    pathname.startsWith(`${item.href}/`);
 
                   return (
                     <Link
@@ -111,7 +119,9 @@ const SidebarContent = ({
                       <item.icon
                         className={cn(
                           "size-4",
-                          isActive ? "text-tone-brand" : "text-muted-foreground",
+                          isActive
+                            ? "text-tone-brand"
+                            : "text-muted-foreground",
                         )}
                       />
                       {!collapsed ? <span>{item.label}</span> : null}
@@ -124,10 +134,17 @@ const SidebarContent = ({
         </div>
       </div>
 
-      <div className={cn("border-t border-sidebar-border p-3", collapsed && "p-2.5")}>
+      <div
+        className={cn(
+          "border-t border-sidebar-border p-3",
+          collapsed && "p-2.5",
+        )}
+      >
         {!collapsed ? (
           <div className="mb-3 rounded-2xl border border-sidebar-border bg-background/70 px-3.5 py-3">
-            <p className="text-xs font-medium text-sidebar-foreground">Workspace</p>
+            <p className="text-xs font-medium text-sidebar-foreground">
+              Workspace
+            </p>
             <p className="mt-1 text-sm font-semibold text-sidebar-foreground">
               {realtimeLabels[realtimeStatus]}
             </p>
@@ -139,11 +156,18 @@ const SidebarContent = ({
         <Button
           variant="ghost"
           size={collapsed ? "icon-lg" : "lg"}
-          className={cn("w-full rounded-xl", !collapsed && "justify-between px-3")}
+          className={cn(
+            "w-full rounded-xl",
+            !collapsed && "justify-between px-3",
+          )}
           onClick={toggleSidebar}
         >
           {!collapsed ? <span>Collapse</span> : null}
-          {collapsed ? <ChevronRight className="size-4" /> : <ChevronLeft className="size-4" />}
+          {collapsed ? (
+            <ChevronRight className="size-4" />
+          ) : (
+            <ChevronLeft className="size-4" />
+          )}
         </Button>
       </div>
     </div>
@@ -153,7 +177,9 @@ const SidebarContent = ({
 export const AppSidebar = () => {
   const collapsed = useAppStore((state) => state.sidebarCollapsed);
   const mobileOpen = useAppStore((state) => state.mobileSidebarOpen);
-  const setMobileSidebarOpen = useAppStore((state) => state.setMobileSidebarOpen);
+  const setMobileSidebarOpen = useAppStore(
+    (state) => state.setMobileSidebarOpen,
+  );
 
   return (
     <>
@@ -173,7 +199,9 @@ export const AppSidebar = () => {
         >
           <SheetHeader className="sr-only">
             <SheetTitle>Noderax navigation</SheetTitle>
-            <SheetDescription>Navigate between dashboard surfaces.</SheetDescription>
+            <SheetDescription>
+              Navigate between dashboard surfaces.
+            </SheetDescription>
           </SheetHeader>
           <SidebarContent
             collapsed={false}
