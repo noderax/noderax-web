@@ -142,9 +142,11 @@ export const useCheckEnrollment = (token: string) => {
 export const useNodePackages = (nodeId: string) =>
   useQuery({
     queryKey: queryKeys.packages.installed(nodeId),
-    queryFn: () => apiClient.getNodePackages(nodeId),
+    queryFn: ({ signal }) => apiClient.getNodePackages(nodeId, { signal }),
     enabled: Boolean(nodeId),
     staleTime: 15_000,
+    retry: false,
+    refetchOnWindowFocus: false,
   });
 
 export const useSearchPackages = (term: string, nodeId: string) => {
@@ -152,9 +154,12 @@ export const useSearchPackages = (term: string, nodeId: string) => {
 
   return useQuery({
     queryKey: queryKeys.packages.search(nodeId, normalizedTerm),
-    queryFn: () => apiClient.searchPackages(normalizedTerm, nodeId),
+    queryFn: ({ signal }) =>
+      apiClient.searchPackages(normalizedTerm, nodeId, { signal }),
     enabled: Boolean(nodeId) && normalizedTerm.length >= 2,
     staleTime: 30_000,
+    retry: false,
+    refetchOnWindowFocus: false,
   });
 };
 

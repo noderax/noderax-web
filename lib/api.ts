@@ -37,6 +37,7 @@ import type {
   TaskFilters,
   TaskLogDto,
   TaskLogFilters,
+  TaskStatus,
   TaskSummary,
   UserDto,
 } from "@/lib/types";
@@ -50,6 +51,23 @@ class ApiError extends Error {
     this.status = status;
   }
 }
+
+type PackageTaskReference = {
+  taskId: string;
+  taskStatus: TaskStatus;
+};
+
+const ASYNC_PACKAGE_TASK_TIMEOUT_MS = 45_000;
+const ASYNC_PACKAGE_TASK_POLL_INTERVAL_MS = 1_500;
+const PACKAGE_COLLECTION_KEYS = [
+  "packages",
+  "installedPackages",
+  "searchResults",
+  "results",
+  "items",
+  "entries",
+  "data",
+] as const;
 
 const buildQueryString = (
   params?: Record<string, string | number | undefined | null>,
@@ -87,6 +105,131 @@ const readErrorMessage = async (response: Response) => {
   }
 };
 
+const readString = (value: unknown) =>
+  typeof value === "string" && value.trim().length ? value.trim() : null;
+
+const readRecord = (value: unknown): Record<string, unknown> | null =>
+  value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+
+const hasOwn = (record: Record<string, unknown>, key: string) =>
+  Object.prototype.hasOwnProperty.call(record, key);
+
+const isPackageTaskReference = (value: unknown): value is PackageTaskReference => {
+  const record = readRecord(value);
+
+  return (
+    Boolean(record) &&
+    typeof record?.taskId === "string" &&
+    typeof record?.taskStatus === "string"
+  );
+};
+
+const isTaskDtoLike = (value: unknown): value is TaskDto => {
+  const record = readRecord(value);
+
+  return (
+    Boolean(record) &&
+    typeof record?.id === "string" &&
+    typeof record?.status === "string" &&
+    typeof record?.nodeId === "string" &&
+    typeof record?.type === "string"
+  );
+};
+
+const isRecordArray = (value: unknown[]): value is Record<string, unknown>[] =>
+  value.every((entry) => Boolean(readRecord(entry)));
+
+const extractRecordArray = (
+  value: unknown,
+  candidateKeys: readonly string[],
+  depth = 0,
+): Record<string, unknown>[] | null => {
+  if (Array.isArray(value)) {
+    if (value.length === 0) {
+      return [];
+    }
+
+    return isRecordArray(value) ? value : null;
+  }
+
+  const record = readRecord(value);
+  if (!record || depth >= 3) {
+    return null;
+  }
+
+  for (const key of candidateKeys) {
+    if (!hasOwn(record, key)) {
+      continue;
+    }
+
+    const nested = extractRecordArray(record[key], candidateKeys, depth + 1);
+    if (nested !== null) {
+      return nested;
+    }
+  }
+
+  return null;
+};
+
+const parseJsonValue = (value: string | null | undefined) => {
+  if (!value) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(value) as unknown;
+  } catch {
+    return null;
+  }
+};
+
+const extractTaskFailureMessage = (task: TaskDto) => {
+  const result = readRecord(task.result);
+
+  return (
+    readString(result?.message) ??
+    readString(result?.error) ??
+    readString(result?.detail) ??
+    readString(result?.reason) ??
+    readString(task.output) ??
+    `Task ${task.id} finished with status ${task.status}.`
+  );
+};
+
+const createAbortError = () => {
+  const error = new Error("Request was aborted.");
+  error.name = "AbortError";
+  return error;
+};
+
+const throwIfAborted = (signal?: AbortSignal) => {
+  if (signal?.aborted) {
+    throw createAbortError();
+  }
+};
+
+const sleep = (durationMs: number, signal?: AbortSignal) =>
+  new Promise<void>((resolve, reject) => {
+    if (signal?.aborted) {
+      reject(createAbortError());
+      return;
+    }
+
+    const handleAbort = () => {
+      globalThis.clearTimeout(timeoutId);
+      reject(createAbortError());
+    };
+
+    const timeoutId = globalThis.setTimeout(() => {
+      signal?.removeEventListener("abort", handleAbort);
+      resolve();
+    }, durationMs);
+
+    signal?.addEventListener("abort", handleAbort, { once: true });
+  });
+
 const request = async <T>(path: string, init?: RequestInit): Promise<T> => {
   const response = await fetch(path, {
     ...init,
@@ -107,6 +250,68 @@ const request = async <T>(path: string, init?: RequestInit): Promise<T> => {
   }
 
   return (await response.json()) as T;
+};
+
+const getTaskDto = (id: string, signal?: AbortSignal) =>
+  request<TaskDto>(`/api/proxy/tasks/${id}`, {
+    signal,
+  });
+
+const waitForTaskCompletion = async (taskId: string, signal?: AbortSignal) => {
+  const startedAt = Date.now();
+
+  while (true) {
+    throwIfAborted(signal);
+
+    const task = await getTaskDto(taskId, signal);
+    if (task.status !== "queued" && task.status !== "running") {
+      return task;
+    }
+
+    if (Date.now() - startedAt >= ASYNC_PACKAGE_TASK_TIMEOUT_MS) {
+      throw new ApiError(
+        "Timed out while waiting for the package task to finish.",
+        504,
+      );
+    }
+
+    await sleep(ASYNC_PACKAGE_TASK_POLL_INTERVAL_MS, signal);
+  }
+};
+
+const resolvePackageCollection = async (
+  response: unknown,
+  signal?: AbortSignal,
+): Promise<Record<string, unknown>[]> => {
+  const directRecords = extractRecordArray(response, PACKAGE_COLLECTION_KEYS);
+  if (directRecords !== null) {
+    return directRecords;
+  }
+
+  const task =
+    isPackageTaskReference(response)
+      ? await waitForTaskCompletion(response.taskId, signal)
+      : isTaskDtoLike(response)
+        ? await waitForTaskCompletion(response.id, signal)
+        : null;
+
+  if (!task) {
+    throw new ApiError("Package request did not return a supported response shape.", 502);
+  }
+
+  if (task.status !== "success") {
+    throw new ApiError(extractTaskFailureMessage(task), 502);
+  }
+
+  const taskResultRecords =
+    extractRecordArray(task.result, PACKAGE_COLLECTION_KEYS) ??
+    extractRecordArray(parseJsonValue(task.output), PACKAGE_COLLECTION_KEYS);
+
+  if (taskResultRecords === null) {
+    throw new ApiError("Package task completed without returning package data.", 502);
+  }
+
+  return taskResultRecords;
 };
 
 const createNodeLookup = (nodes: NodeDto[]) =>
@@ -206,23 +411,39 @@ export const apiClient = {
   getNode(id: string) {
     return request<NodeDto>(`/api/proxy/nodes/${id}`);
   },
-  async getNodePackages(nodeId: string): Promise<InstalledPackage[]> {
-    const packages = await request<Record<string, unknown>[]>(
+  async getNodePackages(
+    nodeId: string,
+    options?: {
+      signal?: AbortSignal;
+    },
+  ): Promise<InstalledPackage[]> {
+    const response = await request<unknown>(
       `/api/proxy/nodes/${nodeId}/packages`,
+      {
+        signal: options?.signal,
+      },
     );
+    const packages = await resolvePackageCollection(response, options?.signal);
 
     return packages.map(mapInstalledPackage);
   },
   async searchPackages(
     term: string,
     nodeId: string,
+    options?: {
+      signal?: AbortSignal;
+    },
   ): Promise<PackageSearchResult[]> {
-    const packages = await request<Record<string, unknown>[]>(
+    const response = await request<unknown>(
       `/api/proxy/packages/search${buildQueryString({
         term,
         nodeId,
       })}`,
+      {
+        signal: options?.signal,
+      },
     );
+    const packages = await resolvePackageCollection(response, options?.signal);
 
     return packages.map(mapPackageSearchResult);
   },
@@ -275,7 +496,7 @@ export const apiClient = {
     });
   },
   getTask(id: string) {
-    return request<TaskDto>(`/api/proxy/tasks/${id}`);
+    return getTaskDto(id);
   },
   getTaskLogs(id: string, filters?: TaskLogFilters) {
     return request<TaskLogDto[]>(

@@ -1,7 +1,7 @@
 "use client";
 
 import { useDeferredValue, useState } from "react";
-import { ArrowLeft, ArrowRight, PackageOpen } from "lucide-react";
+import { ArrowLeft, ArrowRight, PackageOpen, RefreshCcw } from "lucide-react";
 
 import { EmptyState } from "@/components/empty-state";
 import { PackageActionDialog } from "@/components/packages/package-action-dialog";
@@ -106,6 +106,15 @@ export const PackagesPage = ({
           ))}
         </SelectContent>
       </Select>
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={() => void packagesQuery.refetch()}
+        disabled={packagesQuery.isFetching}
+      >
+        <RefreshCcw className="size-4" />
+        Refresh
+      </Button>
       {headerAction}
     </>
   );
