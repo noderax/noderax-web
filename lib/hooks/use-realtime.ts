@@ -564,22 +564,9 @@ export const useRealtimeBridge = () => {
       });
     });
 
-    const eventAgeTimer = setInterval(() => {
-      const lastEventAt = useAppStore.getState().realtimeHealth.lastEventAt;
-      if (!lastEventAt) {
-        return;
-      }
-
-      const ageMs = Date.now() - new Date(lastEventAt).getTime();
-      patchRealtimeHealth({
-        eventAgeMs: Number.isFinite(ageMs) ? Math.max(0, ageMs) : null,
-      });
-    }, 1_000);
-
     return () => {
       unsubscribeMessages();
       unsubscribeStatus();
-      clearInterval(eventAgeTimer);
 
       if (metricQueueTimerRef.current) {
         clearTimeout(metricQueueTimerRef.current);

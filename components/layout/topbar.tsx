@@ -50,20 +50,13 @@ const sectionDescriptions: Record<string, string> = {
   "/settings": "Manage appearance, session metadata, and preferences.",
 };
 
-const formatEventAge = (ageMs: number | null) => {
-  if (ageMs === null || !Number.isFinite(ageMs)) {
-    return "No events yet";
-  }
-
-  if (ageMs < 1_000) {
-    return "Just now";
-  }
-
-  if (ageMs < 60_000) {
-    return `${Math.round(ageMs / 1_000)}s ago`;
-  }
-
-  return `${Math.round(ageMs / 60_000)}m ago`;
+const realtimeStatusHint: Record<string, string> = {
+  connected: "Stream healthy",
+  connecting: "Handshake in progress",
+  reconnecting: "Recovering link",
+  degraded: "Data flow delayed",
+  disconnected: "Connection lost",
+  idle: "Waiting for session",
 };
 
 const realtimeConfig = {
@@ -107,7 +100,6 @@ export const Topbar = () => {
   const { session } = authQuery;
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const realtimeStatus = useAppStore((state) => state.realtimeStatus);
-  const eventAgeMs = useAppStore((state) => state.realtimeHealth.eventAgeMs);
   const searchQuery = useAppStore((state) => state.searchQuery);
   const setSearchQuery = useAppStore((state) => state.setSearchQuery);
   const setMobileSidebarOpen = useAppStore(
@@ -116,6 +108,7 @@ export const Topbar = () => {
   const clearSession = useAppStore((state) => state.clearSession);
 
   const statusConfig = realtimeConfig[realtimeStatus];
+  const statusHint = realtimeStatusHint[realtimeStatus] ?? "Realtime status";
   const StatusIcon = statusConfig.icon;
   const initials =
     session?.user.name
@@ -188,9 +181,7 @@ export const Topbar = () => {
               >
                 <StatusIcon className="size-3.5" />
                 {statusConfig.label}
-                <span className="text-muted-foreground">
-                  • {formatEventAge(eventAgeMs)}
-                </span>
+                <span className="text-muted-foreground">• {statusHint}</span>
               </div>
             </div>
             <p className="hidden truncate text-sm text-muted-foreground lg:block">
