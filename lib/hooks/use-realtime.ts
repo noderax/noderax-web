@@ -155,6 +155,7 @@ export const useRealtimeBridge = () => {
 
   const sequenceByKeyRef = useRef(new Map<string, number>());
   const timestampByKeyRef = useRef(new Map<string, string>());
+  const nodeStatusByIdRef = useRef(new Map<string, NodeSummary["status"]>());
   const seenEventIdsRef = useRef(new Set<string>());
   const metricQueueRef = useRef(
     new Map<
@@ -325,11 +326,38 @@ export const useRealtimeBridge = () => {
         return;
       }
 
+      const nodeId = message.data.nodeId;
+      let previousStatus = nodeStatusByIdRef.current.get(nodeId);
+      let nodeLabel = message.data.hostname ?? "Node";
+
+      if (!previousStatus) {
+        const detail = queryClient.getQueryData<NodeDetail | undefined>(
+          queryKeys.nodes.detail(nodeId),
+        );
+
+        if (detail) {
+          previousStatus = detail.status;
+          nodeLabel = detail.name || detail.hostname || nodeLabel;
+        }
+      }
+
+      if (!previousStatus) {
+        queryClient
+          .getQueriesData<NodeSummary[]>({ queryKey: ["nodes", "list"] })
+          .forEach(([, nodes]) => {
+            const matched = nodes?.find((node) => node.id === nodeId);
+            if (matched) {
+              previousStatus = matched.status;
+              nodeLabel = matched.name || matched.hostname || nodeLabel;
+            }
+          });
+      }
+
       queryClient.setQueriesData<NodeSummary[]>(
         { queryKey: ["nodes", "list"] },
         (current) =>
           current?.map((node) =>
-            node.id === message.data.nodeId
+            node.id === nodeId
               ? {
                   ...node,
                   status: message.data.status,
@@ -340,7 +368,7 @@ export const useRealtimeBridge = () => {
       );
 
       queryClient.setQueryData<NodeDetail | undefined>(
-        queryKeys.nodes.detail(message.data.nodeId),
+        queryKeys.nodes.detail(nodeId),
         (current) =>
           current
             ? {
@@ -355,7 +383,7 @@ export const useRealtimeBridge = () => {
         queryKeys.dashboard.overview,
         (current) =>
           updateDashboardNodes(current, (node) =>
-            node.id === message.data.nodeId
+            node.id === nodeId
               ? {
                   ...node,
                   status: message.data.status,
@@ -368,7 +396,7 @@ export const useRealtimeBridge = () => {
       queryClient.setQueriesData<TaskDetail | undefined>(
         { queryKey: ["tasks", "detail"] },
         (current) =>
-          current?.node?.id === message.data.nodeId
+          current?.node?.id === nodeId
             ? {
                 ...current,
                 node: {
@@ -379,6 +407,20 @@ export const useRealtimeBridge = () => {
               }
             : current,
       );
+
+      if (message.data.status === "online" && previousStatus !== "online") {
+        toast.success("Node online", {
+          description: `${nodeLabel} is now connected and reporting telemetry.`,
+        });
+      }
+
+      if (message.data.status === "offline" && previousStatus !== "offline") {
+        toast.warning("Node offline", {
+          description: `${nodeLabel} is no longer reporting telemetry.`,
+        });
+      }
+
+      nodeStatusByIdRef.current.set(nodeId, message.data.status);
 
       return;
     }
