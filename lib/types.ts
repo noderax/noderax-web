@@ -67,6 +67,18 @@ export interface TaskDto {
   updatedAt: string;
 }
 
+export interface PackageTaskAcceptedResponse {
+  taskId: string;
+  taskStatus: string;
+  nodeId: string;
+  operation: string;
+  names: string[];
+  purge: boolean | null;
+  term: string | null;
+}
+
+export type PackageTaskMutationResponse = PackageTaskAcceptedResponse | TaskDto;
+
 export interface TaskLogDto {
   id: string;
   taskId: string;

@@ -15,7 +15,27 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
-import { useInstallPackages, useRemovePackage } from "@/lib/hooks/use-noderax-data";
+import {
+  useInstallPackages,
+  useRemovePackage,
+} from "@/lib/hooks/use-noderax-data";
+import type { PackageTaskMutationResponse } from "@/lib/types";
+
+const resolveTaskId = (task: PackageTaskMutationResponse) => {
+  if (
+    "taskId" in task &&
+    typeof task.taskId === "string" &&
+    task.taskId.trim()
+  ) {
+    return task.taskId;
+  }
+
+  if ("id" in task && typeof task.id === "string" && task.id.trim()) {
+    return task.id;
+  }
+
+  return null;
+};
 
 type PackageActionDialogProps = {
   mode: "install" | "remove";
@@ -24,7 +44,12 @@ type PackageActionDialogProps = {
   packageName: string;
   packageVersion?: string;
   triggerLabel?: string;
-  triggerVariant?: "default" | "outline" | "secondary" | "ghost" | "destructive";
+  triggerVariant?:
+    | "default"
+    | "outline"
+    | "secondary"
+    | "ghost"
+    | "destructive";
   triggerSize?: "default" | "sm";
   disabled?: boolean;
 };
@@ -47,7 +72,8 @@ export const PackageActionDialog = ({
   const installPackagesMutation = useInstallPackages();
   const removePackageMutation = useRemovePackage();
   const isRemove = mode === "remove";
-  const isPending = installPackagesMutation.isPending || removePackageMutation.isPending;
+  const isPending =
+    installPackagesMutation.isPending || removePackageMutation.isPending;
   const confirmLabel = isRemove ? "Queue removal task" : "Queue install task";
   const resolvedTriggerLabel =
     triggerLabel ?? (isRemove ? "Remove" : "Install");
@@ -68,9 +94,16 @@ export const PackageActionDialog = ({
             names: [packageName],
           });
 
+      const taskId = resolveTaskId(task);
+      if (!taskId) {
+        throw new Error(
+          "Task queued but response did not include a task identifier. Please open Tasks page to track progress.",
+        );
+      }
+
       setOpen(false);
       startTransition(() => {
-        router.push(`/tasks/${task.id}`);
+        router.push(`/tasks/${taskId}`);
       });
     } catch (error) {
       setSubmissionError(
@@ -124,7 +157,9 @@ export const PackageActionDialog = ({
           </p>
           <p className="mt-2 font-medium">{packageName}</p>
           {packageVersion ? (
-            <p className="mt-1 text-sm text-muted-foreground">{packageVersion}</p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {packageVersion}
+            </p>
           ) : null}
         </div>
 
@@ -134,7 +169,8 @@ export const PackageActionDialog = ({
               <div className="min-w-0">
                 <p className="text-sm font-medium">Purge configuration files</p>
                 <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                  When enabled, package configuration files will also be removed.
+                  When enabled, package configuration files will also be
+                  removed.
                 </p>
               </div>
               <Switch checked={purge} onCheckedChange={setPurge} />
@@ -142,15 +178,15 @@ export const PackageActionDialog = ({
 
             {purge ? (
               <div className="tone-danger rounded-[18px] border px-4 py-3 text-sm leading-6">
-                Purge mode removes the package and its configuration files from the
-                selected node.
+                Purge mode removes the package and its configuration files from
+                the selected node.
               </div>
             ) : null}
           </>
         ) : (
           <div className="surface-subtle rounded-[18px] border px-4 py-3 text-sm leading-6 text-muted-foreground">
-            Installation is asynchronous. Package progress and logs will be tracked
-            through the existing task detail screen.
+            Installation is asynchronous. Package progress and logs will be
+            tracked through the existing task detail screen.
           </div>
         )}
 

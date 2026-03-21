@@ -30,6 +30,8 @@ import type {
   NodeFilters,
   NodeSummary,
   PackageSearchResult,
+  PackageTaskAcceptedResponse,
+  PackageTaskMutationResponse,
   InstalledPackage,
   RemovePackagePayload,
   TaskDetail,
@@ -37,7 +39,6 @@ import type {
   TaskFilters,
   TaskLogDto,
   TaskLogFilters,
-  TaskStatus,
   TaskSummary,
   UserDto,
 } from "@/lib/types";
@@ -52,10 +53,10 @@ class ApiError extends Error {
   }
 }
 
-type PackageTaskReference = {
-  taskId: string;
-  taskStatus: TaskStatus;
-};
+type PackageTaskReference = Pick<
+  PackageTaskAcceptedResponse,
+  "taskId" | "taskStatus"
+>;
 
 const ASYNC_PACKAGE_TASK_TIMEOUT_MS = 45_000;
 const ASYNC_PACKAGE_TASK_POLL_INTERVAL_MS = 1_500;
@@ -116,13 +117,46 @@ const readRecord = (value: unknown): Record<string, unknown> | null =>
 const hasOwn = (record: Record<string, unknown>, key: string) =>
   Object.prototype.hasOwnProperty.call(record, key);
 
-const isPackageTaskReference = (value: unknown): value is PackageTaskReference => {
+const isPackageTaskAcceptedResponse = (
+  value: unknown,
+): value is PackageTaskAcceptedResponse => {
+  const record = readRecord(value);
+
+  return (
+    Boolean(record) &&
+    typeof record?.taskId === "string" &&
+    typeof record?.taskStatus === "string" &&
+    typeof record?.nodeId === "string" &&
+    typeof record?.operation === "string" &&
+    Array.isArray(record?.names) &&
+    record.names.every((item) => typeof item === "string") &&
+    (record?.purge === null || typeof record?.purge === "boolean") &&
+    (record?.term === null || typeof record?.term === "string")
+  );
+};
+
+const isPackageTaskReference = (
+  value: unknown,
+): value is PackageTaskReference => {
   const record = readRecord(value);
 
   return (
     Boolean(record) &&
     typeof record?.taskId === "string" &&
     typeof record?.taskStatus === "string"
+  );
+};
+
+const normalizePackageTaskMutationResponse = (
+  value: unknown,
+): PackageTaskMutationResponse => {
+  if (isPackageTaskAcceptedResponse(value) || isTaskDtoLike(value)) {
+    return value;
+  }
+
+  throw new ApiError(
+    "Package task response is malformed. Missing task identifier.",
+    502,
   );
 };
 
@@ -288,15 +322,17 @@ const resolvePackageCollection = async (
     return directRecords;
   }
 
-  const task =
-    isPackageTaskReference(response)
-      ? await waitForTaskCompletion(response.taskId, signal)
-      : isTaskDtoLike(response)
-        ? await waitForTaskCompletion(response.id, signal)
-        : null;
+  const task = isPackageTaskReference(response)
+    ? await waitForTaskCompletion(response.taskId, signal)
+    : isTaskDtoLike(response)
+      ? await waitForTaskCompletion(response.id, signal)
+      : null;
 
   if (!task) {
-    throw new ApiError("Package request did not return a supported response shape.", 502);
+    throw new ApiError(
+      "Package request did not return a supported response shape.",
+      502,
+    );
   }
 
   if (task.status !== "success") {
@@ -308,7 +344,10 @@ const resolvePackageCollection = async (
     extractRecordArray(parseJsonValue(task.output), PACKAGE_COLLECTION_KEYS);
 
   if (taskResultRecords === null) {
-    throw new ApiError("Package task completed without returning package data.", 502);
+    throw new ApiError(
+      "Package task completed without returning package data.",
+      502,
+    );
   }
 
   return taskResultRecords;
@@ -326,7 +365,9 @@ const createMetricsByNodeId = (metrics: MetricDto[]) => {
   metrics.forEach((metric) => {
     const current = map.get(metric.nodeId) ?? [];
     current.push(metric);
-    current.sort((left, right) => right.recordedAt.localeCompare(left.recordedAt));
+    current.sort((left, right) =>
+      right.recordedAt.localeCompare(left.recordedAt),
+    );
     map.set(metric.nodeId, current);
   });
 
@@ -447,32 +488,41 @@ export const apiClient = {
 
     return packages.map(mapPackageSearchResult);
   },
-  installPackages({
+  async installPackages({
     nodeId,
     names,
     purge,
-  }: InstallPackagesPayload) {
-    return request<TaskDto>(`/api/proxy/nodes/${nodeId}/packages`, {
-      method: "POST",
-      body: JSON.stringify({
-        names,
-        ...(purge !== undefined ? { purge } : {}),
-      }),
-    });
+  }: InstallPackagesPayload): Promise<PackageTaskMutationResponse> {
+    const response = await request<unknown>(
+      `/api/proxy/nodes/${nodeId}/packages`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          names,
+          ...(purge !== undefined ? { purge } : {}),
+        }),
+      },
+    );
+
+    return normalizePackageTaskMutationResponse(response);
   },
-  removeNodePackage({
+  async removeNodePackage({
     nodeId,
     name,
     purge,
-  }: RemovePackagePayload) {
-    return request<TaskDto>(
-      `/api/proxy/nodes/${nodeId}/packages/${encodeURIComponent(name)}${buildQueryString({
-        purge: purge !== undefined ? String(purge) : undefined,
-      })}`,
+  }: RemovePackagePayload): Promise<PackageTaskMutationResponse> {
+    const response = await request<unknown>(
+      `/api/proxy/nodes/${nodeId}/packages/${encodeURIComponent(name)}${buildQueryString(
+        {
+          purge: purge !== undefined ? String(purge) : undefined,
+        },
+      )}`,
       {
         method: "DELETE",
       },
     );
+
+    return normalizePackageTaskMutationResponse(response);
   },
   deleteNode(id: string) {
     return request<DeleteNodeResponse>(`/api/proxy/nodes/${id}`, {
@@ -532,7 +582,9 @@ export const apiClient = {
     ]);
 
     const metricsByNodeId = createMetricsByNodeId(metrics);
-    const nodeSummaries = nodes.map((node) => mapNodeSummary(node, metricsByNodeId));
+    const nodeSummaries = nodes.map((node) =>
+      mapNodeSummary(node, metricsByNodeId),
+    );
     const nodeLookup = createNodeLookup(nodes);
     const taskSummaries = tasks.map((task) => mapTaskSummary(task, nodeLookup));
     const eventRecords = events.map(mapEventRecord);
