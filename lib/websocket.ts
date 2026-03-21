@@ -162,14 +162,36 @@ class NoderaxRealtimeClient {
   private status: RealtimeStatus = "idle";
   private connectPromise: Promise<void> | null = null;
   private wantsConnection = false;
+  private disconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private staleTimer: ReturnType<typeof setInterval> | null = null;
   private lastSignalAt = 0;
   private didRetryAuth = false;
 
   private readonly staleThresholdMs = 18_000;
   private readonly staleCheckIntervalMs = 3_000;
+  private readonly autoDisconnectDelayMs = 2_500;
+
+  private clearDisconnectTimer() {
+    if (this.disconnectTimer) {
+      clearTimeout(this.disconnectTimer);
+      this.disconnectTimer = null;
+    }
+  }
+
+  private scheduleAutoDisconnect() {
+    this.clearDisconnectTimer();
+
+    this.disconnectTimer = setTimeout(() => {
+      this.disconnectTimer = null;
+
+      if (!this.shouldMaintainConnection()) {
+        this.disconnect();
+      }
+    }, this.autoDisconnectDelayMs);
+  }
 
   subscribe(listener: MessageListener) {
+    this.clearDisconnectTimer();
     this.listeners.add(listener);
     this.wantsConnection = true;
     void this.connect();
@@ -177,7 +199,7 @@ class NoderaxRealtimeClient {
     return () => {
       this.listeners.delete(listener);
       if (!this.shouldMaintainConnection()) {
-        this.disconnect();
+        this.scheduleAutoDisconnect();
       }
     };
   }
@@ -188,6 +210,7 @@ class NoderaxRealtimeClient {
     }
 
     const currentCount = this.nodeSubscriptionCounts.get(nodeId) ?? 0;
+    this.clearDisconnectTimer();
     this.nodeSubscriptionCounts.set(nodeId, currentCount + 1);
     this.wantsConnection = true;
 
@@ -219,7 +242,7 @@ class NoderaxRealtimeClient {
     }
 
     if (!this.shouldMaintainConnection()) {
-      this.disconnect();
+      this.scheduleAutoDisconnect();
     }
   }
 
@@ -482,6 +505,7 @@ class NoderaxRealtimeClient {
   }
 
   async connect() {
+    this.clearDisconnectTimer();
     this.wantsConnection = true;
 
     if (typeof window === "undefined" || this.socket || this.connectPromise) {
@@ -541,6 +565,7 @@ class NoderaxRealtimeClient {
   }
 
   disconnect() {
+    this.clearDisconnectTimer();
     this.wantsConnection = false;
     this.clearStaleTimer();
     this.lastSignalAt = 0;
