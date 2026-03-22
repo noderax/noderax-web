@@ -9,6 +9,7 @@ import {
   FolderTree,
   ServerCog,
   ShieldAlert,
+  TerminalSquare,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -20,8 +21,10 @@ import { CancelTaskDialog } from "@/components/tasks/cancel-task-dialog";
 import { TaskLogStream } from "@/components/tasks/task-log-stream";
 import { TaskStatusBadge } from "@/components/tasks/task-status-badge";
 import { Badge } from "@/components/ui/badge";
+import { Label } from "@/components/ui/label";
 import { SectionPanel } from "@/components/ui/section-panel";
 import { StatStrip } from "@/components/ui/stat-strip";
+import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TimeDisplay } from "@/components/ui/time-display";
 import { apiClient } from "@/lib/api";
@@ -53,6 +56,14 @@ const formatDuration = (durationMs: number) => {
   return `${minutes}m ${seconds.toString().padStart(2, "0")}s`;
 };
 
+const formatTerminalOutput = (task: TaskDetail) => {
+  if (task.type === "packageList" && task.result?.packages) {
+    const pkgs = task.result.packages as { name: string; version?: string }[];
+    return pkgs.map((p) => `[pkg] ${p.name}${p.version ? ` (${p.version})` : ""}`).join("\n");
+  }
+  return task.lastOutput ?? "No recent output available.";
+};
+
 export const TaskDetailView = ({ id }: { id: string }) => {
   const queryClient = useQueryClient();
   const authQuery = useAuthSession();
@@ -60,6 +71,7 @@ export const TaskDetailView = ({ id }: { id: string }) => {
   const task = taskQuery.data;
   const [now, setNow] = useState(() => Date.now());
   const [isCancelling, setIsCancelling] = useState(false);
+  const [showTerminal, setShowTerminal] = useState(false);
 
   useEffect(() => {
     if (!task || task.status !== "queued") {
@@ -331,12 +343,30 @@ export const TaskDetailView = ({ id }: { id: string }) => {
                 </p>
               </div>
               <div className="surface-subtle rounded-[18px] border p-4">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-                  Latest Output
-                </p>
-                <pre className="mt-2 max-h-40 overflow-y-auto overflow-x-auto text-xs text-muted-foreground">
-                  {task.lastOutput ?? "No recent output"}
-                </pre>
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                    Execution Output
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <Label htmlFor="terminal-mode" className="text-xs text-muted-foreground mr-1">Terminal view</Label>
+                    <Switch id="terminal-mode" size="sm" checked={showTerminal} onCheckedChange={setShowTerminal} />
+                  </div>
+                </div>
+                {showTerminal ? (
+                  <div className="mt-3 rounded-lg bg-[#0e0e0e] border border-white/10 p-4">
+                    <div className="flex items-center gap-2 mb-3 pb-2 border-b border-white/10">
+                       <TerminalSquare className="size-4 text-emerald-400" />
+                       <span className="text-xs font-medium text-emerald-400 font-mono">Terminal Window</span>
+                    </div>
+                    <pre className="h-96 overflow-y-auto overflow-x-auto text-[13px] font-mono leading-relaxed text-[#a8ff60] selection:bg-emerald-900 scrollbar-thumb-emerald-800 scrollbar-track-transparent">
+                      {formatTerminalOutput(task)}
+                    </pre>
+                  </div>
+                ) : (
+                  <pre className="mt-2 max-h-40 overflow-y-auto overflow-x-auto text-xs text-muted-foreground">
+                    {task.lastOutput ?? "No recent output"}
+                  </pre>
+                )}
               </div>
               <div className="surface-subtle rounded-[18px] border p-4">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">

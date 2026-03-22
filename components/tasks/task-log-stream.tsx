@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { format } from "date-fns";
-import { Activity, Eraser, Pause, Play } from "lucide-react";
+import { Activity, Eraser, Pause, Play, TerminalSquare } from "lucide-react";
 
 import { EmptyState } from "@/components/empty-state";
 import { SectionPanel } from "@/components/ui/section-panel";
@@ -29,6 +29,7 @@ export const TaskLogStream = ({
   taskStatus: TaskStatus;
 }) => {
   const [autoscroll, setAutoscroll] = useState(true);
+  const [terminalMode, setTerminalMode] = useState(false);
   const [clearedAt, setClearedAt] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const realtimeStatus = useAppStore((state) => state.realtimeStatus);
@@ -65,6 +66,10 @@ export const TaskLogStream = ({
           <div className="flex items-center gap-2 rounded-full border border-border/80 px-3 py-2 text-xs text-muted-foreground">
             <Switch checked={autoscroll} onCheckedChange={setAutoscroll} />
             Auto-scroll
+          </div>
+          <div className="flex items-center gap-2 rounded-full border border-border/80 px-3 py-2 text-xs text-muted-foreground">
+            <Switch checked={terminalMode} onCheckedChange={setTerminalMode} />
+            Terminal view
           </div>
           <Button
             variant="outline"
@@ -103,30 +108,47 @@ export const TaskLogStream = ({
             </span>
           </div>
           <ScrollArea className="h-[460px]">
-            <div className="space-y-2 p-5 font-mono text-[13px]">
-              {logs.map((line) => (
-                <div
-                  key={line.id}
-                  className="surface-subtle grid grid-cols-[84px_72px_1fr] gap-3 rounded-[14px] border px-3 py-2"
-                >
-                  <span className="text-muted-foreground">
-                    {format(new Date(line.timestamp), "HH:mm:ss")}
-                  </span>
-                  <span className="uppercase tracking-[0.16em] text-muted-foreground">
-                    {line.level}
-                  </span>
-                  <span
-                    className={cn(
-                      "break-words leading-6",
-                      streamStyles[line.level],
-                    )}
-                  >
-                    {line.message}
+            {terminalMode ? (
+              <div className="bg-[#0e0e0e] min-h-full">
+                <div className="sticky top-0 z-10 flex items-center gap-2 border-b border-white/10 bg-[#0e0e0e]/95 px-5 py-3 backdrop-blur">
+                  <TerminalSquare className="size-4 text-emerald-400" />
+                  <span className="font-mono text-xs font-medium text-emerald-400">
+                    Terminal Window
                   </span>
                 </div>
-              ))}
-              <div ref={bottomRef} />
-            </div>
+                <div className="p-5">
+                  <pre className="whitespace-pre-wrap font-mono text-[13px] leading-relaxed text-[#a8ff60] selection:bg-emerald-900">
+                    {logs.map((line) => line.message).join("\n")}
+                  </pre>
+                  <div ref={bottomRef} className="pt-2" />
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-2 p-5 font-mono text-[13px]">
+                {logs.map((line) => (
+                  <div
+                    key={line.id}
+                    className="surface-subtle grid grid-cols-[84px_72px_1fr] gap-3 rounded-[14px] border px-3 py-2"
+                  >
+                    <span className="text-muted-foreground">
+                      {format(new Date(line.timestamp), "HH:mm:ss")}
+                    </span>
+                    <span className="uppercase tracking-[0.16em] text-muted-foreground">
+                      {line.level}
+                    </span>
+                    <span
+                      className={cn(
+                        "break-words leading-6",
+                        streamStyles[line.level],
+                      )}
+                    >
+                      {line.message}
+                    </span>
+                  </div>
+                ))}
+                <div ref={bottomRef} />
+              </div>
+            )}
           </ScrollArea>
         </>
       ) : (
