@@ -275,9 +275,10 @@ export const TaskDetailView = ({ id }: { id: string }) => {
             tone: "success",
           },
           {
-            label: "Latest output",
-            value: task.lastOutput ?? "No output",
-            description: "Most recent task message or error.",
+            label: "Related events",
+            value: task.relatedEvents?.length.toString() ?? "0",
+            description: "Number of node events linked.",
+            icon: FolderTree,
             tone: "warning",
           },
           {
@@ -328,6 +329,14 @@ export const TaskDetailView = ({ id }: { id: string }) => {
                 <p className="mt-2 font-mono text-sm">
                   {task.command ?? "No command field"}
                 </p>
+              </div>
+              <div className="surface-subtle rounded-[18px] border p-4">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                  Latest Output
+                </p>
+                <pre className="mt-2 max-h-40 overflow-y-auto overflow-x-auto text-xs text-muted-foreground">
+                  {task.lastOutput ?? "No recent output"}
+                </pre>
               </div>
               <div className="surface-subtle rounded-[18px] border p-4">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
