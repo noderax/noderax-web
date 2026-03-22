@@ -1,7 +1,12 @@
 "use client";
 
 import { useDeferredValue, useMemo, useState } from "react";
-import { AlertTriangle, CircleCheckBig, CirclePlay, Clock3 } from "lucide-react";
+import {
+  AlertTriangle,
+  CircleCheckBig,
+  CirclePlay,
+  Clock3,
+} from "lucide-react";
 
 import { AppShell } from "@/components/layout/app-shell";
 import { CreateTaskDialog } from "@/components/tasks/create-task-dialog";
@@ -19,7 +24,9 @@ const EMPTY_NODES: NodeSummary[] = [];
 export const TasksPageView = () => {
   const authQuery = useAuthSession();
   const searchQuery = useAppStore((state) => state.searchQuery);
-  const deferredSearchQuery = useDeferredValue(searchQuery.trim().toLowerCase());
+  const deferredSearchQuery = useDeferredValue(
+    searchQuery.trim().toLowerCase(),
+  );
   const [pageState, setPageState] = useState({
     index: 0,
     scope: "all:all",
@@ -67,7 +74,8 @@ export const TasksPageView = () => {
             {
               label: "Queued",
               value: queuedCount,
-              description: "Queued tasks visible in the current server-side page.",
+              description:
+                "Queued tasks visible in the current server-side page.",
               icon: Clock3,
               tone: "brand",
             },
@@ -81,7 +89,8 @@ export const TasksPageView = () => {
             {
               label: "Successful",
               value: successCount,
-              description: "Loaded tasks that completed with a successful outcome.",
+              description:
+                "Loaded tasks that completed with a successful outcome.",
               icon: CircleCheckBig,
               tone: "success",
             },
@@ -124,6 +133,7 @@ export const TasksPageView = () => {
           }
           hasNextPage={tasks.length === PAGE_SIZE}
           createAction={isAdmin ? <CreateTaskDialog nodes={nodes} /> : null}
+          canManage={isAdmin}
         />
       </div>
     </AppShell>

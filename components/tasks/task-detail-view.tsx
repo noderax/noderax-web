@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   AlertTriangle,
   Binary,
@@ -9,20 +10,40 @@ import {
   ServerCog,
   ShieldAlert,
 } from "lucide-react";
+import { toast } from "sonner";
 
 import { EmptyState } from "@/components/empty-state";
 import { AppShell } from "@/components/layout/app-shell";
 import { NodeStatusBadge } from "@/components/nodes/node-status-badge";
 import { SeverityBadge } from "@/components/severity-badge";
+import { CancelTaskDialog } from "@/components/tasks/cancel-task-dialog";
 import { TaskLogStream } from "@/components/tasks/task-log-stream";
+import { TaskStatusBadge } from "@/components/tasks/task-status-badge";
 import { Badge } from "@/components/ui/badge";
 import { SectionPanel } from "@/components/ui/section-panel";
 import { StatStrip } from "@/components/ui/stat-strip";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TimeDisplay } from "@/components/ui/time-display";
-import { useTask } from "@/lib/hooks/use-noderax-data";
+import { apiClient } from "@/lib/api";
+import { useAuthSession } from "@/lib/hooks/use-auth-session";
+import { queryKeys, useTask } from "@/lib/hooks/use-noderax-data";
+import type { TaskDetail, TaskStatus } from "@/lib/types";
 
 const QUEUED_CLAIM_WARNING_THRESHOLD_MS = 20_000;
+const CANCEL_FALLBACK_POLL_INTERVAL_MS = 2_000;
+const CANCEL_FALLBACK_TIMEOUT_MS = 60_000;
+
+const readExitCode = (result: Record<string, unknown> | null) => {
+  if (!result) {
+    return null;
+  }
+
+  const value = result.exitCode;
+  return typeof value === "number" ? value : null;
+};
+
+const isTerminalStatus = (status: TaskStatus) =>
+  status === "success" || status === "failed" || status === "cancelled";
 
 const formatDuration = (durationMs: number) => {
   const totalSeconds = Math.max(0, Math.floor(durationMs / 1_000));
@@ -33,9 +54,12 @@ const formatDuration = (durationMs: number) => {
 };
 
 export const TaskDetailView = ({ id }: { id: string }) => {
+  const queryClient = useQueryClient();
+  const authQuery = useAuthSession();
   const taskQuery = useTask(id);
   const task = taskQuery.data;
   const [now, setNow] = useState(() => Date.now());
+  const [isCancelling, setIsCancelling] = useState(false);
 
   useEffect(() => {
     if (!task || task.status !== "queued") {
@@ -67,6 +91,106 @@ export const TaskDetailView = ({ id }: { id: string }) => {
   const showClaimWarning =
     task?.status === "queued" &&
     queuedForMs >= QUEUED_CLAIM_WARNING_THRESHOLD_MS;
+  const taskStatusForUi: TaskStatus | "cancelling" =
+    isCancelling && task?.status === "running"
+      ? "cancelling"
+      : (task?.status ?? "queued");
+  const isAdmin = authQuery.session?.user.role === "admin";
+
+  useEffect(() => {
+    if (!task || !isCancelling) {
+      return;
+    }
+
+    if (task.status === "cancelled") {
+      toast.success("Task durduruldu.");
+      setIsCancelling(false);
+      return;
+    }
+
+    if (task.status === "success" || task.status === "failed") {
+      setIsCancelling(false);
+      return;
+    }
+  }, [isCancelling, task]);
+
+  useEffect(() => {
+    if (!task || !isCancelling || task.status !== "running") {
+      return;
+    }
+
+    const startedAt = Date.now();
+    let stopped = false;
+
+    const syncTaskDetail = (status: TaskStatus) => {
+      if (isTerminalStatus(status)) {
+        queryClient.invalidateQueries({
+          queryKey: ["tasks", "list"],
+          refetchType: "active",
+        });
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.dashboard.overview,
+          refetchType: "active",
+        });
+      }
+    };
+
+    const tick = async () => {
+      if (stopped) {
+        return;
+      }
+
+      if (Date.now() - startedAt >= CANCEL_FALLBACK_TIMEOUT_MS) {
+        setIsCancelling(false);
+        toast.warning(
+          "Durdurma istegi gonderildi. Durum guncellemesi gecikiyor.",
+        );
+        return;
+      }
+
+      try {
+        const latestTask = await apiClient.getTask(id);
+        if (stopped) {
+          return;
+        }
+
+        queryClient.setQueryData<TaskDetail | undefined>(
+          queryKeys.tasks.detail(id),
+          (current) =>
+            current
+              ? {
+                  ...current,
+                  status: latestTask.status,
+                  startedAt: latestTask.startedAt,
+                  finishedAt: latestTask.finishedAt,
+                  updatedAt: latestTask.updatedAt,
+                  lastOutput: latestTask.output,
+                  result: latestTask.result,
+                  exitCode: readExitCode(latestTask.result) ?? current.exitCode,
+                }
+              : current,
+        );
+
+        syncTaskDetail(latestTask.status);
+
+        if (isTerminalStatus(latestTask.status)) {
+          setIsCancelling(false);
+        }
+      } catch {
+        // Websocket may still update status; keep fallback polling until timeout.
+      }
+    };
+
+    void tick();
+    const interval = globalThis.setInterval(() => {
+      void tick();
+    }, CANCEL_FALLBACK_POLL_INTERVAL_MS);
+
+    return () => {
+      stopped = true;
+      globalThis.clearInterval(interval);
+    };
+  }, [id, isCancelling, queryClient, task]);
 
   if (taskQuery.isError || (!taskQuery.isPending && !task)) {
     return (
@@ -105,6 +229,36 @@ export const TaskDetailView = ({ id }: { id: string }) => {
           </div>
         </div>
       ) : null}
+
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <TaskStatusBadge status={task.status} />
+        <div className="flex items-center gap-2">
+          {taskStatusForUi === "cancelling" ? (
+            <Badge
+              variant="outline"
+              className="rounded-full px-3 py-1 tone-warning"
+            >
+              Cancelling
+            </Badge>
+          ) : null}
+          {isAdmin ? (
+            <CancelTaskDialog
+              taskId={task.id}
+              taskStatus={task.status}
+              onRequested={(status) => {
+                if (status === "running") {
+                  setIsCancelling(true);
+                  return;
+                }
+
+                if (status === "cancelled") {
+                  setIsCancelling(false);
+                }
+              }}
+            />
+          ) : null}
+        </div>
+      </div>
 
       <StatStrip
         items={[

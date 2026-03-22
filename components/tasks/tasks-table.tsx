@@ -3,11 +3,18 @@
 import Link from "next/link";
 import { TerminalSquare } from "lucide-react";
 
+import { CancelTaskDialog } from "@/components/tasks/cancel-task-dialog";
 import { EmptyState } from "@/components/empty-state";
 import { TaskStatusBadge } from "@/components/tasks/task-status-badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { SectionPanel } from "@/components/ui/section-panel";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
@@ -37,6 +44,7 @@ export const TasksTable = ({
   onNextPage,
   hasNextPage,
   createAction,
+  canManage,
 }: {
   tasks: TaskSummary[];
   rawTaskCount: number;
@@ -44,7 +52,13 @@ export const TasksTable = ({
   isLoading?: boolean;
   isError?: boolean;
   onRetry?: () => void;
-  statusFilter: "all" | "queued" | "running" | "success" | "failed" | "cancelled";
+  statusFilter:
+    | "all"
+    | "queued"
+    | "running"
+    | "success"
+    | "failed"
+    | "cancelled";
   onStatusFilterChange: (
     value: "all" | "queued" | "running" | "success" | "failed" | "cancelled",
   ) => void;
@@ -55,13 +69,16 @@ export const TasksTable = ({
   onNextPage: () => void;
   hasNextPage: boolean;
   createAction?: React.ReactNode;
+  canManage?: boolean;
 }) => {
   const selectedNode = nodes.find((node) => node.id === nodeFilter);
 
   const statusControl = (
     <Select
       value={statusFilter}
-      onValueChange={(value) => onStatusFilterChange((value ?? "all") as typeof statusFilter)}
+      onValueChange={(value) =>
+        onStatusFilterChange((value ?? "all") as typeof statusFilter)
+      }
     >
       <SelectTrigger className="min-w-44">
         <SelectValue placeholder="Filter task status" />
@@ -78,7 +95,10 @@ export const TasksTable = ({
   );
 
   const nodeControl = (
-    <Select value={nodeFilter} onValueChange={(value) => onNodeFilterChange(value ?? "all")}>
+    <Select
+      value={nodeFilter}
+      onValueChange={(value) => onNodeFilterChange(value ?? "all")}
+    >
       <SelectTrigger className="min-w-52">
         <SelectValue placeholder="Filter node">
           {nodeFilter === "all" ? "All nodes" : selectedNode?.name}
@@ -97,13 +117,23 @@ export const TasksTable = ({
 
   const pager = (
     <div className="flex items-center gap-2">
-      <Button variant="outline" size="sm" onClick={onPreviousPage} disabled={page === 0}>
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={onPreviousPage}
+        disabled={page === 0}
+      >
         Previous
       </Button>
       <span className="px-1 text-xs font-medium text-muted-foreground">
         Page {page + 1}
       </span>
-      <Button variant="outline" size="sm" onClick={onNextPage} disabled={!hasNextPage}>
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={onNextPage}
+        disabled={!hasNextPage}
+      >
         Next
       </Button>
     </div>
@@ -174,7 +204,11 @@ export const TasksTable = ({
         }
       >
         <EmptyState
-          title={rawTaskCount ? "No tasks match the current search" : "No tasks found"}
+          title={
+            rawTaskCount
+              ? "No tasks match the current search"
+              : "No tasks found"
+          }
           description={
             rawTaskCount
               ? "The current page has tasks, but the global search did not match any of them."
@@ -209,7 +243,7 @@ export const TasksTable = ({
             <TableHead>Node</TableHead>
             <TableHead>Created</TableHead>
             <TableHead>Latest output</TableHead>
-            <TableHead className="text-right">Open</TableHead>
+            <TableHead className="text-right">Actions</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -226,7 +260,9 @@ export const TasksTable = ({
                   </p>
                 </div>
               </TableCell>
-              <TableCell className="text-muted-foreground">{task.nodeName}</TableCell>
+              <TableCell className="text-muted-foreground">
+                {task.nodeName}
+              </TableCell>
               <TableCell className="text-muted-foreground">
                 <TimeDisplay value={task.createdAt} mode="relative" />
               </TableCell>
@@ -236,12 +272,24 @@ export const TasksTable = ({
                 </span>
               </TableCell>
               <TableCell className="text-right">
-                <Link
-                  href={`/tasks/${task.id}`}
-                  className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}
-                >
-                  Details
-                </Link>
+                <div className="flex items-center justify-end gap-2">
+                  {canManage ? (
+                    <CancelTaskDialog
+                      taskId={task.id}
+                      taskStatus={task.status}
+                      triggerVariant="outline"
+                      triggerLabel="Durdur"
+                    />
+                  ) : null}
+                  <Link
+                    href={`/tasks/${task.id}`}
+                    className={cn(
+                      buttonVariants({ variant: "ghost", size: "sm" }),
+                    )}
+                  >
+                    Details
+                  </Link>
+                </div>
               </TableCell>
             </TableRow>
           ))}

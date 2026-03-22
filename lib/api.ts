@@ -10,6 +10,8 @@ import {
 } from "@/lib/noderax";
 import type {
   AuthSession,
+  CancelTaskPayload,
+  CancelTaskResponse,
   CreateNodePayload,
   CreateTaskPayload,
   CreateUserPayload,
@@ -218,6 +220,35 @@ const parseJsonValue = (value: string | null | undefined) => {
   } catch {
     return null;
   }
+};
+
+const normalizeCancelTaskResponse = (
+  taskId: string,
+  value: unknown,
+): CancelTaskResponse => {
+  const record = readRecord(value);
+  const rawStatus = readString(record?.status)?.toLowerCase();
+
+  if (
+    rawStatus !== "queued" &&
+    rawStatus !== "running" &&
+    rawStatus !== "success" &&
+    rawStatus !== "failed" &&
+    rawStatus !== "cancelled"
+  ) {
+    throw new ApiError("Cancel task response is malformed.", 502);
+  }
+
+  return {
+    id: readString(record?.id) ?? taskId,
+    status: rawStatus,
+    cancelRequestedAt: readString(record?.cancelRequestedAt),
+    startedAt: readString(record?.startedAt),
+    finishedAt: readString(record?.finishedAt),
+    updatedAt: readString(record?.updatedAt),
+    output: readString(record?.output),
+    result: readRecord(record?.result),
+  };
 };
 
 const normalizeCounterKey = (key: string) =>
@@ -674,6 +705,22 @@ export const apiClient = {
       method: "POST",
       body: JSON.stringify(payload),
     });
+  },
+  async cancelTask(
+    taskId: string,
+    payload?: CancelTaskPayload,
+  ): Promise<CancelTaskResponse> {
+    const response = await request<unknown>(
+      `/api/proxy/tasks/${taskId}/cancel`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          reason: payload?.reason?.trim() ?? "",
+        }),
+      },
+    );
+
+    return normalizeCancelTaskResponse(taskId, response);
   },
   getTask(id: string) {
     return getTaskDto(id);

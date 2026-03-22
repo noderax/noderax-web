@@ -256,6 +256,21 @@ export interface CreateTaskPayload {
   payload?: Record<string, unknown>;
 }
 
+export interface CancelTaskPayload {
+  reason?: string;
+}
+
+export interface CancelTaskResponse {
+  id: string;
+  status: TaskStatus;
+  cancelRequestedAt: string | null;
+  startedAt: string | null;
+  finishedAt: string | null;
+  updatedAt: string | null;
+  output: string | null;
+  result: Record<string, unknown> | null;
+}
+
 export interface InstallPackagesPayload {
   nodeId: string;
   names: string[];

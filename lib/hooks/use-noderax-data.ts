@@ -3,8 +3,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
-import { apiClient } from "@/lib/api";
+import { ApiError, apiClient } from "@/lib/api";
 import type {
+  CancelTaskPayload,
+  CancelTaskResponse,
   CreateNodePayload,
   CreateTaskPayload,
   CreateUserPayload,
@@ -207,6 +209,11 @@ type FinalizeEnrollmentMutationInput = {
   payload: FinalizeEnrollmentPayload;
 };
 
+type CancelTaskMutationInput = {
+  taskId: string;
+  payload?: CancelTaskPayload;
+};
+
 export const useCreateUser = () => {
   const queryClient = useQueryClient();
 
@@ -328,6 +335,53 @@ export const useCreateTask = () => {
       toast.error("Unable to create task", {
         description: readMutationError(error),
       });
+    },
+  });
+};
+
+export const useCancelTask = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation<CancelTaskResponse, unknown, CancelTaskMutationInput>({
+    mutationFn: ({ taskId, payload }) => apiClient.cancelTask(taskId, payload),
+    onSuccess: async (task, variables) => {
+      if (task.status === "cancelled") {
+        toast.success("Task durduruldu.");
+      } else {
+        toast.info(
+          "Durdurma isteği gönderildi, task güvenli şekilde sonlandırılıyor.",
+        );
+      }
+
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: ["tasks", "list"],
+          refetchType: "active",
+        }),
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.tasks.detail(variables.taskId),
+          refetchType: "active",
+        }),
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.dashboard.overview,
+          refetchType: "active",
+        }),
+      ]);
+    },
+    onError: (error) => {
+      if (error instanceof ApiError) {
+        if (error.status === 401) {
+          toast.error("Oturum süresi doldu. Lütfen tekrar giriş yapın.");
+          return;
+        }
+
+        if (error.status === 403) {
+          toast.error("Bu taskı durdurmak için admin yetkisi gerekiyor.");
+          return;
+        }
+      }
+
+      toast.error("Durdurma isteği gönderilemedi, tekrar dene.");
     },
   });
 };
