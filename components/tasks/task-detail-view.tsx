@@ -103,7 +103,7 @@ export const TaskDetailView = ({ id }: { id: string }) => {
     }
 
     if (task.status === "cancelled") {
-      toast.success("Task durduruldu.");
+      toast.success("Task stopped.");
       setIsCancelling(false);
       return;
     }
@@ -142,9 +142,7 @@ export const TaskDetailView = ({ id }: { id: string }) => {
 
       if (Date.now() - startedAt >= CANCEL_FALLBACK_TIMEOUT_MS) {
         setIsCancelling(false);
-        toast.warning(
-          "Durdurma istegi gonderildi. Durum guncellemesi gecikiyor.",
-        );
+        toast.warning("Stop request was sent. Status update is delayed.");
         return;
       }
 

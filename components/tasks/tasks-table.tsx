@@ -278,7 +278,7 @@ export const TasksTable = ({
                       taskId={task.id}
                       taskStatus={task.status}
                       triggerVariant="outline"
-                      triggerLabel="Durdur"
+                      triggerLabel="Stop"
                     />
                   ) : null}
                   <Link

@@ -346,11 +346,9 @@ export const useCancelTask = () => {
     mutationFn: ({ taskId, payload }) => apiClient.cancelTask(taskId, payload),
     onSuccess: async (task, variables) => {
       if (task.status === "cancelled") {
-        toast.success("Task durduruldu.");
+        toast.success("Task stopped.");
       } else {
-        toast.info(
-          "Durdurma isteği gönderildi, task güvenli şekilde sonlandırılıyor.",
-        );
+        toast.info("Stop request sent. Task is shutting down safely.");
       }
 
       await Promise.all([
@@ -371,17 +369,17 @@ export const useCancelTask = () => {
     onError: (error) => {
       if (error instanceof ApiError) {
         if (error.status === 401) {
-          toast.error("Oturum süresi doldu. Lütfen tekrar giriş yapın.");
+          toast.error("Session expired. Please sign in again.");
           return;
         }
 
         if (error.status === 403) {
-          toast.error("Bu taskı durdurmak için admin yetkisi gerekiyor.");
+          toast.error("Admin permission is required to stop this task.");
           return;
         }
       }
 
-      toast.error("Durdurma isteği gönderilemedi, tekrar dene.");
+      toast.error("Failed to send stop request. Please try again.");
     },
   });
 };

@@ -39,7 +39,7 @@ export const CancelTaskDialog = ({
   taskId,
   taskStatus,
   disabled = false,
-  triggerLabel = "Durdur",
+  triggerLabel = "Stop",
   triggerVariant = "destructive",
   triggerSize = "sm",
   onRequested,
@@ -79,7 +79,7 @@ export const CancelTaskDialog = ({
       setSubmissionError(
         error instanceof Error
           ? error.message
-          : "Durdurma isteği gönderilemedi, tekrar dene.",
+          : "Failed to send stop request. Please try again.",
       );
     }
   };
@@ -109,18 +109,20 @@ export const CancelTaskDialog = ({
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Taski durdurmak istiyor musun?</DialogTitle>
+          <DialogTitle>Do you want to stop this task?</DialogTitle>
           <DialogDescription>
-            Bu istek taski guvenli sekilde sonlandirmak icin agente iletilir.
-            Task hemen cancelled olmayabilir.
+            This request is sent to the agent for a safe shutdown. The task may
+            not become cancelled immediately.
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-2">
-          <Label htmlFor="cancel-task-reason">Iptal sebebi (opsiyonel)</Label>
+          <Label htmlFor="cancel-task-reason">
+            Cancellation reason (optional)
+          </Label>
           <Textarea
             id="cancel-task-reason"
-            placeholder="Orn: Acil bakim penceresi"
+            placeholder="Example: Planned maintenance window"
             value={reason}
             onChange={(event) => setReason(event.target.value)}
             className="min-h-24"
@@ -133,7 +135,7 @@ export const CancelTaskDialog = ({
 
         <DialogFooter>
           <DialogClose render={<Button variant="outline" type="button" />}>
-            Vazgec
+            Cancel
           </DialogClose>
           <Button
             type="button"
@@ -141,7 +143,7 @@ export const CancelTaskDialog = ({
             onClick={handleConfirm}
             disabled={!canCancel || cancelTaskMutation.isPending}
           >
-            {cancelTaskMutation.isPending ? "Gonderiliyor..." : "Durdur"}
+            {cancelTaskMutation.isPending ? "Sending..." : "Stop"}
           </Button>
         </DialogFooter>
       </DialogContent>
