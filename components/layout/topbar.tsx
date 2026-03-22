@@ -3,6 +3,7 @@
 import { startTransition, useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import {
+  AlertTriangle,
   ChevronsUpDown,
   LogOut,
   Menu,
@@ -12,7 +13,7 @@ import {
   SignalLow,
   SignalZero,
 } from "lucide-react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { ThemeToggle } from "@/components/layout/theme-toggle";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -31,6 +32,9 @@ import { apiClient } from "@/lib/api";
 import { useAuthSession } from "@/lib/hooks/use-auth-session";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/store/useAppStore";
+
+const QUEUED_TASK_WARNING_MS = 20_000;
+const QUEUED_TASK_DANGER_MS = 90_000;
 
 const sectionNames: Record<string, string> = {
   "/dashboard": "Dashboard",
@@ -110,6 +114,26 @@ export const Topbar = () => {
   const statusConfig = realtimeConfig[realtimeStatus];
   const statusHint = realtimeStatusHint[realtimeStatus] ?? "Realtime status";
   const StatusIcon = statusConfig.icon;
+  const queuedTaskHealthQuery = useQuery({
+    queryKey: ["tasks", "queued-health"],
+    queryFn: () => apiClient.getTasks({ status: "queued", limit: 30 }),
+    enabled: Boolean(session),
+    staleTime: 15_000,
+    refetchInterval: 20_000,
+    refetchIntervalInBackground: false,
+    refetchOnWindowFocus: false,
+  });
+
+  const queuedAges = (queuedTaskHealthQuery.data ?? [])
+    .map((task) => Date.now() - Date.parse(task.createdAt))
+    .filter((value) => Number.isFinite(value));
+  const oldestQueuedMs = queuedAges.length ? Math.max(...queuedAges) : 0;
+  const queuedAlertTone =
+    oldestQueuedMs >= QUEUED_TASK_DANGER_MS
+      ? "danger"
+      : oldestQueuedMs >= QUEUED_TASK_WARNING_MS
+        ? "warning"
+        : null;
   const initials =
     session?.user.name
       .split(" ")
@@ -183,6 +207,21 @@ export const Topbar = () => {
                 {statusConfig.label}
                 <span className="text-muted-foreground">• {statusHint}</span>
               </div>
+              {queuedAlertTone ? (
+                <div
+                  className={cn(
+                    "hidden items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium sm:inline-flex",
+                    queuedAlertTone === "danger"
+                      ? "tone-danger"
+                      : "tone-warning",
+                  )}
+                >
+                  <AlertTriangle className="size-3.5" />
+                  {queuedAlertTone === "danger"
+                    ? "Claim delay critical"
+                    : "Claim delay warning"}
+                </div>
+              ) : null}
             </div>
             <p className="hidden truncate text-sm text-muted-foreground lg:block">
               {sectionDescription}

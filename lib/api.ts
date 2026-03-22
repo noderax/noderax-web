@@ -739,9 +739,13 @@ export const apiClient = {
     const [node, metrics, tasks, events] = await Promise.all([
       this.getNode(id),
       this.getMetrics({ nodeId: id, limit: 24 }),
-      this.getTasks({ nodeId: id, status: "running", limit: 20 }),
+      this.getTasks({ nodeId: id, limit: 50 }),
       this.getEvents({ nodeId: id, limit: 20 }),
     ]);
+
+    const runningTasks = tasks.filter(
+      (task) => task.status.toLowerCase() === "running",
+    );
 
     const nodeSummary = mapNodeSummary(node, createMetricsByNodeId(metrics));
     const nodeLookup = createNodeSummaryLookup([nodeSummary]);
@@ -750,7 +754,7 @@ export const apiClient = {
       node: nodeSummary,
       metrics,
       events,
-      tasks,
+      tasks: runningTasks,
       nodeLookup,
     });
   },

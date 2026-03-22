@@ -507,6 +507,22 @@ export const useRealtimeBridge = () => {
             : current,
       );
 
+      if (
+        /(^|\.)node\.(created|deleted|registered|removed|enrolled)(\.|$)/i.test(
+          message.data.type,
+        )
+      ) {
+        queryClient.invalidateQueries({
+          queryKey: ["nodes", "list"],
+          refetchType: "active",
+        });
+
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.dashboard.overview,
+          refetchType: "active",
+        });
+      }
+
       if (event.severity === "critical") {
         toast.error(event.title, {
           description: event.message,

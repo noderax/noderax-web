@@ -163,12 +163,9 @@ class NoderaxRealtimeClient {
   private connectPromise: Promise<void> | null = null;
   private wantsConnection = false;
   private disconnectTimer: ReturnType<typeof setTimeout> | null = null;
-  private staleTimer: ReturnType<typeof setInterval> | null = null;
   private lastSignalAt = 0;
   private didRetryAuth = false;
 
-  private readonly staleThresholdMs = 18_000;
-  private readonly staleCheckIntervalMs = 3_000;
   private readonly autoDisconnectDelayMs = 2_500;
 
   private clearDisconnectTimer() {
@@ -273,28 +270,6 @@ class NoderaxRealtimeClient {
     this.lastSignalAt = Date.now();
   }
 
-  private clearStaleTimer() {
-    if (this.staleTimer) {
-      clearInterval(this.staleTimer);
-      this.staleTimer = null;
-    }
-  }
-
-  private startStaleTimer() {
-    this.clearStaleTimer();
-
-    this.staleTimer = setInterval(() => {
-      if (!this.socket?.connected || !this.lastSignalAt) {
-        return;
-      }
-
-      const signalAge = Date.now() - this.lastSignalAt;
-      if (signalAge > this.staleThresholdMs) {
-        this.setStatus("degraded");
-      }
-    }, this.staleCheckIntervalMs);
-  }
-
   private shouldMaintainConnection() {
     return this.listeners.size > 0 || this.nodeSubscriptionCounts.size > 0;
   }
@@ -330,7 +305,6 @@ class NoderaxRealtimeClient {
     this.didRetryAuth = false;
     this.markSignal();
     this.setStatus("connected");
-    this.startStaleTimer();
     await this.syncNodeSubscriptions();
   };
 
@@ -355,7 +329,6 @@ class NoderaxRealtimeClient {
   };
 
   private readonly handleDisconnect = () => {
-    this.clearStaleTimer();
     this.setStatus("disconnected");
   };
 
@@ -567,7 +540,6 @@ class NoderaxRealtimeClient {
   disconnect() {
     this.clearDisconnectTimer();
     this.wantsConnection = false;
-    this.clearStaleTimer();
     this.lastSignalAt = 0;
     this.didRetryAuth = false;
 

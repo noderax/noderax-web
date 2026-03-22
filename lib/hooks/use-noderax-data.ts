@@ -61,6 +61,8 @@ export const useDashboardOverview = () =>
     queryFn: () => apiClient.getDashboardOverview(),
     staleTime: Infinity,
     refetchOnWindowFocus: false,
+    refetchInterval: 20_000,
+    refetchIntervalInBackground: false,
   });
 
 export const useUsers = (enabled = true) =>
