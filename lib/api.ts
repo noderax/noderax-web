@@ -39,6 +39,7 @@ import type {
   TaskFilters,
   TaskLogDto,
   TaskLogFilters,
+  TaskFlowDiagnostics,
   TaskSummary,
   UserDto,
 } from "@/lib/types";
@@ -217,6 +218,105 @@ const parseJsonValue = (value: string | null | undefined) => {
   } catch {
     return null;
   }
+};
+
+const normalizeCounterKey = (key: string) =>
+  key
+    .trim()
+    .toLowerCase()
+    .replace(/[\s_\-:/]+/g, ".")
+    .replace(/\.+/g, ".")
+    .replace(/^\.|\.$/g, "");
+
+const flattenNumericCounters = (
+  input: unknown,
+  prefix = "",
+  output: Record<string, number> = {},
+  depth = 0,
+) => {
+  if (depth > 8 || input === null || input === undefined) {
+    return output;
+  }
+
+  if (typeof input === "number" && Number.isFinite(input)) {
+    const key = normalizeCounterKey(prefix || "value");
+    output[key] = input;
+    return output;
+  }
+
+  if (Array.isArray(input)) {
+    input.forEach((item, index) => {
+      flattenNumericCounters(item, `${prefix}[${index}]`, output, depth + 1);
+    });
+
+    return output;
+  }
+
+  const record = readRecord(input);
+  if (!record) {
+    return output;
+  }
+
+  Object.entries(record).forEach(([key, value]) => {
+    const nextPrefix = prefix ? `${prefix}.${key}` : key;
+    flattenNumericCounters(value, nextPrefix, output, depth + 1);
+  });
+
+  return output;
+};
+
+const findCounterValue = (counters: Record<string, number>, target: string) => {
+  const normalizedTarget = normalizeCounterKey(target);
+  const exact = counters[normalizedTarget];
+  if (typeof exact === "number") {
+    return exact;
+  }
+
+  const normalizedTargetTokens = normalizedTarget.split(".").filter(Boolean);
+
+  const fallbackEntry = Object.entries(counters).find(([key]) => {
+    const normalizedKey = normalizeCounterKey(key);
+    const normalizedKeyTokens = normalizedKey.split(".").filter(Boolean);
+
+    return normalizedTargetTokens.every((token) =>
+      normalizedKeyTokens.includes(token),
+    );
+  });
+
+  return fallbackEntry?.[1];
+};
+
+const normalizeTaskFlowDiagnostics = (
+  payload: unknown,
+  sourcePath: string,
+): TaskFlowDiagnostics => {
+  const allCounters = flattenNumericCounters(payload);
+  const agentCounters: Record<string, number> = {};
+  const claimCounters: Record<string, number> = {};
+
+  const metricsIngested = findCounterValue(allCounters, "metrics.ingested");
+  if (typeof metricsIngested === "number") {
+    agentCounters["metrics.ingested"] = metricsIngested;
+  }
+
+  const connectionOpened = findCounterValue(allCounters, "connection.opened");
+  if (typeof connectionOpened === "number") {
+    agentCounters["connection.opened"] = connectionOpened;
+  }
+
+  Object.entries(allCounters).forEach(([key, value]) => {
+    if (/(^|\.)claim(s|ed|ing)?(\.|$)/i.test(key)) {
+      claimCounters[key] = value;
+    }
+  });
+
+  return {
+    sourcePath,
+    fetchedAt: new Date().toISOString(),
+    agentCounters,
+    claimCounters,
+    allCounters,
+  };
 };
 
 const extractTaskFailureMessage = (task: TaskDto) => {
@@ -406,6 +506,36 @@ export const apiClient = {
   },
   getRealtimeToken() {
     return request<{ token: string }>("/api/auth/realtime-token");
+  },
+  async getTaskFlowDiagnostics(): Promise<TaskFlowDiagnostics> {
+    const candidatePaths = [
+      "/api/proxy/agent-realtime/stats",
+      "/api/proxy/agent-realtime.stats",
+      "/api/proxy/diagnostics/agent-realtime",
+      "/api/proxy/diagnostics/task-flow",
+    ] as const;
+
+    let lastError: unknown = null;
+
+    for (const path of candidatePaths) {
+      try {
+        const payload = await request<unknown>(path);
+        return normalizeTaskFlowDiagnostics(payload, path);
+      } catch (error) {
+        if (error instanceof ApiError && error.status === 404) {
+          lastError = error;
+          continue;
+        }
+
+        throw error;
+      }
+    }
+
+    if (lastError instanceof Error) {
+      throw lastError;
+    }
+
+    throw new ApiError("Diagnostics endpoint was not found.", 404);
   },
   getCurrentUser() {
     return request<UserDto>("/api/proxy/users/me");

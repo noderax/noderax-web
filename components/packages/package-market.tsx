@@ -31,12 +31,12 @@ export const PackageMarket = ({
     <SectionPanel
       eyebrow="Market"
       title="Search packages"
-      description="Search package names and descriptions before queueing an install task."
+      description="Search package names and descriptions, then queue install tasks."
       action={
         <Input
           value={term}
           onChange={(event) => setTerm(event.target.value)}
-          placeholder="Search packages"
+          placeholder="Type at least 2 characters"
           className="w-full min-w-56 sm:max-w-72"
         />
       }
@@ -73,7 +73,9 @@ export const PackageMarket = ({
           <div className="flex items-center justify-between gap-3 text-sm text-muted-foreground">
             <p>
               Showing{" "}
-              <span className="font-medium text-foreground">{results.length}</span>{" "}
+              <span className="font-medium text-foreground">
+                {results.length}
+              </span>{" "}
               search results
             </p>
             <Button
@@ -93,7 +95,7 @@ export const PackageMarket = ({
                   key={`${pkg.name}:${pkg.version}`}
                   className="surface-subtle rounded-[18px] border px-4 py-4"
                 >
-                  <div className="flex items-start justify-between gap-4">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
                     <div className="min-w-0">
                       <p className="font-medium">{pkg.name}</p>
                       <p className="mt-1 text-xs uppercase tracking-[0.16em] text-muted-foreground">
@@ -113,6 +115,7 @@ export const PackageMarket = ({
                       disabled={!canManage}
                       triggerLabel="Install"
                       triggerVariant="default"
+                      triggerSize="sm"
                     />
                   </div>
                 </div>

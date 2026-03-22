@@ -1,7 +1,14 @@
 "use client";
 
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Binary, FolderTree, ServerCog, ShieldAlert } from "lucide-react";
+import {
+  AlertTriangle,
+  Binary,
+  FolderTree,
+  ServerCog,
+  ShieldAlert,
+} from "lucide-react";
 
 import { EmptyState } from "@/components/empty-state";
 import { AppShell } from "@/components/layout/app-shell";
@@ -15,9 +22,51 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TimeDisplay } from "@/components/ui/time-display";
 import { useTask } from "@/lib/hooks/use-noderax-data";
 
+const QUEUED_CLAIM_WARNING_THRESHOLD_MS = 20_000;
+
+const formatDuration = (durationMs: number) => {
+  const totalSeconds = Math.max(0, Math.floor(durationMs / 1_000));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+
+  return `${minutes}m ${seconds.toString().padStart(2, "0")}s`;
+};
+
 export const TaskDetailView = ({ id }: { id: string }) => {
   const taskQuery = useTask(id);
   const task = taskQuery.data;
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    if (!task || task.status !== "queued") {
+      return;
+    }
+
+    const interval = globalThis.setInterval(() => {
+      setNow(Date.now());
+    }, 1_000);
+
+    return () => {
+      globalThis.clearInterval(interval);
+    };
+  }, [task]);
+
+  const queuedForMs = useMemo(() => {
+    if (!task || task.status !== "queued") {
+      return 0;
+    }
+
+    const createdAtMs = Date.parse(task.createdAt);
+    if (Number.isNaN(createdAtMs)) {
+      return 0;
+    }
+
+    return Math.max(0, now - createdAtMs);
+  }, [now, task]);
+
+  const showClaimWarning =
+    task?.status === "queued" &&
+    queuedForMs >= QUEUED_CLAIM_WARNING_THRESHOLD_MS;
 
   if (taskQuery.isError || (!taskQuery.isPending && !task)) {
     return (
@@ -41,6 +90,22 @@ export const TaskDetailView = ({ id }: { id: string }) => {
 
   return (
     <AppShell>
+      {showClaimWarning ? (
+        <div className="mb-4 flex items-start gap-3 rounded-[18px] border border-tone-warning/40 bg-tone-warning/10 px-4 py-3 text-sm">
+          <AlertTriangle className="mt-0.5 size-4 shrink-0 text-tone-warning" />
+          <div>
+            <p className="font-medium text-foreground">
+              Agent has not claimed this task yet.
+            </p>
+            <p className="mt-1 text-muted-foreground">
+              The task has remained queued for {formatDuration(queuedForMs)}.
+              This may indicate a claim or polling issue on the backend agent
+              side.
+            </p>
+          </div>
+        </div>
+      ) : null}
+
       <StatStrip
         items={[
           {
@@ -73,14 +138,23 @@ export const TaskDetailView = ({ id }: { id: string }) => {
       />
 
       <Tabs defaultValue="logs" className="space-y-4">
-        <TabsList variant="line" className="w-fit gap-1 rounded-xl bg-muted/70 p-1">
+        <TabsList
+          variant="line"
+          className="w-fit gap-1 rounded-xl bg-muted/70 p-1"
+        >
           <TabsTrigger value="logs" className="rounded-lg px-3 py-1.5 text-xs">
             Live logs
           </TabsTrigger>
-          <TabsTrigger value="execution" className="rounded-lg px-3 py-1.5 text-xs">
+          <TabsTrigger
+            value="execution"
+            className="rounded-lg px-3 py-1.5 text-xs"
+          >
             Execution info
           </TabsTrigger>
-          <TabsTrigger value="events" className="rounded-lg px-3 py-1.5 text-xs">
+          <TabsTrigger
+            value="events"
+            className="rounded-lg px-3 py-1.5 text-xs"
+          >
             Related events
           </TabsTrigger>
         </TabsList>
@@ -99,7 +173,9 @@ export const TaskDetailView = ({ id }: { id: string }) => {
                 <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
                   Command
                 </p>
-                <p className="mt-2 font-mono text-sm">{task.command ?? "No command field"}</p>
+                <p className="mt-2 font-mono text-sm">
+                  {task.command ?? "No command field"}
+                </p>
               </div>
               <div className="surface-subtle rounded-[18px] border p-4">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
@@ -156,7 +232,9 @@ export const TaskDetailView = ({ id }: { id: string }) => {
                 <Badge variant="outline" className="rounded-full px-3 py-1">
                   Node: {task.nodeName}
                 </Badge>
-                {task.node ? <NodeStatusBadge status={task.node.status} /> : null}
+                {task.node ? (
+                  <NodeStatusBadge status={task.node.status} />
+                ) : null}
                 <Badge variant="outline" className="rounded-full px-3 py-1">
                   Status: {task.status}
                 </Badge>
@@ -201,7 +279,9 @@ export const TaskDetailView = ({ id }: { id: string }) => {
                     </div>
                     <SeverityBadge severity={event.severity} />
                   </div>
-                  <p className="mt-2 text-sm text-muted-foreground">{event.message}</p>
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    {event.message}
+                  </p>
                 </Link>
               ))
             ) : (

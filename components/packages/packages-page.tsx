@@ -38,7 +38,10 @@ const resolveStatusTone = (status: string) => {
     return "tone-success";
   }
 
-  if (normalizedStatus.includes("remove") || normalizedStatus.includes("purge")) {
+  if (
+    normalizedStatus.includes("remove") ||
+    normalizedStatus.includes("purge")
+  ) {
     return "tone-danger";
   }
 
@@ -58,8 +61,9 @@ export const PackagesPage = ({
 }) => {
   const packagesQuery = useNodePackages(nodeId);
   const [query, setQuery] = useState("");
-  const [pageSize, setPageSize] =
-    useState<(typeof PAGE_SIZE_OPTIONS)[number]>(PAGE_SIZE_OPTIONS[0]);
+  const [pageSize, setPageSize] = useState<(typeof PAGE_SIZE_OPTIONS)[number]>(
+    PAGE_SIZE_OPTIONS[0],
+  );
   const [pageIndex, setPageIndex] = useState(0);
   const deferredQuery = useDeferredValue(query.trim().toLowerCase());
   const installedPackages = packagesQuery.data;
@@ -75,17 +79,20 @@ export const PackagesPage = ({
   const pageCount = Math.max(1, Math.ceil(filteredPackages.length / pageSize));
   const currentPageIndex = Math.min(pageIndex, pageCount - 1);
   const pageStart = currentPageIndex * pageSize;
-  const visiblePackages = filteredPackages.slice(pageStart, pageStart + pageSize);
+  const visiblePackages = filteredPackages.slice(
+    pageStart,
+    pageStart + pageSize,
+  );
 
   const controls = (
-    <>
+    <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
       <Input
         value={query}
         onChange={(event) => {
           setQuery(event.target.value);
           setPageIndex(0);
         }}
-        placeholder="Filter installed packages"
+        placeholder="Search name, version, or status"
         className="w-full min-w-56 sm:max-w-64"
       />
       <Select
@@ -116,14 +123,14 @@ export const PackagesPage = ({
         Refresh
       </Button>
       {headerAction}
-    </>
+    </div>
   );
 
   return (
     <SectionPanel
       eyebrow="Packages"
       title="Installed packages"
-      description="Browse the packages currently installed on the selected node."
+      description="Review installed packages and queue removal tasks when needed."
       action={controls}
       contentClassName="space-y-4"
     >
@@ -190,9 +197,6 @@ export const PackagesPage = ({
                 </div>
 
                 <div className="mt-4 flex items-center justify-between gap-3">
-                  <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
-                    {pkg.status}
-                  </p>
                   <PackageActionDialog
                     mode="remove"
                     nodeId={nodeId}
@@ -240,7 +244,9 @@ export const PackagesPage = ({
                 variant="outline"
                 size="sm"
                 onClick={() =>
-                  setPageIndex((current) => Math.min(pageCount - 1, current + 1))
+                  setPageIndex((current) =>
+                    Math.min(pageCount - 1, current + 1),
+                  )
                 }
                 disabled={currentPageIndex >= pageCount - 1}
               >
@@ -282,10 +288,7 @@ const InstalledPackageRow = ({
 }) => (
   <TableRow>
     <TableCell>
-      <div>
-        <p className="font-medium">{pkg.name}</p>
-        <p className="mt-1 text-xs text-muted-foreground">{pkg.status}</p>
-      </div>
+      <p className="font-medium">{pkg.name}</p>
     </TableCell>
     <TableCell className="text-muted-foreground">{pkg.version}</TableCell>
     <TableCell>

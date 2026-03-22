@@ -268,6 +268,14 @@ export interface RemovePackagePayload {
   purge?: boolean;
 }
 
+export interface TaskFlowDiagnostics {
+  sourcePath: string;
+  fetchedAt: string;
+  agentCounters: Record<string, number>;
+  claimCounters: Record<string, number>;
+  allCounters: Record<string, number>;
+}
+
 export interface FinalizeEnrollmentPayload {
   email: string;
   nodeName: string;

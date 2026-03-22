@@ -53,9 +53,9 @@ const sectionDescriptions: Record<string, string> = {
 const realtimeStatusHint: Record<string, string> = {
   connected: "Stream healthy",
   connecting: "Handshake in progress",
-  reconnecting: "Recovering link",
-  degraded: "Data flow delayed",
-  disconnected: "Connection lost",
+  reconnecting: "Recovering link (tasks continue via HTTP polling)",
+  degraded: "Realtime delayed (tasks continue via HTTP polling)",
+  disconnected: "Realtime offline (tasks continue via HTTP polling)",
   idle: "Waiting for session",
 };
 

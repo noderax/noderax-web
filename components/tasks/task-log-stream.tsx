@@ -55,7 +55,7 @@ export const TaskLogStream = ({
     <SectionPanel
       eyebrow="Logs"
       title="Live log stream"
-      description="Task state is updated over realtime events while persisted logs are reconciled from the REST endpoint."
+      description="Task updates arrive via realtime events, while persisted logs are reconciled from HTTP polling so execution continues even during temporary realtime interruptions."
       action={
         <>
           <div className="flex items-center gap-2 rounded-full border border-border/80 px-3 py-2 text-xs text-muted-foreground">
@@ -81,7 +81,10 @@ export const TaskLogStream = ({
       {logsQuery.isPending ? (
         <div className="space-y-3 p-5">
           {Array.from({ length: 6 }).map((_, index) => (
-            <div key={index} className="h-11 animate-pulse rounded-[16px] bg-muted/60" />
+            <div
+              key={index}
+              className="h-11 animate-pulse rounded-[16px] bg-muted/60"
+            />
           ))}
         </div>
       ) : logs.length ? (
@@ -89,8 +92,14 @@ export const TaskLogStream = ({
           <div className="flex items-center justify-between border-b border-border/80 px-5 py-3 text-xs text-muted-foreground">
             <span>{logs.length} log lines</span>
             <span className="flex items-center gap-2">
-              {autoscroll ? <Play className="size-3.5" /> : <Pause className="size-3.5" />}
-              {taskStatus === "running" ? "Polling active" : "Awaiting new task activity"}
+              {autoscroll ? (
+                <Play className="size-3.5" />
+              ) : (
+                <Pause className="size-3.5" />
+              )}
+              {taskStatus === "running"
+                ? "Polling active"
+                : "Awaiting new task activity"}
             </span>
           </div>
           <ScrollArea className="h-[460px]">
@@ -106,7 +115,12 @@ export const TaskLogStream = ({
                   <span className="uppercase tracking-[0.16em] text-muted-foreground">
                     {line.level}
                   </span>
-                  <span className={cn("break-words leading-6", streamStyles[line.level])}>
+                  <span
+                    className={cn(
+                      "break-words leading-6",
+                      streamStyles[line.level],
+                    )}
+                  >
                     {line.message}
                   </span>
                 </div>
