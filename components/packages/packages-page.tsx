@@ -187,13 +187,26 @@ export const PackagesPage = ({
                 className="surface-subtle rounded-[18px] border px-4 py-4"
               >
                 <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="truncate font-medium">{pkg.name}</p>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      {pkg.version}
-                    </p>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-medium text-foreground">{pkg.name}</p>
+                    <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
+                      <span className="truncate">{pkg.version}</span>
+                      {pkg.architecture ? (
+                        <>
+                          <span className="opacity-50">•</span>
+                          <span className="uppercase tracking-[0.08em] opacity-80">{pkg.architecture}</span>
+                        </>
+                      ) : null}
+                    </div>
+                    {pkg.description ? (
+                      <p className="mt-3 line-clamp-2 text-sm leading-relaxed text-muted-foreground">
+                        {pkg.description}
+                      </p>
+                    ) : null}
                   </div>
-                  <PackageStatusBadge status={pkg.status} />
+                  <div className="shrink-0">
+                    <PackageStatusBadge status={pkg.status} />
+                  </div>
                 </div>
 
                 <div className="mt-4 flex items-center justify-between gap-3">
@@ -286,15 +299,31 @@ const InstalledPackageRow = ({
   nodeLabel?: string;
   canManage: boolean;
 }) => (
-  <TableRow>
-    <TableCell>
-      <p className="font-medium">{pkg.name}</p>
+  <TableRow className="group">
+    <TableCell className="max-w-[320px] align-top py-4">
+      <div className="flex flex-col gap-1.5">
+        <p className="font-semibold text-foreground truncate">{pkg.name}</p>
+        {pkg.description ? (
+          <p className="line-clamp-2 text-xs leading-relaxed text-muted-foreground/90 pr-4" title={pkg.description}>
+            {pkg.description}
+          </p>
+        ) : null}
+      </div>
     </TableCell>
-    <TableCell className="text-muted-foreground">{pkg.version}</TableCell>
-    <TableCell>
+    <TableCell className="align-top py-4">
+      <div className="flex flex-col gap-1.5">
+        <span className="text-sm font-medium text-muted-foreground">{pkg.version}</span>
+        {pkg.architecture ? (
+          <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/50">
+            {pkg.architecture}
+          </span>
+        ) : null}
+      </div>
+    </TableCell>
+    <TableCell className="align-top py-4">
       <PackageStatusBadge status={pkg.status} />
     </TableCell>
-    <TableCell className="text-right">
+    <TableCell className="text-right align-top py-4">
       <PackageActionDialog
         mode="remove"
         nodeId={nodeId}

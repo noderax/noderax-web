@@ -191,6 +191,8 @@ export interface InstalledPackage {
   name: string;
   version: string;
   status: string;
+  architecture?: string;
+  description?: string;
 }
 
 export interface PackageSearchResult {
