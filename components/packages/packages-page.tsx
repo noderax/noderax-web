@@ -1,7 +1,13 @@
 "use client";
 
 import { useDeferredValue, useState } from "react";
-import { ArrowLeft, ArrowRight, PackageOpen, RefreshCcw } from "lucide-react";
+import {
+  ArrowLeft,
+  ArrowRight,
+  Box,
+  PackageOpen,
+  RefreshCcw,
+} from "lucide-react";
 
 import { EmptyState } from "@/components/empty-state";
 import { PackageActionDialog } from "@/components/packages/package-action-dialog";
@@ -17,14 +23,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { useNodePackages } from "@/lib/hooks/use-noderax-data";
 import type { InstalledPackage } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -69,7 +67,7 @@ export const PackagesPage = ({
   const installedPackages = packagesQuery.data;
   const filteredPackages = (installedPackages ?? []).filter((pkg) =>
     deferredQuery
-      ? [pkg.name, pkg.version, pkg.status]
+      ? [pkg.name, pkg.version, pkg.status, pkg.description ?? ""]
           .join(" ")
           .toLowerCase()
           .includes(deferredQuery)
@@ -92,8 +90,8 @@ export const PackagesPage = ({
           setQuery(event.target.value);
           setPageIndex(0);
         }}
-        placeholder="Search name, version, or status"
-        className="w-full min-w-56 sm:max-w-64"
+        placeholder="Search name, version, or description"
+        className="w-full min-w-56 sm:max-w-72"
       />
       <Select
         value={String(pageSize)}
@@ -143,7 +141,7 @@ export const PackagesPage = ({
       {packagesQuery.isPending ? (
         <div className="space-y-3">
           {Array.from({ length: 6 }).map((_, index) => (
-            <Skeleton key={index} className="h-14 rounded-[18px]" />
+            <Skeleton key={index} className="h-20 rounded-[18px]" />
           ))}
         </div>
       ) : packagesQuery.isError ? (
@@ -156,89 +154,66 @@ export const PackagesPage = ({
         />
       ) : visiblePackages.length ? (
         <>
-          <div className="hidden overflow-hidden rounded-[18px] border border-border/80 md:block">
-            <Table>
-              <TableHeader>
-                <TableRow className="hover:bg-transparent">
-                  <TableHead>Package</TableHead>
-                  <TableHead>Version</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Action</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {visiblePackages.map((pkg) => (
-                  <InstalledPackageRow
-                    key={`${pkg.name}:${pkg.version}`}
-                    pkg={pkg}
-                    nodeId={nodeId}
-                    nodeLabel={nodeLabel}
-                    canManage={canManage}
-                  />
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-
-          <div className="space-y-3 md:hidden">
-            {visiblePackages.map((pkg) => (
-              <div
-                key={`${pkg.name}:${pkg.version}`}
-                className="surface-subtle rounded-[18px] border px-4 py-4"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate font-medium text-foreground">{pkg.name}</p>
-                    <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
-                      <span className="truncate">{pkg.version}</span>
-                      {pkg.architecture ? (
-                        <>
-                          <span className="opacity-50">•</span>
-                          <span className="uppercase tracking-[0.08em] opacity-80">{pkg.architecture}</span>
-                        </>
-                      ) : null}
-                    </div>
-                    {pkg.description ? (
-                      <p className="mt-3 line-clamp-2 text-sm leading-relaxed text-muted-foreground">
-                        {pkg.description}
-                      </p>
-                    ) : null}
-                  </div>
-                  <div className="shrink-0">
-                    <PackageStatusBadge status={pkg.status} />
-                  </div>
-                </div>
-
-                <div className="mt-4 flex items-center justify-between gap-3">
-                  <PackageActionDialog
-                    mode="remove"
-                    nodeId={nodeId}
-                    nodeLabel={nodeLabel}
-                    packageName={pkg.name}
-                    packageVersion={pkg.version}
-                    disabled={!canManage}
-                    triggerLabel="Remove"
-                    triggerVariant="outline"
-                  />
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <div className="flex flex-col gap-3 border-t border-border/80 pt-4 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-sm text-muted-foreground">
+          {/* Summary bar */}
+          <div className="flex items-center justify-between rounded-2xl border border-border/60 bg-muted/30 px-4 py-2.5 text-sm">
+            <p className="text-muted-foreground">
               Showing{" "}
-              <span className="font-medium text-foreground">
-                {pageStart + 1}-{pageStart + visiblePackages.length}
+              <span className="font-semibold text-foreground">
+                {pageStart + 1}–{pageStart + visiblePackages.length}
               </span>{" "}
               of{" "}
-              <span className="font-medium text-foreground">
+              <span className="font-semibold text-foreground">
                 {filteredPackages.length}
               </span>{" "}
               packages
             </p>
+            <div className="flex items-center gap-1.5">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="size-8"
+                onClick={() =>
+                  setPageIndex((current) => Math.max(0, current - 1))
+                }
+                disabled={currentPageIndex === 0}
+              >
+                <ArrowLeft className="size-4" />
+              </Button>
+              <span className="min-w-[4rem] text-center text-xs font-medium text-muted-foreground">
+                {currentPageIndex + 1} / {pageCount}
+              </span>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="size-8"
+                onClick={() =>
+                  setPageIndex((current) =>
+                    Math.min(pageCount - 1, current + 1),
+                  )
+                }
+                disabled={currentPageIndex >= pageCount - 1}
+              >
+                <ArrowRight className="size-4" />
+              </Button>
+            </div>
+          </div>
 
-            <div className="flex items-center gap-2">
+          {/* Card list */}
+          <div className="space-y-2.5">
+            {visiblePackages.map((pkg) => (
+              <PackageCard
+                key={`${pkg.name}:${pkg.version}`}
+                pkg={pkg}
+                nodeId={nodeId}
+                nodeLabel={nodeLabel}
+                canManage={canManage}
+              />
+            ))}
+          </div>
+
+          {/* Bottom pagination (only when > 1 page) */}
+          {pageCount > 1 ? (
+            <div className="flex items-center justify-center gap-2 pt-2">
               <Button
                 variant="outline"
                 size="sm"
@@ -267,7 +242,7 @@ export const PackagesPage = ({
                 <ArrowRight className="size-4" />
               </Button>
             </div>
-          </div>
+          ) : null}
         </>
       ) : (
         <EmptyState
@@ -288,7 +263,9 @@ export const PackagesPage = ({
   );
 };
 
-const InstalledPackageRow = ({
+/* ── Package Card ── */
+
+const PackageCard = ({
   pkg,
   nodeId,
   nodeLabel,
@@ -299,44 +276,61 @@ const InstalledPackageRow = ({
   nodeLabel?: string;
   canManage: boolean;
 }) => (
-  <TableRow className="group">
-    <TableCell className="max-w-[320px] align-top py-4">
-      <div className="flex flex-col gap-1.5">
-        <p className="font-semibold text-foreground truncate">{pkg.name}</p>
-        {pkg.description ? (
-          <p className="line-clamp-2 text-xs leading-relaxed text-muted-foreground/90 pr-4" title={pkg.description}>
-            {pkg.description}
+  <div className="group surface-subtle flex w-full flex-col gap-3 rounded-2xl border px-5 py-4 transition-colors hover:bg-muted/40">
+    {/* Top row: icon + name | badges + action */}
+    <div className="flex items-start justify-between gap-4">
+      {/* Left: icon + name block */}
+      <div className="flex items-start gap-3 min-w-0 flex-1">
+        <div className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-xl border bg-background text-muted-foreground">
+          <Box className="size-4" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-semibold text-foreground">
+            {pkg.name}
           </p>
-        ) : null}
+          <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+            <span className="font-mono">{pkg.version}</span>
+            {pkg.architecture ? (
+              <>
+                <span className="opacity-40">·</span>
+                <span className="font-semibold uppercase tracking-wider opacity-60">
+                  {pkg.architecture}
+                </span>
+              </>
+            ) : null}
+          </div>
+        </div>
       </div>
-    </TableCell>
-    <TableCell className="align-top py-4">
-      <div className="flex flex-col gap-1.5">
-        <span className="text-sm font-medium text-muted-foreground">{pkg.version}</span>
-        {pkg.architecture ? (
-          <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/50">
-            {pkg.architecture}
-          </span>
-        ) : null}
+
+      {/* Right: status + action */}
+      <div className="flex shrink-0 items-center gap-2">
+        <PackageStatusBadge status={pkg.status} />
+        <PackageActionDialog
+          mode="remove"
+          nodeId={nodeId}
+          nodeLabel={nodeLabel}
+          packageName={pkg.name}
+          packageVersion={pkg.version}
+          disabled={!canManage}
+          triggerLabel="Remove"
+          triggerVariant="outline"
+        />
       </div>
-    </TableCell>
-    <TableCell className="align-top py-4">
-      <PackageStatusBadge status={pkg.status} />
-    </TableCell>
-    <TableCell className="text-right align-top py-4">
-      <PackageActionDialog
-        mode="remove"
-        nodeId={nodeId}
-        nodeLabel={nodeLabel}
-        packageName={pkg.name}
-        packageVersion={pkg.version}
-        disabled={!canManage}
-        triggerLabel="Remove"
-        triggerVariant="outline"
-      />
-    </TableCell>
-  </TableRow>
+    </div>
+
+    {/* Description row */}
+    {pkg.description ? (
+      <p
+        className="line-clamp-2 pl-12 text-[13px] leading-relaxed text-muted-foreground/80"
+        title={pkg.description}
+      >
+        {pkg.description}
+      </p>
+    ) : null}
+  </div>
 );
+
+/* ── Status Badge ── */
 
 const PackageStatusBadge = ({ status }: { status: string }) => (
   <Badge

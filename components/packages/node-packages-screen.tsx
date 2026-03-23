@@ -65,7 +65,7 @@ export const NodePackagesScreen = ({
         </div>
       ) : null}
 
-      <div className="grid gap-6 xl:grid-cols-[1.04fr_0.96fr]">
+      <div className="grid gap-8">
         <PackagesPage
           nodeId={nodeId}
           nodeLabel={resolvedNodeName}
