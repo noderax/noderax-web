@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useState } from "react";
 import { ExternalLink, MonitorCog } from "lucide-react";
 
+import { NodeActionMenu } from "@/components/nodes/node-action-menu";
+
 import { DeleteNodeDialog } from "@/components/nodes/delete-node-dialog";
 import { NodeOsIcon } from "@/components/nodes/node-os-icon";
 import { EmptyState } from "@/components/empty-state";
@@ -285,7 +287,14 @@ export const NodesTable = ({
                   </Dialog>
 
                   {isAdmin ? (
-                    <DeleteNodeDialog nodeId={node.id} nodeName={node.name} />
+                    <>
+                      <NodeActionMenu
+                        nodeId={node.id}
+                        nodeName={node.name}
+                        variant="outline"
+                      />
+                      <DeleteNodeDialog nodeId={node.id} nodeName={node.name} />
+                    </>
                   ) : null}
 
                   <Link

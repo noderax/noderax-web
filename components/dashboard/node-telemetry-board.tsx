@@ -12,6 +12,8 @@ import {
   ServerCog,
 } from "lucide-react";
 
+import { NodeActionMenu } from "@/components/nodes/node-action-menu";
+
 import { EmptyState } from "@/components/empty-state";
 import { GridPattern } from "@/components/magic/grid-pattern";
 import { ShineBorder } from "@/components/magic/shine-border";
@@ -214,7 +216,13 @@ export const NodeTelemetryBoard = ({ nodes }: { nodes: NodeSummary[] }) => {
                               </p>
                             </div>
                           </div>
-                          <NodeStatusBadge status={activeMobileNode.status} />
+                          <div className="flex items-center gap-2">
+                            <NodeActionMenu
+                              nodeId={activeMobileNode.id}
+                              nodeName={activeMobileNode.name}
+                            />
+                            <NodeStatusBadge status={activeMobileNode.status} />
+                          </div>
                         </div>
 
                         <div className="grid grid-cols-3 gap-2">
@@ -365,7 +373,13 @@ export const NodeTelemetryBoard = ({ nodes }: { nodes: NodeSummary[] }) => {
                               </p>
                             </div>
                           </div>
-                          <NodeStatusBadge status={node.status} />
+                          <div className="flex items-center gap-2">
+                            <NodeActionMenu
+                              nodeId={node.id}
+                              nodeName={node.name}
+                            />
+                            <NodeStatusBadge status={node.status} />
+                          </div>
                         </div>
 
                         <div className="rounded-[20px] border border-border/70 bg-background/68 p-3">
