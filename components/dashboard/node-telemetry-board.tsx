@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import {
   Activity,
@@ -79,6 +79,7 @@ const chunkNodes = (nodes: NodeSummary[], size: number) => {
 const serverLights = ["bg-primary", "bg-[var(--semantic-success)]", "bg-[var(--semantic-warning)]"];
 
 export const NodeTelemetryBoard = ({ nodes }: { nodes: NodeSummary[] }) => {
+  const router = useRouter();
   const [pageIndex, setPageIndex] = useState(0);
   const [mobileNodeId, setMobileNodeId] = useState<string | null>(null);
   const sortedNodes = useMemo(() => sortNodes(nodes), [nodes]);
@@ -175,7 +176,13 @@ export const NodeTelemetryBoard = ({ nodes }: { nodes: NodeSummary[] }) => {
               </div>
 
               {activeMobileNode ? (
-                <Link href={`/nodes/${activeMobileNode.id}`} className="block">
+                <div
+                  className="block cursor-pointer"
+                  onClick={(e) => {
+                    if ((e.target as HTMLElement).closest("[data-slot=\"dropdown-menu-trigger\"]")) return;
+                    router.push(`/nodes/${activeMobileNode.id}`);
+                  }}
+                >
                   <MagicCard
                     className="rounded-[22px]"
                     gradientSize={180}
@@ -311,16 +318,19 @@ export const NodeTelemetryBoard = ({ nodes }: { nodes: NodeSummary[] }) => {
                       </div>
                     </div>
                   </MagicCard>
-                </Link>
+                </div>
               ) : null}
             </div>
 
             <div className="hidden gap-4 md:grid md:grid-cols-2 xl:grid-cols-4">
               {currentNodes.map((node) => (
-                <Link
+                <div
                   key={node.id}
-                  href={`/nodes/${node.id}`}
-                  className="block h-full"
+                  className="block h-full cursor-pointer"
+                  onClick={(e) => {
+                    if ((e.target as HTMLElement).closest("[data-slot=\"dropdown-menu-trigger\"]")) return;
+                    router.push(`/nodes/${node.id}`);
+                  }}
                 >
                   <MagicCard
                     className="h-full rounded-[22px]"
@@ -490,7 +500,7 @@ export const NodeTelemetryBoard = ({ nodes }: { nodes: NodeSummary[] }) => {
                       </div>
                     </div>
                   </MagicCard>
-                </Link>
+                </div>
               ))}
             </div>
 

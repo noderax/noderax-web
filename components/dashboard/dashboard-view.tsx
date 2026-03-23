@@ -6,6 +6,7 @@ import { NodeTelemetryBoard } from "@/components/dashboard/node-telemetry-board"
 import { RecentEventsFeed } from "@/components/dashboard/recent-events-feed";
 import { EmptyState } from "@/components/empty-state";
 import { AppShell } from "@/components/layout/app-shell";
+import { NodeActionMenu } from "@/components/nodes/node-action-menu";
 import { NodeStatusBadge } from "@/components/nodes/node-status-badge";
 import { SectionPanel } from "@/components/ui/section-panel";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -102,6 +103,7 @@ export const DashboardView = () => {
                     <TableHead>CPU</TableHead>
                     <TableHead>Memory</TableHead>
                     <TableHead>Last seen</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -127,6 +129,12 @@ export const DashboardView = () => {
                           value={node.lastSeenAt}
                           mode="relative"
                           emptyLabel="Never"
+                        />
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <NodeActionMenu
+                          nodeId={node.id}
+                          nodeName={node.name}
                         />
                       </TableCell>
                     </TableRow>
