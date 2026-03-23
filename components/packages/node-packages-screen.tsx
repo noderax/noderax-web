@@ -74,7 +74,7 @@ export const NodePackagesScreen = ({
             standalone ? null : (
               <Link
                 href={`/nodes/${nodeId}/packages`}
-                className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline"
+                className="inline-flex items-center gap-1 whitespace-nowrap text-sm font-medium text-primary hover:underline"
               >
                 Open full page
                 <ArrowUpRight className="size-4" />
