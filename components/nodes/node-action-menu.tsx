@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { MoreVertical, Power, RotateCcw } from "lucide-react";
 
@@ -64,9 +65,18 @@ export const NodeActionMenu = ({
   variant?: "icon" | "outline";
   className?: string;
 }) => {
+  const router = useRouter(); // For safety if needed
   const createTask = useCreateTask();
   const [pendingAction, setPendingAction] = useState<NodeAction | null>(null);
   const meta = pendingAction ? actionMeta[pendingAction] : null;
+
+  const handleActionClick = (action: NodeAction) => {
+    // We use a small timeout to let the dropdown close before opening the dialog
+    // to avoid potential focus trap/portal conflicts in Base UI
+    setTimeout(() => {
+      setPendingAction(action);
+    }, 10);
+  };
 
   const handleConfirm = () => {
     if (!meta) return;
@@ -77,12 +87,20 @@ export const NodeActionMenu = ({
         type: "shell.exec",
         payload: { command: meta.command },
       },
-      { onSettled: () => setPendingAction(null) },
+      {
+        onSettled: () => {
+          setPendingAction(null);
+        },
+      },
     );
   };
 
   return (
-    <>
+    <div
+      className="inline-flex"
+      onClick={(e) => e.stopPropagation()}
+      onMouseDown={(e) => e.stopPropagation()}
+    >
       <DropdownMenu>
         <DropdownMenuTrigger
           className={cn(
@@ -91,7 +109,6 @@ export const NodeActionMenu = ({
               : "inline-flex items-center gap-1.5 rounded-lg border bg-background px-3 py-1.5 text-sm font-medium text-foreground transition-colors hover:bg-muted",
             className,
           )}
-          onClick={(e) => e.preventDefault()}
         >
           <MoreVertical className="size-4" />
           {variant !== "icon" ? <span>Actions</span> : null}
@@ -110,7 +127,7 @@ export const NodeActionMenu = ({
                 key={action}
                 onClick={(e) => {
                   e.stopPropagation();
-                  setPendingAction(action);
+                  handleActionClick(action);
                 }}
                 className="gap-2"
               >
@@ -128,10 +145,15 @@ export const NodeActionMenu = ({
           if (!open) setPendingAction(null);
         }}
       >
-        <DialogContent>
+        <DialogContent
+          onClick={(e) => e.stopPropagation()}
+          onMouseDown={(e) => e.stopPropagation()}
+        >
           <DialogHeader>
-            <DialogTitle>{meta?.label}</DialogTitle>
-            <DialogDescription>{meta?.description}</DialogDescription>
+            <DialogTitle>{meta?.label || "Node action"}</DialogTitle>
+            <DialogDescription>
+              {meta?.description || "Select an action to proceed."}
+            </DialogDescription>
           </DialogHeader>
           <div className="surface-subtle rounded-[14px] border px-4 py-3">
             <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
@@ -155,6 +177,6 @@ export const NodeActionMenu = ({
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </>
+    </div>
   );
 };

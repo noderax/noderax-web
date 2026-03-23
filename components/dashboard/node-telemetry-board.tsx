@@ -178,8 +178,7 @@ export const NodeTelemetryBoard = ({ nodes }: { nodes: NodeSummary[] }) => {
               {activeMobileNode ? (
                 <div
                   className="block cursor-pointer"
-                  onClick={(e) => {
-                    if ((e.target as HTMLElement).closest("[data-slot=\"dropdown-menu-trigger\"]")) return;
+                  onClick={() => {
                     router.push(`/nodes/${activeMobileNode.id}`);
                   }}
                 >
@@ -327,8 +326,7 @@ export const NodeTelemetryBoard = ({ nodes }: { nodes: NodeSummary[] }) => {
                 <div
                   key={node.id}
                   className="block h-full cursor-pointer"
-                  onClick={(e) => {
-                    if ((e.target as HTMLElement).closest("[data-slot=\"dropdown-menu-trigger\"]")) return;
+                  onClick={() => {
                     router.push(`/nodes/${node.id}`);
                   }}
                 >
