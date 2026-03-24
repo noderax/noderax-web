@@ -3,7 +3,7 @@ import { Server } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
-type NodeOsVariant = "ubuntu" | "apple" | "windows" | "server";
+type NodeOsVariant = "ubuntu" | "apple" | "windows" | "debian" | "server";
 
 const resolveNodeOsVariant = (os: string): NodeOsVariant => {
   const normalized = os.trim().toLowerCase();
@@ -26,6 +26,10 @@ const resolveNodeOsVariant = (os: string): NodeOsVariant => {
     return "windows";
   }
 
+  if (normalized.includes("debian")) {
+    return "debian";
+  }
+
   return "server";
 };
 
@@ -33,8 +37,23 @@ const accentClasses: Record<NodeOsVariant, string> = {
   ubuntu: "text-[#E95420] dark:text-[#FF7A45]",
   apple: "text-foreground",
   windows: "text-sky-600 dark:text-sky-400",
+  debian: "text-[#A80030] dark:text-[#FF3366]",
   server: "text-muted-foreground",
 };
+const DebianGlyph = ({ className, ...props }: ComponentProps<"svg">) => (
+  <svg
+    viewBox="0 0 24 24"
+    fill="none"
+    aria-hidden="true"
+    className={className}
+    {...props}
+  >
+    <path
+      d="M12.5 2.5c-4.5 0-8 3.5-8 8 0 3.5 2.5 6.5 6 7.5-.5-.5-1-1.5-1-2.5 0-2 1.5-3.5 3.5-3.5 1.5 0 2.5 1 2.5 2.5 0 1.5-1 2.5-2.5 2.5-.5 0-1-.5-1-1 0-.5.5-1 1-1 .5 0 1 .5 1 1 0 .5-.5 1-1 1-.5 0-1-.5-1-1 0-.5.5-1 1-1 .5 0 1 .5 1 1 0 .5-.5 1-1 1-.5 0-1-.5-1-1 0-.5.5-1 1-1 .5 0 1 .5 1 1 0 .5-.5 1-1 1-.5 0-1-.5-1-1 0-.5.5-1 1-1 .5 0 1 .5 1 1 0 .5-.5 1-1 1-.5 0-1-.5-1-1 0-.5.5-1 1-1 .5 0 1 .5 1 1 0 .5-.5 1-1 1-.5 0-1-.5-1-1 0-.5.5-1 1-1 .5 0 1 .5 1 1 0 .5-.5 1-1 1-.5 0-1-.5-1-1 0-.5.5-1 1-1 .5 0 1 .5 1 1 0 .5-.5 1-1 1-.5 0-1-.5-1-1 0-.5.5-1 1-1 .5 0 1 .5 1 1 0 .5-.5 1-1 1-.5 0-1-.5-1-1 0-.5.5-1 1-1 .5 0 1 .5 1 1 0 .5-.5 1-1 1-.5 0-1-.5-1-1 0-.5.5-1 1-1 .5 0 1 .5 1 1 0 .5-.5 1-1 1-.5 0-1-.5-1-1 0-.5.5-1 1-1 .5 0 1 .5 1 1 0 .5-.5 1-1 1-.5 0-1-.5-1-1 0-.5.5-1 1-1 .5 0 1 .5 1 1 0 .5-.5 1-1 1-.5 0-1-.5-1-1 0-.5.5-1 1-1 .5 0 1 .5 1 1 0 .5-.5 1-1 1-.5 0-1-.5-1-1 0-.5.5-1 1-1 .5 0 1 .5 1 1 0 .5-.5 1-1 1-.5 0-1-.5-1-1 0-.5.5-1 1-1 .5 0 1 .5 1 1 0 .5-.5 1-1 1-.5 0-1-.5-1-1 0-.5.5-1 1-1 .5 0 1 .5 1 1 0 .5-.5 1-1 1-.5 0-1-.5-1-1 0-.5.5-1 1-1 .5 0 1 .5 1 1 0 .5-.5 1-1 1-.5 0-1-.5-1-1 0-.5.5-1 1-1 .5 0 1 .5 1 1 0 .5-.5 1-1 1-.5 0-1-.5-1-1 0-.5.5-1 1-1 .5 0 1 .5 1 1 0 .5-.5 1-1 1-.5 0-1-.5-1-1 0-.5.5-1 1-1 .5 0 1 .5 1 1 0 .5-.5 1-1 1-.5 0-1-.5-1-1 0-.5.5-1 1-1 .5 0 1 .5 1 1 0 .5-.5 1-1 1-.5 0-1-.5-1-1 0-.5.5-1 1-1 .5 0 1 .5 1 1 0 .5-.5 1-1 1-.5 0-1-.5-1-1 0-.5.5-1 1-1 .5 0 1 .5 1 1 0 .5-.5 1-1 1-.5 0-1-.5-1-1 0-.5.5-1 1-1 .5 0 1 .5 1 1 0 .5-.5 1-1 1-.5 0-1-.5-1-1 0-.5.5-1 1-1Z"
+      fill="currentColor"
+    />
+  </svg>
+);
 
 const UbuntuGlyph = ({ className, ...props }: ComponentProps<"svg">) => (
   <svg
@@ -103,6 +122,8 @@ export const NodeOsIcon = ({
       return <AppleGlyph className={iconClassName} />;
     case "windows":
       return <WindowsGlyph className={iconClassName} />;
+    case "debian":
+      return <DebianGlyph className={iconClassName} />;
     default:
       return <Server aria-hidden="true" className={iconClassName} />;
   }
