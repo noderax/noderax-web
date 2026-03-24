@@ -104,6 +104,7 @@ export interface MetricDto {
   cpuUsage: number;
   memoryUsage: number;
   diskUsage: number;
+  temperature: number | null;
   networkStats: Record<string, unknown>;
   recordedAt: string;
   sequence?: number;
@@ -133,6 +134,7 @@ export interface MetricPoint {
   cpu: number;
   memory: number;
   disk: number;
+  temperature: number | null;
 }
 
 export interface NodeSummary {

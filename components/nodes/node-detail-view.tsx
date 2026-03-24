@@ -172,6 +172,16 @@ export const NodeDetailView = ({ id }: { id: string }) => {
             tone: "warning",
           },
           {
+            label: "Latest temperature",
+            value:
+              node.latestMetric?.temperature !== null &&
+              node.latestMetric?.temperature !== undefined
+                ? `${node.latestMetric.temperature.toFixed(1)}°C`
+                : "N/A",
+            description: "Most recent reported CPU temperature.",
+            tone: "brand",
+          },
+          {
             label: "Network summary",
             value: formatNetworkSummary(node.networkStats),
             description: "RX bytes / TX bytes from the latest metric sample.",

@@ -131,6 +131,10 @@ export const mapMetricDtoToPoint = (metric: MetricDto): MetricPoint => ({
   cpu: Math.round(metric.cpuUsage),
   memory: Math.round(metric.memoryUsage),
   disk: Math.round(metric.diskUsage),
+  temperature:
+    metric.temperature !== null && metric.temperature !== undefined
+      ? Number(metric.temperature.toFixed(1))
+      : null,
 });
 
 export const aggregateMetricSeries = (metrics: MetricDto[]) => {
@@ -141,6 +145,7 @@ export const aggregateMetricSeries = (metrics: MetricDto[]) => {
       cpu: number[];
       memory: number[];
       disk: number[];
+      temperature: number[];
     }
   >();
 
@@ -151,11 +156,15 @@ export const aggregateMetricSeries = (metrics: MetricDto[]) => {
       cpu: [],
       memory: [],
       disk: [],
+      temperature: [],
     };
 
     bucket.cpu.push(metric.cpuUsage);
     bucket.memory.push(metric.memoryUsage);
     bucket.disk.push(metric.diskUsage);
+    if (metric.temperature !== null && metric.temperature !== undefined) {
+      bucket.temperature.push(metric.temperature);
+    }
     buckets.set(key, bucket);
   });
 
@@ -168,6 +177,13 @@ export const aggregateMetricSeries = (metrics: MetricDto[]) => {
         bucket.memory.reduce((sum, value) => sum + value, 0) / bucket.memory.length,
       ),
       disk: Math.round(bucket.disk.reduce((sum, value) => sum + value, 0) / bucket.disk.length),
+      temperature: bucket.temperature.length
+        ? Number(
+            (
+              bucket.temperature.reduce((sum, value) => sum + value, 0) / bucket.temperature.length
+            ).toFixed(1),
+          )
+        : null,
     }));
 };
 
