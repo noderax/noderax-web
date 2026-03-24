@@ -178,7 +178,9 @@ export const NodeTelemetryBoard = ({ nodes }: { nodes: NodeSummary[] }) => {
               {activeMobileNode ? (
                 <div
                   className="block cursor-pointer"
-                  onClick={() => {
+                  onClick={(e) => {
+                    const target = e.target as HTMLElement;
+                    if (target.closest("[data-slot=\"dropdown-menu-trigger\"]") || target.closest(".action-menu-area")) return;
                     router.push(`/nodes/${activeMobileNode.id}`);
                   }}
                 >
@@ -222,7 +224,7 @@ export const NodeTelemetryBoard = ({ nodes }: { nodes: NodeSummary[] }) => {
                               </p>
                             </div>
                           </div>
-                          <div className="flex items-center gap-2">
+                          <div className="action-menu-area flex items-center gap-2">
                             <NodeActionMenu
                               nodeId={activeMobileNode.id}
                               nodeName={activeMobileNode.name}
@@ -326,7 +328,9 @@ export const NodeTelemetryBoard = ({ nodes }: { nodes: NodeSummary[] }) => {
                 <div
                   key={node.id}
                   className="block h-full cursor-pointer"
-                  onClick={() => {
+                  onClick={(e) => {
+                    const target = e.target as HTMLElement;
+                    if (target.closest("[data-slot=\"dropdown-menu-trigger\"]") || target.closest(".action-menu-area")) return;
                     router.push(`/nodes/${node.id}`);
                   }}
                 >
@@ -381,7 +385,7 @@ export const NodeTelemetryBoard = ({ nodes }: { nodes: NodeSummary[] }) => {
                               </p>
                             </div>
                           </div>
-                          <div className="flex items-center gap-2">
+                          <div className="action-menu-area flex items-center gap-2">
                             <NodeActionMenu
                               nodeId={node.id}
                               nodeName={node.name}

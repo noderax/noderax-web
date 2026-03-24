@@ -96,11 +96,7 @@ export const NodeActionMenu = ({
   };
 
   return (
-    <div
-      className="inline-flex"
-      onClick={(e) => e.stopPropagation()}
-      onMouseDown={(e) => e.stopPropagation()}
-    >
+    <>
       <DropdownMenu>
         <DropdownMenuTrigger
           className={cn(
@@ -109,6 +105,12 @@ export const NodeActionMenu = ({
               : "inline-flex items-center gap-1.5 rounded-lg border bg-background px-3 py-1.5 text-sm font-medium text-foreground transition-colors hover:bg-muted",
             className,
           )}
+          onClick={(e) => {
+            e.stopPropagation();
+          }}
+          onMouseDown={(e) => {
+            e.stopPropagation();
+          }}
         >
           <MoreVertical className="size-4" />
           {variant !== "icon" ? <span>Actions</span> : null}
@@ -150,9 +152,9 @@ export const NodeActionMenu = ({
           onMouseDown={(e) => e.stopPropagation()}
         >
           <DialogHeader>
-            <DialogTitle>{meta?.label || "Node action"}</DialogTitle>
+            <DialogTitle>{meta?.label ?? "Node action"}</DialogTitle>
             <DialogDescription>
-              {meta?.description || "Select an action to proceed."}
+              {meta?.description ?? "Select an action to proceed."}
             </DialogDescription>
           </DialogHeader>
           <div className="surface-subtle rounded-[14px] border px-4 py-3">
@@ -160,7 +162,7 @@ export const NodeActionMenu = ({
               Command
             </p>
             <p className="mt-1 font-mono text-sm text-foreground">
-              {meta?.command}
+              {meta?.command ?? "..."}
             </p>
           </div>
           <DialogFooter>
@@ -169,7 +171,7 @@ export const NodeActionMenu = ({
             </Button>
             <Button
               onClick={handleConfirm}
-              disabled={createTask.isPending}
+              disabled={createTask.isPending || !meta}
               variant={pendingAction === "reboot" ? "destructive" : "default"}
             >
               {createTask.isPending ? "Sending…" : "Confirm"}
@@ -177,6 +179,6 @@ export const NodeActionMenu = ({
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </>
   );
 };
