@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { MoreVertical, Power, RotateCcw } from "lucide-react";
+import { MoreVertical, Power, RefreshCw, RotateCcw } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -25,7 +25,7 @@ import {
 import { useCreateTask } from "@/lib/hooks/use-noderax-data";
 import { cn } from "@/lib/utils";
 
-type NodeAction = "reboot" | "restart-agent";
+type NodeAction = "reboot" | "restart-agent" | "update-packages";
 
 const actionMeta: Record<
   NodeAction,
@@ -52,6 +52,14 @@ const actionMeta: Record<
     command: "sudo systemctl restart noderax-agent",
     icon: RotateCcw,
     tone: "text-orange-500",
+  },
+  "update-packages": {
+    label: "Update packages",
+    description:
+      "This will run 'sudo apt-get update' on the node to synchronize the package index from their sources.",
+    command: "sudo apt-get update",
+    icon: RefreshCw,
+    tone: "text-blue-500",
   },
 };
 
