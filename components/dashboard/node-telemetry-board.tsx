@@ -10,6 +10,7 @@ import {
   HardDrive,
   MemoryStick,
   ServerCog,
+  Thermometer,
 } from "lucide-react";
 
 import { NodeActionMenu } from "@/components/nodes/node-action-menu";
@@ -22,7 +23,13 @@ import { NodeStatusBadge } from "@/components/nodes/node-status-badge";
 import { Button } from "@/components/ui/button";
 import { MagicCard } from "@/components/ui/magic-card";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { TimeDisplay } from "@/components/ui/time-display";
 import type { NodeSummary } from "@/lib/types";
@@ -36,35 +43,43 @@ const metricRows = [
     label: "CPU",
     toneClassName: "bg-primary",
     icon: Cpu,
+    suffix: "%",
   },
   {
     key: "memory",
     label: "Memory",
-    toneClassName: "bg-[var(--semantic-success)]",
+    toneClassName: "bg-(--semantic-success)",
     icon: MemoryStick,
+    suffix: "%",
   },
   {
     key: "disk",
     label: "Disk",
-    toneClassName: "bg-[var(--semantic-warning)]",
+    toneClassName: "bg-(--semantic-warning)",
     icon: HardDrive,
+    suffix: "%",
+  },
+  {
+    key: "temperature",
+    label: "Temp",
+    toneClassName: "bg-[var(--color-chart-4)]",
+    icon: Thermometer,
+    suffix: "°C",
   },
 ] as const;
 
 const sortNodes = (nodes: NodeSummary[]) =>
-  nodes
-    .slice()
-    .sort((left, right) => {
-      if (left.status !== right.status) {
-        return left.status === "online" ? -1 : 1;
-      }
+  nodes.slice().sort((left, right) => {
+    if (left.status !== right.status) {
+      return left.status === "online" ? -1 : 1;
+    }
 
-      if (Boolean(left.latestMetric) !== Boolean(right.latestMetric)) {
-        return left.latestMetric ? -1 : 1;
-      }
+    if (Boolean(left.latestMetric) !== Boolean(right.latestMetric)) {
+      return left.latestMetric ? -1 : 1;
+    }
 
-      return (right.lastSeenAt ?? "").localeCompare(left.lastSeenAt ?? "");
-    });
+    return (right.lastSeenAt ?? "").localeCompare(left.lastSeenAt ?? "");
+  });
 
 const chunkNodes = (nodes: NodeSummary[], size: number) => {
   const pages: NodeSummary[][] = [];
@@ -76,21 +91,30 @@ const chunkNodes = (nodes: NodeSummary[], size: number) => {
   return pages;
 };
 
-const serverLights = ["bg-primary", "bg-[var(--semantic-success)]", "bg-[var(--semantic-warning)]"];
+const serverLights = [
+  "bg-primary",
+  "bg-[var(--semantic-success)]",
+  "bg-[var(--semantic-warning)]",
+];
 
 export const NodeTelemetryBoard = ({ nodes }: { nodes: NodeSummary[] }) => {
   const router = useRouter();
   const [pageIndex, setPageIndex] = useState(0);
   const [mobileNodeId, setMobileNodeId] = useState<string | null>(null);
   const sortedNodes = useMemo(() => sortNodes(nodes), [nodes]);
-  const pages = useMemo(() => chunkNodes(sortedNodes, PAGE_SIZE), [sortedNodes]);
+  const pages = useMemo(
+    () => chunkNodes(sortedNodes, PAGE_SIZE),
+    [sortedNodes],
+  );
   const lastPageIndex = Math.max(pages.length - 1, 0);
   const currentPageIndex = Math.min(pageIndex, lastPageIndex);
   const currentNodes = pages[currentPageIndex] ?? [];
   const rangeStart = currentPageIndex * PAGE_SIZE + 1;
   const rangeEnd = currentPageIndex * PAGE_SIZE + currentNodes.length;
   const activeMobileNode =
-    sortedNodes.find((node) => node.id === mobileNodeId) ?? sortedNodes[0] ?? null;
+    sortedNodes.find((node) => node.id === mobileNodeId) ??
+    sortedNodes[0] ??
+    null;
 
   return (
     <Card className="border">
@@ -99,7 +123,8 @@ export const NodeTelemetryBoard = ({ nodes }: { nodes: NodeSummary[] }) => {
           <div>
             <CardTitle>Node telemetry board</CardTitle>
             <CardDescription>
-              Nodes are shown in groups of four so each telemetry snapshot stays separate and easy to scan.
+              Nodes are shown in groups of four so each telemetry snapshot stays
+              separate and easy to scan.
             </CardDescription>
           </div>
 
@@ -115,7 +140,9 @@ export const NodeTelemetryBoard = ({ nodes }: { nodes: NodeSummary[] }) => {
                 <Button
                   variant="outline"
                   size="icon-sm"
-                  onClick={() => setPageIndex((current) => Math.max(0, current - 1))}
+                  onClick={() =>
+                    setPageIndex((current) => Math.max(0, current - 1))
+                  }
                   disabled={currentPageIndex === 0}
                   aria-label="Previous node group"
                 >
@@ -125,7 +152,9 @@ export const NodeTelemetryBoard = ({ nodes }: { nodes: NodeSummary[] }) => {
                   variant="outline"
                   size="icon-sm"
                   onClick={() =>
-                    setPageIndex((current) => Math.min(lastPageIndex, current + 1))
+                    setPageIndex((current) =>
+                      Math.min(lastPageIndex, current + 1),
+                    )
                   }
                   disabled={currentPageIndex >= lastPageIndex}
                   aria-label="Next node group"
@@ -164,7 +193,7 @@ export const NodeTelemetryBoard = ({ nodes }: { nodes: NodeSummary[] }) => {
                           className={cn(
                             "size-2 rounded-full",
                             node.status === "online"
-                              ? "bg-[var(--semantic-success)]"
+                              ? "bg-(--semantic-success)"
                               : "bg-destructive",
                           )}
                         />
@@ -180,7 +209,11 @@ export const NodeTelemetryBoard = ({ nodes }: { nodes: NodeSummary[] }) => {
                   className="block cursor-pointer"
                   onClick={(e) => {
                     const target = e.target as HTMLElement;
-                    if (target.closest("[data-slot=\"dropdown-menu-trigger\"]") || target.closest(".action-menu-area")) return;
+                    if (
+                      target.closest('[data-slot="dropdown-menu-trigger"]') ||
+                      target.closest(".action-menu-area")
+                    )
+                      return;
                     router.push(`/nodes/${activeMobileNode.id}`);
                   }}
                 >
@@ -193,7 +226,7 @@ export const NodeTelemetryBoard = ({ nodes }: { nodes: NodeSummary[] }) => {
                     gradientTo="rgba(69, 10, 10, 0.12)"
                   >
                     <div className="surface-subtle relative overflow-hidden rounded-[22px] border p-4">
-                      <GridPattern className="opacity-18 [mask-image:linear-gradient(180deg,black,transparent_78%)]" />
+                      <GridPattern className="opacity-18 mask-image-[linear-gradient(180deg,black,transparent_78%)]" />
                       {activeMobileNode.status === "online" ? (
                         <ShineBorder
                           className="opacity-35"
@@ -213,7 +246,10 @@ export const NodeTelemetryBoard = ({ nodes }: { nodes: NodeSummary[] }) => {
                                   : "tone-neutral",
                               )}
                             >
-                              <NodeOsIcon os={activeMobileNode.os} className="size-5" />
+                              <NodeOsIcon
+                                os={activeMobileNode.os}
+                                className="size-5"
+                              />
                             </div>
                             <div className="min-w-0">
                               <p className="truncate font-semibold tracking-tight">
@@ -233,11 +269,12 @@ export const NodeTelemetryBoard = ({ nodes }: { nodes: NodeSummary[] }) => {
                           </div>
                         </div>
 
-                        <div className="grid grid-cols-3 gap-2">
+                        <div className="grid grid-cols-4 gap-2">
                           {metricRows.map((metric) => {
-                            const value = activeMobileNode.latestMetric?.[metric.key];
+                            const value =
+                              activeMobileNode.latestMetric?.[metric.key] ??
+                              null;
                             const MetricIcon = metric.icon;
-
                             return (
                               <div
                                 key={metric.key}
@@ -250,16 +287,20 @@ export const NodeTelemetryBoard = ({ nodes }: { nodes: NodeSummary[] }) => {
                                   </span>
                                 </div>
                                 <p className="mt-2 text-sm font-semibold text-foreground">
-                                  {typeof value === "number" ? `${value}%` : "N/A"}
+                                  {typeof value === "number" && value !== null
+                                    ? `${value}${metric.suffix}`
+                                    : "N/A"}
                                 </p>
                                 <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted/90">
                                   <div
                                     className={`h-full rounded-full transition-[width] ${metric.toneClassName}`}
                                     style={{
-                                      width: `${Math.max(
-                                        0,
-                                        Math.min(100, value ?? 0),
-                                      )}%`,
+                                      width:
+                                        metric.key === "temperature"
+                                          ? value && typeof value === "number"
+                                            ? `${Math.max(0, Math.min(100, value))}%`
+                                            : "0%"
+                                          : `${Math.max(0, Math.min(100, value ?? 0))}%`,
                                     }}
                                   />
                                 </div>
@@ -278,7 +319,10 @@ export const NodeTelemetryBoard = ({ nodes }: { nodes: NodeSummary[] }) => {
                                 variant="outline"
                                 className="rounded-full px-2.5 py-1 text-[10px] font-medium"
                               >
-                                <NodeOsIcon os={activeMobileNode.os} className="size-3.5" />
+                                <NodeOsIcon
+                                  os={activeMobileNode.os}
+                                  className="size-3.5"
+                                />
                                 {activeMobileNode.os}
                               </Badge>
                               <Badge
@@ -330,7 +374,11 @@ export const NodeTelemetryBoard = ({ nodes }: { nodes: NodeSummary[] }) => {
                   className="block h-full cursor-pointer"
                   onClick={(e) => {
                     const target = e.target as HTMLElement;
-                    if (target.closest("[data-slot=\"dropdown-menu-trigger\"]") || target.closest(".action-menu-area")) return;
+                    if (
+                      target.closest('[data-slot="dropdown-menu-trigger"]') ||
+                      target.closest(".action-menu-area")
+                    )
+                      return;
                     router.push(`/nodes/${node.id}`);
                   }}
                 >
@@ -342,8 +390,8 @@ export const NodeTelemetryBoard = ({ nodes }: { nodes: NodeSummary[] }) => {
                     gradientFrom="rgba(248, 113, 113, 0.42)"
                     gradientTo="rgba(69, 10, 10, 0.12)"
                   >
-                    <div className="surface-subtle relative flex h-full min-h-[300px] flex-col overflow-hidden rounded-[22px] border p-4">
-                      <GridPattern className="opacity-18 [mask-image:linear-gradient(180deg,black,transparent_78%)]" />
+                    <div className="surface-subtle relative flex h-full min-h-75 flex-col overflow-hidden rounded-[22px] border p-4">
+                      <GridPattern className="opacity-18 mask-image-[linear-gradient(180deg,black,transparent_78%)]" />
                       {node.status === "online" ? (
                         <ShineBorder
                           className="opacity-35"
@@ -358,7 +406,9 @@ export const NodeTelemetryBoard = ({ nodes }: { nodes: NodeSummary[] }) => {
                             <div
                               className={cn(
                                 "flex size-11 shrink-0 items-center justify-center rounded-2xl border",
-                                node.status === "online" ? "tone-brand" : "tone-neutral",
+                                node.status === "online"
+                                  ? "tone-brand"
+                                  : "tone-neutral",
                               )}
                             >
                               <NodeOsIcon os={node.os} className="size-5" />
@@ -371,7 +421,9 @@ export const NodeTelemetryBoard = ({ nodes }: { nodes: NodeSummary[] }) => {
                                     className={cn(
                                       "size-1.5 rounded-full opacity-85",
                                       light,
-                                      node.status === "offline" && index > 0 && "bg-border",
+                                      node.status === "offline" &&
+                                        index > 0 &&
+                                        "bg-border",
                                     )}
                                   />
                                 ))}
@@ -379,7 +431,9 @@ export const NodeTelemetryBoard = ({ nodes }: { nodes: NodeSummary[] }) => {
                                   Node
                                 </span>
                               </div>
-                              <p className="truncate font-semibold tracking-tight">{node.name}</p>
+                              <p className="truncate font-semibold tracking-tight">
+                                {node.name}
+                              </p>
                               <p className="truncate text-xs text-muted-foreground">
                                 {node.hostname}
                               </p>
@@ -403,16 +457,18 @@ export const NodeTelemetryBoard = ({ nodes }: { nodes: NodeSummary[] }) => {
                               </p>
                             </div>
                             <p className="text-xs font-medium text-foreground">
-                              {node.latestMetric ? "Latest sample" : "No sample"}
+                              {node.latestMetric
+                                ? "Latest sample"
+                                : "No sample"}
                             </p>
                           </div>
 
                           {node.latestMetric ? (
                             <div className="mt-3 grid gap-2">
                               {metricRows.map((metric) => {
-                                const value = node.latestMetric?.[metric.key] ?? 0;
+                                const value =
+                                  node.latestMetric?.[metric.key] ?? null;
                                 const MetricIcon = metric.icon;
-
                                 return (
                                   <div
                                     key={metric.key}
@@ -426,13 +482,24 @@ export const NodeTelemetryBoard = ({ nodes }: { nodes: NodeSummary[] }) => {
                                         </span>
                                       </div>
                                       <span className="font-mono text-xs text-muted-foreground">
-                                        {value}%
+                                        {typeof value === "number" &&
+                                        value !== null
+                                          ? `${value}${metric.suffix}`
+                                          : "N/A"}
                                       </span>
                                     </div>
                                     <div className="mt-2 h-2 overflow-hidden rounded-full bg-muted/90">
                                       <div
                                         className={`h-full rounded-full transition-[width] ${metric.toneClassName}`}
-                                        style={{ width: `${Math.max(0, Math.min(100, value))}%` }}
+                                        style={{
+                                          width:
+                                            metric.key === "temperature"
+                                              ? value &&
+                                                typeof value === "number"
+                                                ? `${Math.max(0, Math.min(100, value))}%`
+                                                : "0%"
+                                              : `${Math.max(0, Math.min(100, value ?? 0))}%`,
+                                        }}
                                       />
                                     </div>
                                   </div>
@@ -441,7 +508,8 @@ export const NodeTelemetryBoard = ({ nodes }: { nodes: NodeSummary[] }) => {
                             </div>
                           ) : (
                             <div className="mt-3 rounded-2xl border border-dashed px-3 py-5 text-sm text-muted-foreground">
-                              Waiting for the first telemetry sample from this server.
+                              Waiting for the first telemetry sample from this
+                              server.
                             </div>
                           )}
                         </div>
@@ -487,13 +555,17 @@ export const NodeTelemetryBoard = ({ nodes }: { nodes: NodeSummary[] }) => {
                               Rack profile
                             </p>
                             <p className="mt-1 text-xs font-medium text-foreground">
-                              {node.latestMetric ? "Telemetry ready" : "Telemetry pending"}
+                              {node.latestMetric
+                                ? "Telemetry ready"
+                                : "Telemetry pending"}
                             </p>
                           </div>
                           <div
                             className={cn(
                               "flex size-9 items-center justify-center rounded-2xl border",
-                              node.status === "online" ? "tone-success" : "tone-neutral",
+                              node.status === "online"
+                                ? "tone-success"
+                                : "tone-neutral",
                             )}
                           >
                             <ServerCog className="size-4" />
