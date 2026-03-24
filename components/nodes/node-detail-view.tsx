@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Network, Timer } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 import { DeleteNodeDialog } from "@/components/nodes/delete-node-dialog";
 import { NodeOsIcon } from "@/components/nodes/node-os-icon";
@@ -152,6 +153,11 @@ export const NodeDetailView = ({ id }: { id: string }) => {
       </div>
 
       <StatStrip
+        className={cn(
+          "xl:grid-cols-5",
+          // On smaller screens, allow 2 columns to avoid being too cramped
+          "md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5",
+        )}
         items={[
           {
             label: "Latest CPU",

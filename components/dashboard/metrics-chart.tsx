@@ -2,7 +2,7 @@
 
 import { format } from "date-fns";
 import { useState } from "react";
-import { Activity, Cpu, HardDrive, MemoryStick } from "lucide-react";
+import { Activity, Cpu, HardDrive, MemoryStick, Thermometer } from "lucide-react";
 import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from "recharts";
 
 import { EmptyState } from "@/components/empty-state";
@@ -35,24 +35,36 @@ const chartConfig = {
     label: "Disk",
     color: "var(--color-chart-3)",
   },
+  temperature: {
+    label: "Temp",
+    color: "var(--color-chart-4)",
+  },
 } satisfies ChartConfig;
 
 const metricMeta = {
   cpu: {
     label: "CPU usage",
     icon: Cpu,
+    suffix: "%",
   },
   memory: {
     label: "Memory pressure",
     icon: MemoryStick,
+    suffix: "%",
   },
   disk: {
     label: "Disk utilization",
     icon: HardDrive,
+    suffix: "%",
+  },
+  temperature: {
+    label: "Core temperature",
+    icon: Thermometer,
+    suffix: "°C",
   },
 } satisfies Record<
   keyof typeof chartConfig,
-  { label: string; icon: typeof Cpu }
+  { label: string; icon: typeof Cpu; suffix: string }
 >;
 
 export const MetricsChart = ({
@@ -119,19 +131,21 @@ export const MetricsChart = ({
                     {metricMeta[metric].label}
                   </p>
                   <p className="text-2xl font-semibold tracking-tight">
-                    {latestPoint?.[metric as keyof MetricPoint]}%
+                    {latestPoint?.[metric as keyof MetricPoint]}
+                    {metricMeta[metric].suffix}
                   </p>
                 </div>
               </div>
               {latestPoint ? (
-                <div className="grid grid-cols-3 gap-2 text-sm">
+                <div className="grid grid-cols-2 gap-2 text-sm lg:grid-cols-4">
                   {(
                     [
-                      ["CPU", latestPoint.cpu],
-                      ["Memory", latestPoint.memory],
-                      ["Disk", latestPoint.disk],
+                      ["CPU", latestPoint.cpu, "%"],
+                      ["Memory", latestPoint.memory, "%"],
+                      ["Disk", latestPoint.disk, "%"],
+                      ["Temp", latestPoint.temperature, "°C"],
                     ] as const
-                  ).map(([label, value]) => (
+                  ).map(([label, value, suffix]) => (
                     <div
                       key={label}
                       className="surface-subtle rounded-xl border px-3 py-2"
@@ -139,7 +153,10 @@ export const MetricsChart = ({
                       <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
                         {label}
                       </p>
-                      <p className="mt-1 font-medium">{value}%</p>
+                      <p className="mt-1 font-medium">
+                        {value ?? "N/A"}
+                        {value !== null ? suffix : ""}
+                      </p>
                     </div>
                   ))}
                 </div>
@@ -184,16 +201,19 @@ export const MetricsChart = ({
                   minTickGap={18}
                 />
                 <YAxis
-                  tickFormatter={(value) => `${value}%`}
+                  tickFormatter={(value) => `${value}${metricMeta[metric].suffix}`}
                   tickLine={false}
                   axisLine={false}
-                  width={42}
+                  width={48}
                 />
                 <ChartTooltip
                   content={
                     <ChartTooltipContent
                       formatter={(value) => (
-                        <span className="font-mono tabular-nums">{value}%</span>
+                        <span className="font-mono tabular-nums">
+                          {value}
+                          {metricMeta[metric].suffix}
+                        </span>
                       )}
                       labelFormatter={(value) =>
                         format(new Date(String(value)), "MMM d, HH:mm")
