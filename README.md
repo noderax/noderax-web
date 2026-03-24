@@ -25,6 +25,7 @@ The current product surface includes:
 - Event history and filtering
 - Admin-only user management
 - Session, appearance, and workspace settings
+- **Node Action Menu:** Quick reboot and agent restart with confirmation dialogs
 - Realtime node status and telemetry updates
 
 ## Features
@@ -40,8 +41,10 @@ The current product surface includes:
   - create task
   - list users
   - create user
-- Node-focused telemetry cards on the dashboard
+- Redesigned **Package Management** screens with full-width cards and structured metadata
+- Node-focused telemetry cards on the dashboard with integrated action menus
 - Operating-system-aware node icons
+- **Accessible Dashboards:** Resolved "Nest Interactive Elements" (Base UI #31) errors by using `useRouter` for card navigation
 - Standard CRM-style dashboard shell inspired by shadcn patterns
 
 ## Tech Stack
