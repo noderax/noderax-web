@@ -34,6 +34,18 @@ import { TimeDisplay } from "@/components/ui/time-display";
 import type { NodeSummary } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
+const getCpuColor = (cpu: number) => {
+  if (cpu > 90) return "text-tone-danger font-bold";
+  if (cpu > 70) return "text-tone-warning font-semibold";
+  return "text-tone-success font-medium";
+};
+
+const getTempColor = (temp: number) => {
+  if (temp > 85) return "text-tone-danger font-bold text-[1.05em]";
+  if (temp > 65) return "text-tone-warning font-semibold";
+  return "text-tone-success font-medium";
+};
+
 export const NodesTable = ({
   nodes,
   isLoading,
@@ -185,6 +197,7 @@ export const NodesTable = ({
             <TableHead>Last seen</TableHead>
             <TableHead>OS / Arch</TableHead>
             <TableHead>Latest CPU</TableHead>
+            <TableHead>Latest Temp</TableHead>
             <TableHead className="text-right">Actions</TableHead>
           </TableRow>
         </TableHeader>
@@ -211,7 +224,20 @@ export const NodesTable = ({
                   </span>
                 </div>
               </TableCell>
-              <TableCell>{node.latestMetric ? `${node.latestMetric.cpu}%` : "N/A"}</TableCell>
+              <TableCell className={node.latestMetric ? getCpuColor(node.latestMetric.cpu) : ""}>
+                {node.latestMetric ? `${node.latestMetric.cpu}%` : "N/A"}
+              </TableCell>
+              <TableCell
+                className={
+                  node.latestMetric?.temperature !== null && node.latestMetric?.temperature !== undefined
+                    ? getTempColor(node.latestMetric.temperature)
+                    : ""
+                }
+              >
+                {node.latestMetric?.temperature !== null && node.latestMetric?.temperature !== undefined
+                  ? `${node.latestMetric.temperature.toFixed(1)}°C`
+                  : "N/A"}
+              </TableCell>
               <TableCell className="text-right">
                 <div className="flex items-center justify-end gap-2">
                   <Dialog
@@ -268,6 +294,12 @@ export const NodesTable = ({
                           </p>
                           <p className="mt-2 text-sm font-medium">
                             CPU {node.latestMetric ? `${node.latestMetric.cpu}%` : "N/A"}
+                          </p>
+                          <p className="text-sm font-medium">
+                            Temp{" "}
+                            {node.latestMetric?.temperature !== null && node.latestMetric?.temperature !== undefined
+                              ? `${node.latestMetric.temperature.toFixed(1)}°C`
+                              : "N/A"}
                           </p>
                           <p className="text-sm text-muted-foreground">
                             Memory {node.latestMetric ? `${node.latestMetric.memory}%` : "N/A"}
