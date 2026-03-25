@@ -7,6 +7,7 @@ import { ApiError, apiClient } from "@/lib/api";
 import type {
   CancelTaskPayload,
   CancelTaskResponse,
+  CreateScheduledTaskPayload,
   CreateNodePayload,
   CreateTaskPayload,
   CreateUserPayload,
@@ -17,6 +18,7 @@ import type {
   MetricFilters,
   NodeFilters,
   RemovePackagePayload,
+  UpdateScheduledTaskPayload,
   TaskFilters,
   TaskStatus,
 } from "@/lib/types";
@@ -39,6 +41,9 @@ export const queryKeys = {
     all: (filters?: TaskFilters) => ["tasks", "list", filters ?? {}] as const,
     detail: (id: string) => ["tasks", "detail", id] as const,
     logs: (id: string, limit = 100) => ["tasks", "logs", id, limit] as const,
+  },
+  scheduledTasks: {
+    all: ["scheduled-tasks", "list"] as const,
   },
   events: {
     all: (filters?: EventFilters) => ["events", "list", filters ?? {}] as const,
@@ -105,6 +110,15 @@ export const useTask = (id: string) =>
     queryKey: queryKeys.tasks.detail(id),
     queryFn: () => apiClient.getTaskDetail(id),
     enabled: Boolean(id),
+    staleTime: Infinity,
+    refetchOnWindowFocus: false,
+  });
+
+export const useScheduledTasks = (enabled = true) =>
+  useQuery({
+    queryKey: queryKeys.scheduledTasks.all,
+    queryFn: () => apiClient.getScheduledTaskSummaries(),
+    enabled,
     staleTime: Infinity,
     refetchOnWindowFocus: false,
   });
@@ -333,6 +347,117 @@ export const useCreateTask = () => {
     },
     onError: (error) => {
       toast.error("Unable to create task", {
+        description: readMutationError(error),
+      });
+    },
+  });
+};
+
+export const useCreateScheduledTask = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (payload: CreateScheduledTaskPayload) =>
+      apiClient.createScheduledTask(payload),
+    onSuccess: async (schedule) => {
+      toast.success("Scheduled task created", {
+        description: `${schedule.name} will start running on its next UTC slot.`,
+      });
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.scheduledTasks.all,
+          refetchType: "active",
+        }),
+        queryClient.invalidateQueries({
+          queryKey: ["tasks", "list"],
+          refetchType: "active",
+        }),
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.dashboard.overview,
+          refetchType: "active",
+        }),
+        queryClient.invalidateQueries({
+          queryKey: ["events", "list"],
+          refetchType: "active",
+        }),
+      ]);
+    },
+    onError: (error) => {
+      toast.error("Unable to create scheduled task", {
+        description: readMutationError(error),
+      });
+    },
+  });
+};
+
+export const useUpdateScheduledTask = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (input: { id: string; payload: UpdateScheduledTaskPayload }) =>
+      apiClient.updateScheduledTask(input.id, input.payload),
+    onSuccess: async (schedule) => {
+      toast.success(
+        schedule.enabled ? "Scheduled task enabled" : "Scheduled task disabled",
+        {
+          description: schedule.name,
+        },
+      );
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.scheduledTasks.all,
+          refetchType: "active",
+        }),
+        queryClient.invalidateQueries({
+          queryKey: ["tasks", "list"],
+          refetchType: "active",
+        }),
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.dashboard.overview,
+          refetchType: "active",
+        }),
+        queryClient.invalidateQueries({
+          queryKey: ["events", "list"],
+          refetchType: "active",
+        }),
+      ]);
+    },
+    onError: (error) => {
+      toast.error("Unable to update scheduled task", {
+        description: readMutationError(error),
+      });
+    },
+  });
+};
+
+export const useDeleteScheduledTask = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: string) => apiClient.deleteScheduledTask(id),
+    onSuccess: async () => {
+      toast.success("Scheduled task deleted");
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.scheduledTasks.all,
+          refetchType: "active",
+        }),
+        queryClient.invalidateQueries({
+          queryKey: ["tasks", "list"],
+          refetchType: "active",
+        }),
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.dashboard.overview,
+          refetchType: "active",
+        }),
+        queryClient.invalidateQueries({
+          queryKey: ["events", "list"],
+          refetchType: "active",
+        }),
+      ]);
+    },
+    onError: (error) => {
+      toast.error("Unable to delete scheduled task", {
         description: readMutationError(error),
       });
     },

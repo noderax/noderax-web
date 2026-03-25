@@ -5,6 +5,7 @@ export type TaskStatus =
   | "success"
   | "failed"
   | "cancelled";
+export type ScheduledTaskCadence = "hourly" | "daily" | "weekly";
 export type EventSeverity = "info" | "warning" | "critical";
 export type TaskLogLevel = "info" | "stdout" | "stderr" | "error";
 export type UserRole = "admin" | "user";
@@ -63,6 +64,25 @@ export interface TaskDto {
   output: string | null;
   startedAt: string | null;
   finishedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ScheduledTaskDto {
+  id: string;
+  nodeId: string;
+  name: string;
+  command: string;
+  cadence: ScheduledTaskCadence;
+  minute: number;
+  hour: number | null;
+  dayOfWeek: number | null;
+  timezone: "UTC";
+  enabled: boolean;
+  nextRunAt: string | null;
+  lastRunAt: string | null;
+  lastRunTaskId: string | null;
+  lastError: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -165,12 +185,19 @@ export interface TaskSummary {
   nodeId: string;
   nodeName: string;
   command: string | null;
+  scheduleId: string | null;
+  scheduleName: string | null;
   createdAt: string;
   startedAt: string | null;
   finishedAt: string | null;
   updatedAt: string;
   exitCode: number | null;
   lastOutput: string | null;
+}
+
+export interface ScheduledTaskSummary extends ScheduledTaskDto {
+  nodeName: string;
+  frequencyLabel: string;
 }
 
 export interface TaskLogLine {
@@ -260,6 +287,21 @@ export interface CreateTaskPayload {
   payload?: Record<string, unknown>;
 }
 
+export interface CreateScheduledTaskPayload {
+  nodeId: string;
+  name: string;
+  command: string;
+  cadence: ScheduledTaskCadence;
+  minute: number;
+  hour?: number;
+  dayOfWeek?: number;
+  timezone?: "UTC";
+}
+
+export interface UpdateScheduledTaskPayload {
+  enabled: boolean;
+}
+
 export interface CancelTaskPayload {
   reason?: string;
 }
@@ -314,6 +356,11 @@ export interface EnrollmentStatusResponse {
 }
 
 export interface DeleteNodeResponse {
+  deleted: true;
+  id: string;
+}
+
+export interface DeleteScheduledTaskResponse {
   deleted: true;
   id: string;
 }

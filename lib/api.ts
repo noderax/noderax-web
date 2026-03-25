@@ -6,16 +6,19 @@ import {
   mapInstalledPackage,
   mapNodeSummary,
   mapPackageSearchResult,
+  mapScheduledTaskSummary,
   mapTaskSummary,
 } from "@/lib/noderax";
 import type {
   AuthSession,
   CancelTaskPayload,
   CancelTaskResponse,
+  CreateScheduledTaskPayload,
   CreateNodePayload,
   CreateTaskPayload,
   CreateUserPayload,
   DashboardOverview,
+  DeleteScheduledTaskResponse,
   DeleteNodeResponse,
   EnrollmentStatusResponse,
   EventDto,
@@ -36,6 +39,8 @@ import type {
   PackageTaskMutationResponse,
   InstalledPackage,
   RemovePackagePayload,
+  ScheduledTaskDto,
+  ScheduledTaskSummary,
   TaskDetail,
   TaskDto,
   TaskFilters,
@@ -596,6 +601,32 @@ export const apiClient = {
       body: JSON.stringify(payload),
     });
   },
+  getScheduledTasks() {
+    return request<ScheduledTaskDto[]>("/api/proxy/scheduled-tasks");
+  },
+  createScheduledTask(payload: CreateScheduledTaskPayload) {
+    return request<ScheduledTaskDto>("/api/proxy/scheduled-tasks", {
+      method: "POST",
+      body: JSON.stringify({
+        ...payload,
+        timezone: payload.timezone ?? "UTC",
+      }),
+    });
+  },
+  updateScheduledTask(id: string, payload: { enabled: boolean }) {
+    return request<ScheduledTaskDto>(`/api/proxy/scheduled-tasks/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    });
+  },
+  deleteScheduledTask(id: string) {
+    return request<DeleteScheduledTaskResponse>(
+      `/api/proxy/scheduled-tasks/${id}`,
+      {
+        method: "DELETE",
+      },
+    );
+  },
   finalizeNodeEnrollment(token: string, payload: FinalizeEnrollmentPayload) {
     return request<FinalizeEnrollmentResponse>(
       `/api/proxy/enrollments/${encodeURIComponent(token)}/finalize`,
@@ -813,6 +844,15 @@ export const apiClient = {
 
     const nodeLookup = createNodeLookup(nodes);
     return tasks.map((task) => mapTaskSummary(task, nodeLookup));
+  },
+  async getScheduledTaskSummaries(): Promise<ScheduledTaskSummary[]> {
+    const [scheduledTasks, nodes] = await Promise.all([
+      this.getScheduledTasks(),
+      this.getNodes({ limit: 100 }),
+    ]);
+
+    const nodeLookup = createNodeLookup(nodes);
+    return scheduledTasks.map((task) => mapScheduledTaskSummary(task, nodeLookup));
   },
   async getTaskDetail(id: string): Promise<TaskDetail> {
     const task = await this.getTask(id);

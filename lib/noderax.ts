@@ -12,6 +12,8 @@ import type {
   NodeDto,
   NodeSummary,
   PackageSearchResult,
+  ScheduledTaskDto,
+  ScheduledTaskSummary,
   TaskDetail,
   TaskDto,
   TaskLogDto,
@@ -108,6 +110,14 @@ export const formatTaskType = (type: string) => titleCase(type);
 
 export const getTaskCommand = (payload: Record<string, unknown>) =>
   readFirstString(payload, ["command", "cmd", "script", "operation", "target"]);
+
+export const getTaskScheduleId = (payload: Record<string, unknown>) =>
+  readFirstString(payload, ["scheduleId"]);
+
+export const getTaskScheduleName = (payload: Record<string, unknown>) =>
+  getTaskScheduleId(payload)
+    ? readFirstString(payload, ["scheduleName", "title", "name"])
+    : null;
 
 export const getTaskDisplayName = (task: Pick<TaskDto, "type" | "payload">) =>
   readFirstString(task.payload, ["title", "name", "label"]) ??
@@ -221,12 +231,56 @@ export const mapTaskSummary = (
     nodeId: task.nodeId,
     nodeName: node?.name ?? node?.hostname ?? "Unknown node",
     command: getTaskCommand(task.payload),
+    scheduleId: getTaskScheduleId(task.payload),
+    scheduleName: getTaskScheduleName(task.payload),
     createdAt: task.createdAt,
     startedAt: task.startedAt,
     finishedAt: task.finishedAt,
     updatedAt: task.updatedAt,
     exitCode: getTaskExitCode(task),
     lastOutput: task.output,
+  };
+};
+
+const WEEKDAY_LABELS = [
+  "Sunday",
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+  "Friday",
+  "Saturday",
+] as const;
+
+export const formatScheduledTaskFrequency = (
+  task: Pick<ScheduledTaskDto, "cadence" | "minute" | "hour" | "dayOfWeek" | "timezone">,
+) => {
+  const minute = task.minute.toString().padStart(2, "0");
+
+  switch (task.cadence) {
+    case "hourly":
+      return `Every hour at :${minute} ${task.timezone}`;
+    case "daily":
+      return `Every day at ${(task.hour ?? 0).toString().padStart(2, "0")}:${minute} ${task.timezone}`;
+    case "weekly":
+      return `Every ${WEEKDAY_LABELS[task.dayOfWeek ?? 0]} at ${(task.hour ?? 0)
+        .toString()
+        .padStart(2, "0")}:${minute} ${task.timezone}`;
+    default:
+      return "Scheduled task";
+  }
+};
+
+export const mapScheduledTaskSummary = (
+  task: ScheduledTaskDto,
+  nodeLookup: Map<string, NodeDto | NodeSummary>,
+): ScheduledTaskSummary => {
+  const node = nodeLookup.get(task.nodeId);
+
+  return {
+    ...task,
+    nodeName: node?.name ?? node?.hostname ?? "Unknown node",
+    frequencyLabel: formatScheduledTaskFrequency(task),
   };
 };
 

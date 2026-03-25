@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useEffectEvent, useMemo, useState } from "react";
 import Link from "next/link";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -108,21 +108,27 @@ export const TaskDetailView = ({ id }: { id: string }) => {
       ? "cancelling"
       : (task?.status ?? "queued");
   const isAdmin = authQuery.session?.user.role === "admin";
+  const syncCancellationState = useEffectEvent((status: TaskStatus) => {
+    if (status === "cancelled") {
+      toast.success("Task stopped.");
+    }
+
+    if (status === "cancelled" || status === "success" || status === "failed") {
+      setIsCancelling(false);
+    }
+  });
 
   useEffect(() => {
     if (!task || !isCancelling) {
       return;
     }
 
-    if (task.status === "cancelled") {
-      toast.success("Task stopped.");
-      setIsCancelling(false);
-      return;
-    }
-
-    if (task.status === "success" || task.status === "failed") {
-      setIsCancelling(false);
-      return;
+    if (
+      task.status === "cancelled" ||
+      task.status === "success" ||
+      task.status === "failed"
+    ) {
+      syncCancellationState(task.status);
     }
   }, [isCancelling, task]);
 
@@ -243,6 +249,11 @@ export const TaskDetailView = ({ id }: { id: string }) => {
       <div className="mb-4 flex items-center justify-between gap-3">
         <TaskStatusBadge status={task.status} />
         <div className="flex items-center gap-2">
+          {task.scheduleId ? (
+            <Badge variant="outline" className="rounded-full px-3 py-1">
+              Scheduled
+            </Badge>
+          ) : null}
           {taskStatusForUi === "cancelling" ? (
             <Badge
               variant="outline"
@@ -341,6 +352,12 @@ export const TaskDetailView = ({ id }: { id: string }) => {
                 <p className="mt-2 font-mono text-sm">
                   {task.command ?? "No command field"}
                 </p>
+                {task.scheduleName ? (
+                  <p className="mt-3 text-xs text-muted-foreground">
+                    Source schedule:{" "}
+                    <span className="font-medium text-foreground">{task.scheduleName}</span>
+                  </p>
+                ) : null}
               </div>
               <div className="surface-subtle rounded-[18px] border p-4">
                 <div className="flex items-center justify-between mb-2">

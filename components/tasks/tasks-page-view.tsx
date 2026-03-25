@@ -10,10 +10,15 @@ import {
 
 import { AppShell } from "@/components/layout/app-shell";
 import { CreateTaskDialog } from "@/components/tasks/create-task-dialog";
+import { ScheduledTasksPanel } from "@/components/tasks/scheduled-tasks-panel";
 import { TasksTable } from "@/components/tasks/tasks-table";
 import { StatStrip } from "@/components/ui/stat-strip";
 import { useAuthSession } from "@/lib/hooks/use-auth-session";
-import { useNodes, useTasks } from "@/lib/hooks/use-noderax-data";
+import {
+  useNodes,
+  useScheduledTasks,
+  useTasks,
+} from "@/lib/hooks/use-noderax-data";
 import type { NodeSummary, TaskSummary } from "@/lib/types";
 import { useAppStore } from "@/store/useAppStore";
 
@@ -47,6 +52,7 @@ export const TasksPageView = () => {
   const tasks = tasksQuery.data ?? EMPTY_TASKS;
   const nodes = nodesQuery.data ?? EMPTY_NODES;
   const isAdmin = authQuery.session?.user.role === "admin";
+  const scheduledTasksQuery = useScheduledTasks(isAdmin);
 
   const visibleTasks = useMemo(
     () =>
@@ -135,6 +141,14 @@ export const TasksPageView = () => {
           createAction={isAdmin ? <CreateTaskDialog nodes={nodes} /> : null}
           canManage={isAdmin}
         />
+        {isAdmin ? (
+          <ScheduledTasksPanel
+            schedules={scheduledTasksQuery.data ?? []}
+            isLoading={scheduledTasksQuery.isPending}
+            isError={scheduledTasksQuery.isError}
+            onRetry={() => scheduledTasksQuery.refetch()}
+          />
+        ) : null}
       </div>
     </AppShell>
   );

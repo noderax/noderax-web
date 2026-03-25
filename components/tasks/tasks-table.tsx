@@ -6,6 +6,7 @@ import { TerminalSquare } from "lucide-react";
 import { CancelTaskDialog } from "@/components/tasks/cancel-task-dialog";
 import { EmptyState } from "@/components/empty-state";
 import { TaskStatusBadge } from "@/components/tasks/task-status-badge";
+import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { SectionPanel } from "@/components/ui/section-panel";
 import {
@@ -254,9 +255,16 @@ export const TasksTable = ({
               </TableCell>
               <TableCell>
                 <div>
-                  <p className="font-medium">{task.name}</p>
+                  <div className="flex items-center gap-2">
+                    <p className="font-medium">{task.name}</p>
+                    {task.scheduleId ? (
+                      <Badge variant="outline">Scheduled</Badge>
+                    ) : null}
+                  </div>
                   <p className="text-xs text-muted-foreground">
-                    {task.command ?? task.type}
+                    {task.scheduleName
+                      ? `${task.command ?? task.type} • ${task.scheduleName}`
+                      : (task.command ?? task.type)}
                   </p>
                 </div>
               </TableCell>
