@@ -56,14 +56,14 @@ export default function EventsPage() {
   );
 
   const actionControls = (
-    <>
+    <div className="flex w-full items-center gap-2 overflow-x-auto pb-1 sm:w-auto">
       <Select
         value={eventSeverityFilter}
         onValueChange={(value) =>
           setEventSeverityFilter(value as typeof eventSeverityFilter)
         }
       >
-        <SelectTrigger className="min-w-44">
+        <SelectTrigger className="min-w-44 shrink-0">
           <SelectValue placeholder="Severity" />
         </SelectTrigger>
         <SelectContent>
@@ -75,7 +75,7 @@ export default function EventsPage() {
       </Select>
 
       <Select value={nodeFilter} onValueChange={(value) => setNodeFilter(value ?? "all")}>
-        <SelectTrigger className="min-w-52">
+        <SelectTrigger className="min-w-52 shrink-0">
           <SelectValue placeholder="Node" />
         </SelectTrigger>
         <SelectContent>
@@ -92,11 +92,11 @@ export default function EventsPage() {
         value={typeFilter}
         onChange={(event) => setTypeFilter(event.target.value)}
         placeholder="Filter type"
-        className="w-full min-w-44 sm:max-w-52"
+        className="min-w-44 shrink-0 sm:w-52"
       />
 
       <Select value={String(limit)} onValueChange={(value) => setLimit(Number(value) as 25 | 50 | 100)}>
-        <SelectTrigger className="min-w-32">
+        <SelectTrigger className="min-w-32 shrink-0">
           <SelectValue placeholder="Limit" />
         </SelectTrigger>
         <SelectContent>
@@ -106,11 +106,18 @@ export default function EventsPage() {
         </SelectContent>
       </Select>
 
-      <Button variant="outline" onClick={() => eventsQuery.refetch()}>
-        <RefreshCcw className="size-4" />
-        Refresh
+      <Button
+        variant="outline"
+        size="icon-lg"
+        className="shrink-0"
+        aria-label="Refresh events"
+        title="Refresh events"
+        onClick={() => void eventsQuery.refetch()}
+        disabled={eventsQuery.isFetching}
+      >
+        <RefreshCcw className={eventsQuery.isFetching ? "size-4 animate-spin" : "size-4"} />
       </Button>
-    </>
+    </div>
   );
 
   return (
