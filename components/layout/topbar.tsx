@@ -40,6 +40,7 @@ const sectionNames: Record<string, string> = {
   "/dashboard": "Dashboard",
   "/nodes": "Nodes",
   "/tasks": "Tasks",
+  "/scheduled-tasks": "Scheduled Tasks",
   "/events": "Events",
   "/users": "Users",
   "/settings": "Settings",
@@ -49,6 +50,8 @@ const sectionDescriptions: Record<string, string> = {
   "/dashboard": "Monitor fleet health, workload, and recent activity.",
   "/nodes": "Inspect node connectivity, telemetry, and runtime state.",
   "/tasks": "Track executions, outcomes, and live operational work.",
+  "/scheduled-tasks":
+    "Manage recurring shell commands and schedule timing across nodes.",
   "/events": "Review alerts, warnings, and platform event history.",
   "/users": "Manage operators, access roles, and workspace accounts.",
   "/settings": "Manage appearance, session metadata, and preferences.",

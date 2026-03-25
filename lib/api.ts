@@ -48,6 +48,7 @@ import type {
   TaskLogFilters,
   TaskFlowDiagnostics,
   TaskSummary,
+  UpdateUserPreferencesPayload,
   UserDto,
 } from "@/lib/types";
 
@@ -579,6 +580,12 @@ export const apiClient = {
   getUsers() {
     return request<UserDto[]>("/api/proxy/users");
   },
+  updateCurrentUserPreferences(payload: UpdateUserPreferencesPayload) {
+    return request<UserDto>("/api/proxy/users/me/preferences", {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    });
+  },
   createUser(payload: CreateUserPayload) {
     return request<UserDto>("/api/proxy/users", {
       method: "POST",
@@ -607,10 +614,7 @@ export const apiClient = {
   createScheduledTask(payload: CreateScheduledTaskPayload) {
     return request<ScheduledTaskDto>("/api/proxy/scheduled-tasks", {
       method: "POST",
-      body: JSON.stringify({
-        ...payload,
-        timezone: payload.timezone ?? "UTC",
-      }),
+      body: JSON.stringify(payload),
     });
   },
   updateScheduledTask(id: string, payload: { enabled: boolean }) {

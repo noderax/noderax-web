@@ -5,7 +5,12 @@ export type TaskStatus =
   | "success"
   | "failed"
   | "cancelled";
-export type ScheduledTaskCadence = "hourly" | "daily" | "weekly";
+export type ScheduledTaskCadence =
+  | "minutely"
+  | "custom"
+  | "hourly"
+  | "daily"
+  | "weekly";
 export type EventSeverity = "info" | "warning" | "critical";
 export type TaskLogLevel = "info" | "stdout" | "stderr" | "error";
 export type UserRole = "admin" | "user";
@@ -71,13 +76,17 @@ export interface TaskDto {
 export interface ScheduledTaskDto {
   id: string;
   nodeId: string;
+  ownerUserId: string | null;
+  ownerName: string | null;
+  isLegacy: boolean;
   name: string;
   command: string;
   cadence: ScheduledTaskCadence;
   minute: number;
   hour: number | null;
   dayOfWeek: number | null;
-  timezone: "UTC";
+  intervalMinutes: number | null;
+  timezone: string;
   enabled: boolean;
   nextRunAt: string | null;
   lastRunAt: string | null;
@@ -137,6 +146,7 @@ export interface UserDto {
   name: string;
   role: UserRole;
   isActive: boolean;
+  timezone: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -250,6 +260,7 @@ export interface AuthUser {
   email: string;
   role: UserRole;
   isActive: boolean;
+  timezone: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -295,11 +306,15 @@ export interface CreateScheduledTaskPayload {
   minute: number;
   hour?: number;
   dayOfWeek?: number;
-  timezone?: "UTC";
+  intervalMinutes?: number;
 }
 
 export interface UpdateScheduledTaskPayload {
   enabled: boolean;
+}
+
+export interface UpdateUserPreferencesPayload {
+  timezone: string;
 }
 
 export interface CancelTaskPayload {

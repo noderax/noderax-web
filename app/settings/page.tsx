@@ -1,19 +1,31 @@
 "use client";
 
-import { KeyRound, Palette, Shield, UserRound } from "lucide-react";
+import { useMemo, useState } from "react";
+import { Clock3, Globe2, KeyRound, Palette, Shield, UserRound } from "lucide-react";
 
 import { TaskFlowDiagnostics } from "@/components/diagnostics/task-flow-diagnostics";
 import { AppShell } from "@/components/layout/app-shell";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { SectionPanel } from "@/components/ui/section-panel";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { TimeDisplay } from "@/components/ui/time-display";
+import { TimezonePicker } from "@/components/ui/timezone-picker";
 import { useAuthSession } from "@/lib/hooks/use-auth-session";
+import { useUpdateCurrentUserPreferences } from "@/lib/hooks/use-noderax-data";
+import { DEFAULT_TIMEZONE, getBrowserTimeZone } from "@/lib/timezone";
 
 export default function SettingsPage() {
   const { session } = useAuthSession();
+  const updatePreferences = useUpdateCurrentUserPreferences();
+  const browserTimeZone = useMemo(() => getBrowserTimeZone(), []);
+  const [draftTimeZone, setDraftTimeZone] = useState<string | null>(null);
+
+  const savedTimeZone = session?.user.timezone ?? DEFAULT_TIMEZONE;
+  const selectedTimeZone = draftTimeZone ?? savedTimeZone;
+  const hasTimeZoneChanges = selectedTimeZone !== savedTimeZone;
 
   return (
     <AppShell>
@@ -22,7 +34,7 @@ export default function SettingsPage() {
           <SectionPanel
             eyebrow="Workspace"
             title="Appearance and session"
-            description="Local UI preferences and secure session metadata in one place."
+            description="Local UI preferences, timezone presentation, and secure session metadata in one place."
             contentClassName="space-y-6"
           >
             <div className="flex items-start gap-3">
@@ -45,6 +57,71 @@ export default function SettingsPage() {
                 </p>
               </div>
               <ThemeToggle />
+            </div>
+
+            <Separator />
+
+            <div className="space-y-4">
+              <div className="flex items-start gap-3">
+                <div className="tone-brand flex size-11 items-center justify-center rounded-full border">
+                  <Clock3 className="size-4.5" />
+                </div>
+                <div className="min-w-0">
+                  <p className="font-medium">Timezone preference</p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Absolute timestamps across the workspace render in your saved
+                    timezone.
+                  </p>
+                </div>
+              </div>
+
+              <div className="surface-subtle space-y-4 rounded-[18px] border p-4">
+                <div className="space-y-2">
+                  <p className="text-sm font-medium">Saved timezone</p>
+                  <TimezonePicker
+                    value={selectedTimeZone}
+                    onValueChange={(value) =>
+                      setDraftTimeZone(value === savedTimeZone ? null : value)
+                    }
+                    disabled={updatePreferences.isPending}
+                  />
+                </div>
+
+                <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
+                  <Badge variant="outline" className="rounded-full px-3 py-1">
+                    Saved: {savedTimeZone}
+                  </Badge>
+                  <Badge variant="outline" className="rounded-full px-3 py-1">
+                    Browser: {browserTimeZone}
+                  </Badge>
+                </div>
+
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex items-start gap-2 text-sm text-muted-foreground">
+                    <Globe2 className="mt-0.5 size-4 shrink-0" />
+                    <p>
+                      Scheduled tasks you create will follow your saved timezone,
+                      and all absolute timestamps will render in the same view.
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    disabled={!hasTimeZoneChanges || updatePreferences.isPending}
+                    onClick={() =>
+                      updatePreferences.mutate(
+                        {
+                          timezone: selectedTimeZone,
+                        },
+                        {
+                          onSuccess: () => setDraftTimeZone(null),
+                        },
+                      )
+                    }
+                  >
+                    {updatePreferences.isPending ? "Saving..." : "Save timezone"}
+                  </Button>
+                </div>
+              </div>
             </div>
 
             <Separator />
@@ -129,6 +206,13 @@ export default function SettingsPage() {
                 <p className="text-sm text-muted-foreground">Role</p>
                 <p className="mt-1 font-medium">
                   {session?.user.role ?? "Platform Operator"}
+                </p>
+              </div>
+              <Separator />
+              <div>
+                <p className="text-sm text-muted-foreground">Timezone</p>
+                <p className="mt-1 font-medium">
+                  {session?.user.timezone ?? DEFAULT_TIMEZONE}
                 </p>
               </div>
             </div>

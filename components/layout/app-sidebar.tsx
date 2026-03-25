@@ -1,9 +1,11 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   Boxes,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   Home,
@@ -11,6 +13,7 @@ import {
   Siren,
   Users,
   Workflow,
+  type LucideIcon,
 } from "lucide-react";
 
 import { BrandBadge } from "@/components/brand/brand-mark";
@@ -34,6 +37,25 @@ const realtimeLabels = {
   idle: "Standby",
 } as const;
 
+type NavLinkItem = {
+  href: string;
+  label: string;
+  icon: LucideIcon;
+  children?: never;
+};
+
+type NavGroupItem = {
+  label: string;
+  icon: LucideIcon;
+  children: Array<{
+    href: string;
+    label: string;
+  }>;
+  href?: never;
+};
+
+type NavigationItem = NavLinkItem | NavGroupItem;
+
 const SidebarContent = ({
   collapsed,
   onNavigate,
@@ -45,6 +67,15 @@ const SidebarContent = ({
   const toggleSidebar = useAppStore((state) => state.toggleSidebar);
   const realtimeStatus = useAppStore((state) => state.realtimeStatus);
   const session = useAppStore((state) => state.session);
+  const isAdmin = session?.user.role === "admin";
+  const tasksSectionActive =
+    pathname === "/tasks" ||
+    pathname.startsWith("/tasks/") ||
+    pathname === "/scheduled-tasks" ||
+    pathname.startsWith("/scheduled-tasks/");
+  const [tasksExpanded, setTasksExpanded] = useState(false);
+  const isTasksExpanded = tasksSectionActive || tasksExpanded;
+
   const navigation = [
     {
       label: "Overview",
@@ -54,7 +85,18 @@ const SidebarContent = ({
       label: "Operations",
       items: [
         { href: "/nodes", label: "Nodes", icon: Boxes },
-        { href: "/tasks", label: "Tasks", icon: Workflow },
+        ...(isAdmin
+          ? [
+              {
+                label: "Tasks",
+                icon: Workflow,
+                children: [
+                  { href: "/tasks", label: "Task runs" },
+                  { href: "/scheduled-tasks", label: "Scheduled tasks" },
+                ],
+              },
+            ]
+          : [{ href: "/tasks", label: "Tasks", icon: Workflow }]),
         { href: "/events", label: "Events", icon: Siren },
       ],
     },
@@ -67,7 +109,10 @@ const SidebarContent = ({
         { href: "/settings", label: "Settings", icon: Settings },
       ],
     },
-  ] as const;
+  ] satisfies Array<{
+    label: string;
+    items: NavigationItem[];
+  }>;
 
   return (
     <div className="flex h-full flex-col">
@@ -99,6 +144,92 @@ const SidebarContent = ({
               ) : null}
               <nav className="space-y-1">
                 {group.items.map((item) => {
+                  if ("children" in item) {
+                    const childItems = item.children ?? [];
+
+                    if (collapsed) {
+                      return (
+                        <Link
+                          key={item.label}
+                          href={childItems[0]?.href ?? "/tasks"}
+                          onClick={onNavigate}
+                          className={cn(
+                            "flex h-10 items-center gap-3 rounded-xl border border-transparent px-3 text-sm font-medium transition-colors",
+                            "justify-center px-0",
+                            tasksSectionActive
+                              ? "tone-brand shadow-sm"
+                              : "text-sidebar-foreground/72 hover:border-sidebar-border hover:bg-sidebar-accent hover:text-sidebar-foreground",
+                          )}
+                        >
+                          <item.icon
+                            className={cn(
+                              "size-4",
+                              tasksSectionActive
+                                ? "text-tone-brand"
+                                : "text-muted-foreground",
+                            )}
+                          />
+                        </Link>
+                      );
+                    }
+
+                    return (
+                      <div key={item.label} className="space-y-1">
+                        <button
+                          type="button"
+                          onClick={() => setTasksExpanded((current) => !current)}
+                          className={cn(
+                            "flex h-10 w-full items-center gap-3 rounded-xl border border-transparent px-3 text-sm font-medium transition-colors",
+                            tasksSectionActive
+                              ? "tone-brand shadow-sm"
+                              : "text-sidebar-foreground/72 hover:border-sidebar-border hover:bg-sidebar-accent hover:text-sidebar-foreground",
+                          )}
+                        >
+                          <item.icon
+                            className={cn(
+                              "size-4",
+                              tasksSectionActive
+                                ? "text-tone-brand"
+                                : "text-muted-foreground",
+                            )}
+                          />
+                          <span className="flex-1 text-left">{item.label}</span>
+                          <ChevronDown
+                            className={cn(
+                              "size-4 transition-transform",
+                              isTasksExpanded && "rotate-180",
+                            )}
+                          />
+                        </button>
+                        {isTasksExpanded ? (
+                          <div className="ml-4 space-y-1 border-l border-sidebar-border pl-3">
+                            {childItems.map((child) => {
+                              const childActive =
+                                pathname === child.href ||
+                                pathname.startsWith(`${child.href}/`);
+
+                              return (
+                                <Link
+                                  key={child.href}
+                                  href={child.href}
+                                  onClick={onNavigate}
+                                  className={cn(
+                                    "flex h-9 items-center rounded-lg border border-transparent px-3 text-sm transition-colors",
+                                    childActive
+                                      ? "tone-brand shadow-sm"
+                                      : "text-sidebar-foreground/72 hover:border-sidebar-border hover:bg-sidebar-accent hover:text-sidebar-foreground",
+                                  )}
+                                >
+                                  {child.label}
+                                </Link>
+                              );
+                            })}
+                          </div>
+                        ) : null}
+                      </div>
+                    );
+                  }
+
                   const isActive =
                     pathname === item.href ||
                     pathname.startsWith(`${item.href}/`);

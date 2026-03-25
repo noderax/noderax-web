@@ -3,41 +3,40 @@
 import { formatDistanceToNowStrict } from "date-fns";
 import { useSyncExternalStore } from "react";
 
+import {
+  DEFAULT_TIMEZONE,
+  formatAbsoluteTime,
+  type TimeDisplayMode,
+} from "@/lib/timezone";
 import { cn } from "@/lib/utils";
-
-type TimeDisplayMode = "relative" | "datetime" | "date" | "time";
+import { useAppStore } from "@/store/useAppStore";
 
 const subscribe = () => () => undefined;
 
-const formatServerFallback = (date: Date, mode: TimeDisplayMode) => {
-  const iso = date.toISOString();
-
-  if (mode === "date") {
-    return iso.slice(0, 10);
-  }
-
-  if (mode === "time") {
-    return `${iso.slice(11, 19)} UTC`;
-  }
-
+const formatServerFallback = (
+  date: Date,
+  mode: TimeDisplayMode,
+  timezone: string,
+) => {
   if (mode === "relative") {
-    return `${iso.slice(0, 16).replace("T", " ")} UTC`;
+    return formatAbsoluteTime(date, "datetime", timezone);
   }
 
-  return `${iso.slice(0, 19).replace("T", " ")} UTC`;
+  return formatAbsoluteTime(date, mode, timezone);
 };
 
 const formatClientValue = (
   date: Date,
   mode: TimeDisplayMode,
   addSuffix: boolean,
+  timezone: string,
 ) => {
   if (mode === "date") {
-    return date.toLocaleDateString();
+    return formatAbsoluteTime(date, "date", timezone);
   }
 
   if (mode === "time") {
-    return date.toLocaleTimeString();
+    return formatAbsoluteTime(date, "time", timezone);
   }
 
   if (mode === "relative") {
@@ -46,7 +45,7 @@ const formatClientValue = (
     });
   }
 
-  return date.toLocaleString();
+  return formatAbsoluteTime(date, "datetime", timezone);
 };
 
 export const TimeDisplay = ({
@@ -55,14 +54,19 @@ export const TimeDisplay = ({
   emptyLabel = "N/A",
   addSuffix = true,
   className,
+  timezone,
 }: {
   value?: string | null;
   mode?: TimeDisplayMode;
   emptyLabel?: string;
   addSuffix?: boolean;
   className?: string;
+  timezone?: string | null;
 }) => {
   const mounted = useSyncExternalStore(subscribe, () => true, () => false);
+  const sessionTimeZone = useAppStore(
+    (state) => state.session?.user.timezone ?? DEFAULT_TIMEZONE,
+  );
 
   if (!value) {
     return <span className={className}>{emptyLabel}</span>;
@@ -74,6 +78,8 @@ export const TimeDisplay = ({
     return <span className={className}>{emptyLabel}</span>;
   }
 
+  const resolvedTimeZone = timezone ?? sessionTimeZone;
+
   return (
     <time
       dateTime={date.toISOString()}
@@ -81,8 +87,8 @@ export const TimeDisplay = ({
       className={cn(className)}
     >
       {mounted
-        ? formatClientValue(date, mode, addSuffix)
-        : formatServerFallback(date, mode)}
+        ? formatClientValue(date, mode, addSuffix, resolvedTimeZone)
+        : formatServerFallback(date, mode, resolvedTimeZone)}
     </time>
   );
 };

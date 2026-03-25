@@ -5,6 +5,7 @@ import { Clock3, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { EmptyState } from "@/components/empty-state";
+import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
   Dialog,
@@ -39,11 +40,13 @@ export const ScheduledTasksPanel = ({
   isLoading,
   isError,
   onRetry,
+  action,
 }: {
   schedules: ScheduledTaskSummary[];
   isLoading?: boolean;
   isError?: boolean;
   onRetry?: () => void;
+  action?: React.ReactNode;
 }) => {
   const updateScheduledTask = useUpdateScheduledTask();
   const deleteScheduledTask = useDeleteScheduledTask();
@@ -80,7 +83,8 @@ export const ScheduledTasksPanel = ({
       <SectionPanel
         eyebrow="Automation"
         title="Scheduled tasks"
-        description="Recurring shell commands evaluated in UTC."
+        description="Recurring shell commands aligned to each schedule owner's saved timezone."
+        action={action}
         contentClassName="space-y-3"
       >
         {Array.from({ length: 4 }).map((_, index) => (
@@ -95,7 +99,7 @@ export const ScheduledTasksPanel = ({
       <SectionPanel
         eyebrow="Automation"
         title="Scheduled tasks"
-        description="Recurring shell commands evaluated in UTC."
+        description="Recurring shell commands aligned to each schedule owner's saved timezone."
       >
         <EmptyState
           title="Scheduled tasks are unavailable"
@@ -113,11 +117,12 @@ export const ScheduledTasksPanel = ({
       <SectionPanel
         eyebrow="Automation"
         title="Scheduled tasks"
-        description="Recurring shell commands evaluated in UTC."
+        description="Recurring shell commands aligned to each schedule owner's saved timezone."
+        action={action}
       >
         <EmptyState
           title="No scheduled tasks yet"
-          description="Create a recurring shell command from the Scheduled tab in the task dialog."
+          description="Create a recurring shell command from the Scheduled tab or from this page."
           icon={Clock3}
         />
       </SectionPanel>
@@ -129,7 +134,8 @@ export const ScheduledTasksPanel = ({
       <SectionPanel
         eyebrow="Automation"
         title="Scheduled tasks"
-        description="Recurring shell commands evaluated in UTC."
+        description="Recurring shell commands aligned to each schedule owner's saved timezone."
+        action={action}
         contentClassName="p-0"
       >
         <Table>
@@ -161,10 +167,21 @@ export const ScheduledTasksPanel = ({
                 </TableCell>
                 <TableCell className="max-w-[22rem]">
                   <div>
-                    <p className="font-medium">{schedule.name}</p>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="font-medium">{schedule.name}</p>
+                      {schedule.isLegacy ? (
+                        <Badge variant="outline">Legacy UTC</Badge>
+                      ) : null}
+                    </div>
                     <p className="mt-1 line-clamp-2 font-mono text-xs text-muted-foreground">
                       {schedule.command}
                     </p>
+                    <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                      <span>
+                        Owner: {schedule.ownerName ?? "Legacy schedule"}
+                      </span>
+                      <span>Timezone: {schedule.timezone}</span>
+                    </div>
                     {schedule.lastError ? (
                       <p className="mt-2 line-clamp-2 text-xs text-tone-danger">
                         Last error: {schedule.lastError}
@@ -176,7 +193,12 @@ export const ScheduledTasksPanel = ({
                   {schedule.nodeName}
                 </TableCell>
                 <TableCell className="text-muted-foreground">
-                  {schedule.frequencyLabel}
+                  <div>
+                    <p>{schedule.frequencyLabel}</p>
+                    <p className="mt-1 text-xs">
+                      Runs in {schedule.timezone}
+                    </p>
+                  </div>
                 </TableCell>
                 <TableCell className="text-muted-foreground">
                   {schedule.nextRunAt ? (

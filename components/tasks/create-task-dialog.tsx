@@ -28,10 +28,12 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import { useAuthSession } from "@/lib/hooks/use-auth-session";
 import {
   useCreateScheduledTask,
   useCreateTask,
 } from "@/lib/hooks/use-noderax-data";
+import { DEFAULT_TIMEZONE } from "@/lib/timezone";
 import type { NodeSummary } from "@/lib/types";
 
 const createTaskSchema = z.object({
@@ -61,12 +63,30 @@ const scheduledTaskSchema = z
     nodeId: z.string().min(1, "Select a node."),
     name: z.string().trim().min(2, "Schedule name must be at least 2 characters."),
     command: z.string().trim().min(1, "Command is required."),
-    cadence: z.enum(["hourly", "daily", "weekly"]),
+    cadence: z.enum(["minutely", "custom", "hourly", "daily", "weekly"]),
     minuteText: z.string(),
+    intervalMinutesText: z.string(),
     timeText: z.string(),
     dayOfWeek: z.string(),
   })
   .superRefine((value, ctx) => {
+    if (value.cadence === "minutely") {
+      return;
+    }
+
+    if (value.cadence === "custom") {
+      const intervalMinutes = Number.parseInt(value.intervalMinutesText, 10);
+
+      if (!Number.isInteger(intervalMinutes) || intervalMinutes < 1 || intervalMinutes > 10080) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["intervalMinutesText"],
+          message: "Interval must be between 1 and 10080 minutes.",
+        });
+      }
+      return;
+    }
+
     if (value.cadence === "hourly") {
       const minute = Number.parseInt(value.minuteText, 10);
 
@@ -101,7 +121,7 @@ const scheduledTaskSchema = z
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["timeText"],
-        message: "Enter a valid UTC time.",
+        message: "Enter a valid time.",
       });
     }
 
@@ -132,6 +152,7 @@ const defaultScheduledValues: ScheduledTaskValues = {
   command: "",
   cadence: "hourly",
   minuteText: "0",
+  intervalMinutesText: "5",
   timeText: "00:00",
   dayOfWeek: "1",
 };
@@ -146,13 +167,27 @@ const WEEKDAY_OPTIONS = [
   { value: "6", label: "Saturday" },
 ] as const;
 
-export const CreateTaskDialog = ({ nodes }: { nodes: NodeSummary[] }) => {
+export const CreateTaskDialog = ({
+  nodes,
+  defaultTab = "on-demand",
+  triggerLabel = "Create task",
+  title = "Create task",
+  description = "Queue a one-off task or configure a recurring shell command in your saved timezone.",
+}: {
+  nodes: NodeSummary[];
+  defaultTab?: "on-demand" | "scheduled";
+  triggerLabel?: string;
+  title?: string;
+  description?: string;
+}) => {
+  const authQuery = useAuthSession();
   const [open, setOpen] = useState(false);
-  const [tab, setTab] = useState<"on-demand" | "scheduled">("on-demand");
+  const [tab, setTab] = useState<"on-demand" | "scheduled">(defaultTab);
   const [taskSubmissionError, setTaskSubmissionError] = useState<string | null>(null);
   const [scheduleSubmissionError, setScheduleSubmissionError] = useState<string | null>(null);
   const createTaskMutation = useCreateTask();
   const createScheduledTaskMutation = useCreateScheduledTask();
+  const timezone = authQuery.session?.user.timezone ?? DEFAULT_TIMEZONE;
   const taskForm = useForm<CreateTaskValues>({
     resolver: zodResolver(createTaskSchema),
     defaultValues: defaultTaskValues,
@@ -186,7 +221,7 @@ export const CreateTaskDialog = ({ nodes }: { nodes: NodeSummary[] }) => {
     scheduledForm.reset(defaultScheduledValues);
     setTaskSubmissionError(null);
     setScheduleSubmissionError(null);
-    setTab("on-demand");
+    setTab(defaultTab);
   };
 
   const onSubmitTask = taskForm.handleSubmit(async (values) => {
@@ -211,14 +246,30 @@ export const CreateTaskDialog = ({ nodes }: { nodes: NodeSummary[] }) => {
     setScheduleSubmissionError(null);
 
     try {
-      if (values.cadence === "hourly") {
+      if (values.cadence === "minutely") {
+        await createScheduledTaskMutation.mutateAsync({
+          nodeId: values.nodeId,
+          name: values.name.trim(),
+          command: values.command.trim(),
+          cadence: "minutely",
+          minute: 0,
+        });
+      } else if (values.cadence === "custom") {
+        await createScheduledTaskMutation.mutateAsync({
+          nodeId: values.nodeId,
+          name: values.name.trim(),
+          command: values.command.trim(),
+          cadence: "custom",
+          minute: 0,
+          intervalMinutes: Number.parseInt(values.intervalMinutesText, 10),
+        });
+      } else if (values.cadence === "hourly") {
         await createScheduledTaskMutation.mutateAsync({
           nodeId: values.nodeId,
           name: values.name.trim(),
           command: values.command.trim(),
           cadence: "hourly",
           minute: Number.parseInt(values.minuteText, 10),
-          timezone: "UTC",
         });
       } else {
         const [hour, minute] = values.timeText.split(":").map(Number);
@@ -233,7 +284,6 @@ export const CreateTaskDialog = ({ nodes }: { nodes: NodeSummary[] }) => {
           ...(values.cadence === "weekly"
             ? { dayOfWeek: Number.parseInt(values.dayOfWeek, 10) }
             : {}),
-          timezone: "UTC",
         });
       }
 
@@ -260,14 +310,12 @@ export const CreateTaskDialog = ({ nodes }: { nodes: NodeSummary[] }) => {
     >
       <DialogTrigger render={<Button size="sm" disabled={!nodes.length} />}>
         <Plus className="size-4" />
-        Create task
+        {triggerLabel}
       </DialogTrigger>
       <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Create task</DialogTitle>
-          <DialogDescription>
-            Queue a one-off task or configure a recurring shell command in UTC.
-          </DialogDescription>
+          <DialogTitle>{title}</DialogTitle>
+          <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
 
         <Tabs value={tab} onValueChange={(value) => setTab(value as typeof tab)} className="space-y-4">
@@ -448,6 +496,8 @@ export const CreateTaskDialog = ({ nodes }: { nodes: NodeSummary[] }) => {
                       <SelectValue placeholder="Select cadence" />
                     </SelectTrigger>
                     <SelectContent>
+                      <SelectItem value="minutely">Every minute</SelectItem>
+                      <SelectItem value="custom">Custom interval</SelectItem>
                       <SelectItem value="hourly">Hourly</SelectItem>
                       <SelectItem value="daily">Daily</SelectItem>
                       <SelectItem value="weekly">Weekly</SelectItem>
@@ -455,7 +505,40 @@ export const CreateTaskDialog = ({ nodes }: { nodes: NodeSummary[] }) => {
                   </Select>
                 </div>
 
-                {cadenceValue === "hourly" ? (
+                {cadenceValue === "minutely" ? (
+                  <div className="surface-subtle flex items-center rounded-[16px] border px-4 py-3 text-sm text-muted-foreground">
+                    This schedule runs every minute.
+                  </div>
+                ) : cadenceValue === "custom" ? (
+                  <div className="space-y-2">
+                    <Label htmlFor="schedule-interval-minutes">
+                      Interval in minutes
+                    </Label>
+                    <Input
+                      id="schedule-interval-minutes"
+                      type="number"
+                      min={1}
+                      max={10080}
+                      placeholder="5"
+                      aria-invalid={Boolean(
+                        scheduledForm.formState.errors.intervalMinutesText,
+                      )}
+                      {...scheduledForm.register("intervalMinutesText")}
+                    />
+                    {scheduledForm.formState.errors.intervalMinutesText ? (
+                      <p className="text-sm text-tone-danger">
+                        {
+                          scheduledForm.formState.errors.intervalMinutesText
+                            .message
+                        }
+                      </p>
+                    ) : (
+                      <p className="text-xs text-muted-foreground">
+                        Example: 5 for every 5 minutes, 7 for every 7 minutes.
+                      </p>
+                    )}
+                  </div>
+                ) : cadenceValue === "hourly" ? (
                   <div className="space-y-2">
                     <Label htmlFor="schedule-minute">Minute</Label>
                     <Input
@@ -475,7 +558,7 @@ export const CreateTaskDialog = ({ nodes }: { nodes: NodeSummary[] }) => {
                   </div>
                 ) : (
                   <div className="space-y-2">
-                    <Label htmlFor="schedule-time">UTC time</Label>
+                    <Label htmlFor="schedule-time">Local time</Label>
                     <Input
                       id="schedule-time"
                       type="time"
@@ -523,7 +606,10 @@ export const CreateTaskDialog = ({ nodes }: { nodes: NodeSummary[] }) => {
               ) : null}
 
               <div className="surface-subtle rounded-[18px] border px-4 py-3 text-sm text-muted-foreground">
-                Scheduled runs are stored and evaluated in <span className="font-medium text-foreground">UTC</span>.
+                New schedules follow your saved timezone{" "}
+                <span className="font-medium text-foreground">{timezone}</span>.
+                If you change it later in settings, existing schedules move with
+                that preference.
               </div>
 
               {scheduleSubmissionError ? (

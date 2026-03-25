@@ -91,6 +91,7 @@ export const toAuthUser = (user: UserDto): AuthUser => ({
   email: user.email,
   role: user.role,
   isActive: user.isActive,
+  timezone: user.timezone,
   createdAt: user.createdAt,
   updatedAt: user.updatedAt,
 });
@@ -253,19 +254,26 @@ const WEEKDAY_LABELS = [
 ] as const;
 
 export const formatScheduledTaskFrequency = (
-  task: Pick<ScheduledTaskDto, "cadence" | "minute" | "hour" | "dayOfWeek" | "timezone">,
+  task: Pick<
+    ScheduledTaskDto,
+    "cadence" | "minute" | "hour" | "dayOfWeek" | "intervalMinutes" | "timezone"
+  >,
 ) => {
   const minute = task.minute.toString().padStart(2, "0");
 
   switch (task.cadence) {
+    case "minutely":
+      return `Every minute (${task.timezone})`;
+    case "custom":
+      return `Every ${task.intervalMinutes ?? 1} minutes (${task.timezone})`;
     case "hourly":
-      return `Every hour at :${minute} ${task.timezone}`;
+      return `Every hour at :${minute} (${task.timezone})`;
     case "daily":
-      return `Every day at ${(task.hour ?? 0).toString().padStart(2, "0")}:${minute} ${task.timezone}`;
+      return `Every day at ${(task.hour ?? 0).toString().padStart(2, "0")}:${minute} (${task.timezone})`;
     case "weekly":
       return `Every ${WEEKDAY_LABELS[task.dayOfWeek ?? 0]} at ${(task.hour ?? 0)
         .toString()
-        .padStart(2, "0")}:${minute} ${task.timezone}`;
+        .padStart(2, "0")}:${minute} (${task.timezone})`;
     default:
       return "Scheduled task";
   }

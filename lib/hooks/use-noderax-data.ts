@@ -5,6 +5,7 @@ import { toast } from "sonner";
 
 import { ApiError, apiClient } from "@/lib/api";
 import type {
+  AuthSession,
   CancelTaskPayload,
   CancelTaskResponse,
   CreateScheduledTaskPayload,
@@ -19,9 +20,11 @@ import type {
   NodeFilters,
   RemovePackagePayload,
   UpdateScheduledTaskPayload,
+  UpdateUserPreferencesPayload,
   TaskFilters,
   TaskStatus,
 } from "@/lib/types";
+import { useAppStore } from "@/store/useAppStore";
 
 const readMutationError = (error: unknown) =>
   error instanceof Error ? error.message : "Request failed unexpectedly.";
@@ -250,6 +253,71 @@ export const useCreateUser = () => {
   });
 };
 
+export const useUpdateCurrentUserPreferences = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (payload: UpdateUserPreferencesPayload) =>
+      apiClient.updateCurrentUserPreferences(payload),
+    onSuccess: async (user) => {
+      const currentSession = queryClient.getQueryData<AuthSession>([
+        "auth",
+        "session",
+      ]);
+
+      if (currentSession) {
+        const nextSession: AuthSession = {
+          ...currentSession,
+          user: {
+            ...currentSession.user,
+            ...user,
+          },
+        };
+
+        queryClient.setQueryData(["auth", "session"], nextSession);
+        useAppStore.getState().setSession(nextSession);
+      } else {
+        await queryClient.invalidateQueries({
+          queryKey: ["auth", "session"],
+          refetchType: "active",
+        });
+      }
+
+      toast.success("Timezone updated", {
+        description: `Absolute timestamps now render in ${user.timezone}.`,
+      });
+
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.scheduledTasks.all,
+          refetchType: "active",
+        }),
+        queryClient.invalidateQueries({
+          queryKey: ["tasks", "list"],
+          refetchType: "active",
+        }),
+        queryClient.invalidateQueries({
+          queryKey: ["events", "list"],
+          refetchType: "active",
+        }),
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.users.all,
+          refetchType: "active",
+        }),
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.dashboard.overview,
+          refetchType: "active",
+        }),
+      ]);
+    },
+    onError: (error) => {
+      toast.error("Unable to update timezone", {
+        description: readMutationError(error),
+      });
+    },
+  });
+};
+
 export const useCreateNode = () => {
   const queryClient = useQueryClient();
 
@@ -361,7 +429,7 @@ export const useCreateScheduledTask = () => {
       apiClient.createScheduledTask(payload),
     onSuccess: async (schedule) => {
       toast.success("Scheduled task created", {
-        description: `${schedule.name} will start running on its next UTC slot.`,
+        description: `${schedule.name} will start running on its next scheduled slot in ${schedule.timezone}.`,
       });
       await Promise.all([
         queryClient.invalidateQueries({
