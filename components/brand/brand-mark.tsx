@@ -1,4 +1,10 @@
+"use client";
+
+import { useSyncExternalStore } from "react";
 import Image from "next/image";
+import { useTheme } from "next-themes";
+
+import logoWhiteSrc from "@/public/logo-white.png";
 import logoSrc from "@/public/logo.webp";
 
 import { cn } from "@/lib/utils";
@@ -11,14 +17,24 @@ export const BrandMark = ({
   className?: string;
   alt?: string;
   priority?: boolean;
-}) => (
-  <Image
-    src={logoSrc}
-    alt={alt}
-    priority={priority}
-    className={cn("size-10 object-contain scale-[1.3]", className)}
-  />
-);
+}) => {
+  const { resolvedTheme } = useTheme();
+  const mounted = useSyncExternalStore(
+    () => () => undefined,
+    () => true,
+    () => false,
+  );
+  const markSrc = mounted && resolvedTheme === "dark" ? logoWhiteSrc : logoSrc;
+
+  return (
+    <Image
+      src={markSrc}
+      alt={alt}
+      priority={priority}
+      className={cn("size-10 object-contain scale-[1.3]", className)}
+    />
+  );
+};
 
 export const BrandBadge = ({
   className,
