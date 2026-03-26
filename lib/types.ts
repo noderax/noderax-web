@@ -363,6 +363,7 @@ export interface WorkspaceDto {
   defaultTimezone: string;
   createdByUserId: string | null;
   isArchived: boolean;
+  isDefault: boolean;
   currentUserRole?: WorkspaceMembershipRole | null;
   createdAt: string;
   updatedAt: string;
@@ -415,6 +416,7 @@ export interface CreateWorkspacePayload {
   slug: string;
   defaultTimezone?: string;
   isArchived?: boolean;
+  isDefault?: boolean;
 }
 
 export interface UpdateWorkspacePayload {
@@ -422,6 +424,7 @@ export interface UpdateWorkspacePayload {
   slug?: string;
   defaultTimezone?: string;
   isArchived?: boolean;
+  isDefault?: boolean;
 }
 
 export interface CreateWorkspaceMemberPayload {
@@ -622,6 +625,12 @@ export interface EnrollmentStatusResponse {
 export interface DeleteNodeResponse {
   deleted: true;
   id: string;
+}
+
+export interface DeleteWorkspaceResponse {
+  deleted: true;
+  id: string;
+  slug: string;
 }
 
 export interface DeleteScheduledTaskResponse {

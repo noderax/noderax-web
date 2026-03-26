@@ -2,13 +2,17 @@
 
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import {
+  AlertTriangle,
+  CheckCircle2,
   Clock3,
   Globe2,
   KeyRound,
   Palette,
   Settings2,
   Shield,
+  Trash2,
   UserRound,
 } from "lucide-react";
 
@@ -18,6 +22,16 @@ import { AppShell } from "@/components/layout/app-shell";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SectionPanel } from "@/components/ui/section-panel";
@@ -28,21 +42,25 @@ import { TimeDisplay } from "@/components/ui/time-display";
 import { TimezonePicker } from "@/components/ui/timezone-picker";
 import { useAuthSession } from "@/lib/hooks/use-auth-session";
 import {
+  useDeleteWorkspace,
   usePlatformSettings,
   useUpdateCurrentUserPreferences,
   useUpdatePlatformSettings,
   useUpdateWorkspace,
 } from "@/lib/hooks/use-noderax-data";
-import { useWorkspaceContext } from "@/lib/hooks/use-workspace-context";
-import {
-  DEFAULT_TIMEZONE,
-  getBrowserTimeZone,
-} from "@/lib/timezone";
+import { useWorkspaceContext, workspacesQueryKey } from "@/lib/hooks/use-workspace-context";
+import { apiClient } from "@/lib/api";
+import { DEFAULT_TIMEZONE, getBrowserTimeZone } from "@/lib/timezone";
 import type {
   PlatformSettingsResponse,
   PlatformSettingsValues,
+  WorkspaceDto,
 } from "@/lib/types";
-import { persistWorkspaceSlug } from "@/lib/workspace";
+import {
+  buildWorkspacePath,
+  persistWorkspaceSlug,
+  pickDefaultWorkspace,
+} from "@/lib/workspace";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/store/useAppStore";
 
@@ -83,6 +101,9 @@ const parseNumberInput = (value: string, fallback: number) => {
   return Number.isFinite(nextValue) ? nextValue : fallback;
 };
 
+const pickNextWorkspaceAfterDeletion = (workspaces: WorkspaceDto[]) =>
+  pickDefaultWorkspace(workspaces) ?? workspaces[0] ?? null;
+
 function SettingsPageFallback() {
   return (
     <AppShell>
@@ -106,6 +127,7 @@ function SettingsPageContent({
   canonicalPath?: string;
 }) {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const { session } = useAuthSession();
@@ -121,6 +143,7 @@ function SettingsPageContent({
 
   const updatePreferences = useUpdateCurrentUserPreferences();
   const updateWorkspace = useUpdateWorkspace();
+  const deleteWorkspace = useDeleteWorkspace();
   const platformSettingsQuery = usePlatformSettings(isPlatformAdmin);
   const updatePlatformSettings = useUpdatePlatformSettings();
 
@@ -149,6 +172,12 @@ function SettingsPageContent({
   const [workspaceName, setWorkspaceName] = useState("");
   const [workspaceSlugDraft, setWorkspaceSlugDraft] = useState("");
   const [workspaceTimeZone, setWorkspaceTimeZone] = useState(DEFAULT_TIMEZONE);
+  const [workspaceDeleteOpen, setWorkspaceDeleteOpen] = useState(false);
+  const [workspaceDeleteConfirmation, setWorkspaceDeleteConfirmation] =
+    useState("");
+  const [workspaceDeleteError, setWorkspaceDeleteError] = useState<string | null>(
+    null,
+  );
   const [platformDraft, setPlatformDraft] =
     useState<PlatformSettingsValues | null>(null);
 
@@ -186,6 +215,12 @@ function SettingsPageContent({
     setPlatformDraft(clonePlatformSettingsValues(platformBaseline));
   }, [platformBaseline]);
 
+  useEffect(() => {
+    setWorkspaceDeleteOpen(false);
+    setWorkspaceDeleteConfirmation("");
+    setWorkspaceDeleteError(null);
+  }, [workspace?.id]);
+
   const savedTimeZone = session?.user.timezone ?? DEFAULT_TIMEZONE;
   const selectedTimeZone = draftTimeZone ?? savedTimeZone;
   const hasTimeZoneChanges = selectedTimeZone !== savedTimeZone;
@@ -196,6 +231,18 @@ function SettingsPageContent({
         workspaceSlugDraft !== workspace.slug ||
         workspaceTimeZone !== workspace.defaultTimezone),
   );
+
+  const canManageDefaultWorkspace = isPlatformAdmin;
+  const canSetWorkspaceAsDefault = Boolean(
+    workspace && canManageDefaultWorkspace && !workspace.isDefault,
+  );
+  const workspaceDeleteBlockedReason = !workspace
+    ? "Workspace is still loading."
+    : workspace.isDefault
+      ? "Default workspace cannot be deleted. Select another default workspace first."
+      : null;
+  const workspaceDeleteRequiresConfirmation =
+    workspaceDeleteConfirmation.trim() === workspace?.slug;
 
   const hasPlatformChanges = Boolean(
     platformDraft &&
@@ -242,6 +289,51 @@ function SettingsPageContent({
         },
       },
     );
+  };
+
+  const handleSetDefaultWorkspace = () => {
+    if (!workspace || !canSetWorkspaceAsDefault) {
+      return;
+    }
+
+    updateWorkspace.mutate({ isDefault: true });
+  };
+
+  const handleDeleteWorkspace = async () => {
+    if (!workspace || workspaceDeleteBlockedReason || !workspaceDeleteRequiresConfirmation) {
+      return;
+    }
+
+    setWorkspaceDeleteError(null);
+
+    try {
+      await deleteWorkspace.mutateAsync();
+
+      const nextWorkspaces = await queryClient.fetchQuery({
+        queryKey: workspacesQueryKey,
+        queryFn: apiClient.getWorkspaces,
+      });
+      const nextWorkspace = pickNextWorkspaceAfterDeletion(nextWorkspaces);
+
+      setWorkspaceDeleteOpen(false);
+      setWorkspaceDeleteConfirmation("");
+
+      if (nextWorkspace) {
+        setActiveWorkspaceSlug(nextWorkspace.slug);
+        persistWorkspaceSlug(nextWorkspace.slug);
+        router.replace(buildWorkspacePath(nextWorkspace.slug, "dashboard"));
+        return;
+      }
+
+      setActiveWorkspaceSlug(null);
+      router.replace("/workspaces");
+    } catch (error) {
+      setWorkspaceDeleteError(
+        error instanceof Error
+          ? error.message
+          : "Workspace could not be deleted right now.",
+      );
+    }
   };
 
   const updatePlatformField = (
@@ -531,73 +623,312 @@ function SettingsPageContent({
                   description="Only workspace owners and admins can change workspace settings."
                 />
               ) : (
-                <SectionPanel
-                  eyebrow="Workspace"
-                  title="Workspace settings"
-                  description="Workspace timezone controls scheduled task execution. Personal timezone stays under your own settings tab."
-                  action={
+                <div className="mx-auto max-w-5xl space-y-6">
+                  <div className="flex flex-col gap-4 rounded-[24px] border bg-card px-6 py-5 lg:flex-row lg:items-start lg:justify-between">
+                    <div className="space-y-3">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Badge variant="outline" className="rounded-full px-3 py-1">
+                          Workspace settings
+                        </Badge>
+                        {workspace.isDefault ? (
+                          <Badge className="rounded-full px-3 py-1">
+                            Default workspace
+                          </Badge>
+                        ) : null}
+                      </div>
+                      <div className="space-y-1">
+                        <h2 className="text-2xl font-semibold tracking-tight">
+                          {workspace.name}
+                        </h2>
+                        <p className="text-sm text-muted-foreground">
+                          Manage naming, routing, scheduling timezone, fallback
+                          default behavior, and destructive workspace actions
+                          from one place.
+                        </p>
+                      </div>
+                    </div>
                     <Button
                       type="button"
                       disabled={!hasWorkspaceChanges || updateWorkspace.isPending}
                       onClick={handleWorkspaceSave}
                     >
-                      {updateWorkspace.isPending
-                        ? "Saving..."
-                        : "Save workspace settings"}
+                      {updateWorkspace.isPending ? "Saving..." : "Save changes"}
                     </Button>
-                  }
-                  contentClassName="space-y-6"
-                >
-                  <div className="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
-                    <div className="space-y-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="workspace-settings-name">
-                          Workspace name
-                        </Label>
-                        <Input
-                          id="workspace-settings-name"
-                          value={workspaceName}
-                          onChange={(event) => setWorkspaceName(event.target.value)}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="workspace-settings-slug">
-                          Workspace slug
-                        </Label>
-                        <Input
-                          id="workspace-settings-slug"
-                          value={workspaceSlugDraft}
-                          onChange={(event) =>
-                            setWorkspaceSlugDraft(
-                              event.target.value
-                                .toLowerCase()
-                                .replace(/[^a-z0-9-]+/g, "-")
-                                .replace(/^-+|-+$/g, ""),
-                            )
-                          }
-                        />
-                      </div>
-                    </div>
-                    <div className="surface-subtle rounded-[22px] border p-5">
-                      <div className="flex items-start gap-3">
-                        <div className="tone-brand flex size-11 items-center justify-center rounded-full border">
-                          <Clock3 className="size-4.5" />
-                        </div>
-                        <div className="min-w-0 space-y-2">
-                          <p className="font-medium">Execution timezone</p>
-                          <p className="text-sm text-muted-foreground">
-                            New scheduled tasks created in this workspace run in
-                            the workspace timezone.
-                          </p>
-                          <TimezonePicker
-                            value={workspaceTimeZone}
-                            onValueChange={setWorkspaceTimeZone}
+                  </div>
+
+                  <SectionPanel
+                    eyebrow="General"
+                    title="Workspace profile"
+                    description="These values shape the workspace URL, label, and human-facing identity across the control plane."
+                    contentClassName="space-y-6"
+                  >
+                    <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(280px,0.9fr)]">
+                      <div className="space-y-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="workspace-settings-name">
+                            Workspace name
+                          </Label>
+                          <Input
+                            id="workspace-settings-name"
+                            value={workspaceName}
+                            onChange={(event) => setWorkspaceName(event.target.value)}
                           />
                         </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="workspace-settings-slug">
+                            Workspace slug
+                          </Label>
+                          <Input
+                            id="workspace-settings-slug"
+                            value={workspaceSlugDraft}
+                            onChange={(event) =>
+                              setWorkspaceSlugDraft(
+                                event.target.value
+                                  .toLowerCase()
+                                  .replace(/[^a-z0-9-]+/g, "-")
+                                  .replace(/^-+|-+$/g, ""),
+                              )
+                            }
+                          />
+                          <p className="text-xs text-muted-foreground">
+                            Used in workspace-scoped URLs and operator routing.
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="surface-subtle rounded-[20px] border p-5">
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                          Route preview
+                        </p>
+                        <p className="mt-2 font-mono text-sm">
+                          {buildWorkspacePath(
+                            workspaceSlugDraft || workspace.slug,
+                            "dashboard",
+                          )}
+                        </p>
+                        <Separator className="my-4" />
+                        <div className="space-y-2 text-sm text-muted-foreground">
+                          <p>Current role: {workspace.currentUserRole ?? "member"}</p>
+                          <p>
+                            Archived: {workspace.isArchived ? "Yes" : "No"}
+                          </p>
+                          <p>
+                            Created{" "}
+                            <TimeDisplay
+                              value={workspace.createdAt}
+                              mode="datetime"
+                              emptyLabel="unknown"
+                            />
+                          </p>
+                        </div>
                       </div>
                     </div>
+                  </SectionPanel>
+
+                  <SectionPanel
+                    eyebrow="Scheduling"
+                    title="Execution timezone"
+                    description="Workspace timezone controls when workspace-scoped scheduled tasks are evaluated and run."
+                    contentClassName="space-y-4"
+                  >
+                    <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
+                      <div className="space-y-2">
+                        <p className="text-sm text-muted-foreground">
+                          Changing this value recalculates future runs for
+                          schedules using the workspace timezone source.
+                        </p>
+                        <div className="flex flex-wrap gap-2">
+                          <Badge variant="outline" className="rounded-full px-3 py-1">
+                            Current: {workspace.defaultTimezone}
+                          </Badge>
+                          <Badge variant="outline" className="rounded-full px-3 py-1">
+                            Draft: {workspaceTimeZone}
+                          </Badge>
+                        </div>
+                      </div>
+                      <TimezonePicker
+                        value={workspaceTimeZone}
+                        onValueChange={setWorkspaceTimeZone}
+                      />
+                    </div>
+                  </SectionPanel>
+
+                  <SectionPanel
+                    eyebrow="Default Workspace"
+                    title="Fallback workspace selection"
+                    description="The default workspace is the control plane fallback when a user has no stored workspace selection or their prior workspace disappears."
+                    action={
+                      <Button
+                        type="button"
+                        variant={workspace.isDefault ? "outline" : "default"}
+                        disabled={
+                          workspace.isDefault ||
+                          !canManageDefaultWorkspace ||
+                          updateWorkspace.isPending
+                        }
+                        onClick={handleSetDefaultWorkspace}
+                      >
+                        {workspace.isDefault ? "Current default" : "Set as default"}
+                      </Button>
+                    }
+                    contentClassName="space-y-4"
+                  >
+                    <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
+                      <div className="space-y-2">
+                        <p className="text-sm text-muted-foreground">
+                          Only one workspace can be default at a time. Selecting
+                          this workspace here updates the platform-wide fallback
+                          choice end to end.
+                        </p>
+                        {!canManageDefaultWorkspace ? (
+                          <div className="surface-subtle rounded-[18px] border px-4 py-3 text-sm text-muted-foreground">
+                            Only platform admins can change which workspace is
+                            marked as default.
+                          </div>
+                        ) : workspace.isDefault ? (
+                          <div className="surface-subtle flex items-start gap-3 rounded-[18px] border px-4 py-3 text-sm text-muted-foreground">
+                            <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-emerald-500" />
+                            <p>
+                              This workspace is currently the default fallback
+                              workspace for the platform.
+                            </p>
+                          </div>
+                        ) : (
+                          <div className="surface-subtle rounded-[18px] border px-4 py-3 text-sm text-muted-foreground">
+                            Switching the default does not delete or archive the
+                            current default workspace. It only changes the
+                            fallback selection used by the UI and backend flows
+                            that rely on the default workspace.
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </SectionPanel>
+
+                  <div className="rounded-[24px] border border-tone-danger/30 bg-tone-danger/5">
+                    <div className="border-b border-tone-danger/20 px-6 py-5">
+                      <div className="flex items-start gap-3">
+                        <div className="flex size-11 items-center justify-center rounded-full border border-tone-danger/30 bg-background">
+                          <AlertTriangle className="size-4.5 text-tone-danger" />
+                        </div>
+                        <div className="space-y-1">
+                          <p className="text-sm font-semibold uppercase tracking-[0.16em] text-tone-danger">
+                            Danger zone
+                          </p>
+                          <h3 className="text-lg font-semibold tracking-tight">
+                            Delete this workspace
+                          </h3>
+                          <p className="text-sm text-muted-foreground">
+                            This permanently removes the workspace and cascades
+                            workspace-scoped records such as nodes, tasks,
+                            events, metrics, teams, and memberships. If this is
+                            the default workspace, deletion is disabled until a
+                            different workspace is selected as default.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col gap-4 px-6 py-5 lg:flex-row lg:items-center lg:justify-between">
+                      <div className="space-y-2">
+                        <p className="font-medium text-foreground">
+                          Permanent deletion
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          Type <span className="font-mono">{workspace.slug}</span>{" "}
+                          to confirm deletion. This action cannot be undone.
+                        </p>
+                        {workspaceDeleteBlockedReason ? (
+                          <div className="rounded-[18px] border border-tone-danger/20 bg-background/80 px-4 py-3 text-sm text-muted-foreground">
+                            {workspaceDeleteBlockedReason}
+                          </div>
+                        ) : null}
+                      </div>
+
+                      <Dialog
+                        open={workspaceDeleteOpen}
+                        onOpenChange={(open) => {
+                          setWorkspaceDeleteOpen(open);
+                          if (!open) {
+                            setWorkspaceDeleteConfirmation("");
+                            setWorkspaceDeleteError(null);
+                          }
+                        }}
+                      >
+                        <DialogTrigger
+                          render={
+                            <Button
+                              type="button"
+                              variant="destructive"
+                              disabled={Boolean(workspaceDeleteBlockedReason)}
+                            />
+                          }
+                        >
+                          <Trash2 className="size-4" />
+                          Delete workspace
+                        </DialogTrigger>
+                        <DialogContent>
+                          <DialogHeader>
+                            <DialogTitle>Delete workspace</DialogTitle>
+                            <DialogDescription>
+                              This permanently deletes{" "}
+                              <span className="font-medium text-foreground">
+                                {workspace.name}
+                              </span>
+                              . Type the workspace slug to confirm.
+                            </DialogDescription>
+                          </DialogHeader>
+
+                          <div className="space-y-4">
+                            <div className="rounded-[18px] border border-tone-danger/20 bg-tone-danger/5 px-4 py-3 text-sm text-muted-foreground">
+                              Nodes, tasks, events, metrics, memberships, and
+                              teams scoped to this workspace will be removed.
+                            </div>
+
+                            <div className="space-y-2">
+                              <Label htmlFor="workspace-delete-confirmation">
+                                Confirm by typing <span className="font-mono">{workspace.slug}</span>
+                              </Label>
+                              <Input
+                                id="workspace-delete-confirmation"
+                                value={workspaceDeleteConfirmation}
+                                onChange={(event) =>
+                                  setWorkspaceDeleteConfirmation(event.target.value)
+                                }
+                                placeholder={workspace.slug}
+                              />
+                            </div>
+
+                            {workspaceDeleteError ? (
+                              <p className="text-sm text-tone-danger">
+                                {workspaceDeleteError}
+                              </p>
+                            ) : null}
+                          </div>
+
+                          <DialogFooter>
+                            <DialogClose render={<Button variant="outline" type="button" />}>
+                              Cancel
+                            </DialogClose>
+                            <Button
+                              type="button"
+                              variant="destructive"
+                              disabled={
+                                deleteWorkspace.isPending ||
+                                !workspaceDeleteRequiresConfirmation
+                              }
+                              onClick={() => void handleDeleteWorkspace()}
+                            >
+                              {deleteWorkspace.isPending
+                                ? "Deleting..."
+                                : "Permanently delete workspace"}
+                            </Button>
+                          </DialogFooter>
+                        </DialogContent>
+                      </Dialog>
+                    </div>
                   </div>
-                </SectionPanel>
+                </div>
               )}
             </TabsContent>
 

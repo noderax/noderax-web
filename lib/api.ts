@@ -24,6 +24,7 @@ import type {
   CreateWorkspaceMemberPayload,
   CreateWorkspacePayload,
   DashboardOverview,
+  DeleteWorkspaceResponse,
   DeleteScheduledTaskResponse,
   DeleteNodeResponse,
   EnrollmentStatusResponse,
@@ -653,6 +654,11 @@ export const apiClient = {
     return request<WorkspaceDto>(buildWorkspaceApiPath(workspaceId), {
       method: "PATCH",
       body: JSON.stringify(payload),
+    });
+  },
+  deleteWorkspace(workspaceId: string) {
+    return request<DeleteWorkspaceResponse>(buildWorkspaceApiPath(workspaceId), {
+      method: "DELETE",
     });
   },
   getWorkspaceMembers(workspaceId: string) {

@@ -7,6 +7,7 @@ import { Plus, ShieldAlert, Waypoints } from "lucide-react";
 
 import { AppShell } from "@/components/layout/app-shell";
 import { EmptyState } from "@/components/empty-state";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -194,9 +195,16 @@ export const WorkspacesPageView = () => {
               >
                 <div className="space-y-3">
                   <div className="space-y-1">
-                    <p className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
-                      {workspace.currentUserRole ?? "workspace"}
-                    </p>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
+                        {workspace.currentUserRole ?? "workspace"}
+                      </p>
+                      {workspace.isDefault ? (
+                        <Badge variant="outline" className="rounded-full px-2.5 py-0.5">
+                          Default
+                        </Badge>
+                      ) : null}
+                    </div>
                     <h3 className="text-lg font-semibold tracking-tight">
                       {workspace.name}
                     </h3>

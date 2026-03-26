@@ -19,6 +19,7 @@ import type {
   CreateUserPayload,
   CreateWorkspaceMemberPayload,
   CreateWorkspacePayload,
+  DeleteWorkspaceResponse,
   EventFilters,
   FinalizeEnrollmentPayload,
   FinalizeEnrollmentResponse,
@@ -1036,6 +1037,48 @@ export const useUpdateWorkspace = () => {
     },
     onError: (error) => {
       toast.error("Unable to update workspace", {
+        description: readMutationError(error),
+      });
+    },
+  });
+};
+
+export const useDeleteWorkspace = () => {
+  const queryClient = useQueryClient();
+  const { workspaceId } = useWorkspaceContext();
+
+  return useMutation({
+    mutationFn: () =>
+      apiClient.deleteWorkspace(requireWorkspaceId(workspaceId)),
+    onSuccess: async (result: DeleteWorkspaceResponse) => {
+      toast.success("Workspace deleted", {
+        description: result.slug,
+      });
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.workspaces.all,
+          refetchType: "active",
+        }),
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.workspaces.detail(result.id),
+          refetchType: "active",
+        }),
+        queryClient.invalidateQueries({
+          queryKey: ["nodes", result.id],
+          refetchType: "active",
+        }),
+        queryClient.invalidateQueries({
+          queryKey: ["tasks", result.id],
+          refetchType: "active",
+        }),
+        queryClient.invalidateQueries({
+          queryKey: ["dashboard", "overview", result.id],
+          refetchType: "active",
+        }),
+      ]);
+    },
+    onError: (error) => {
+      toast.error("Unable to delete workspace", {
         description: readMutationError(error),
       });
     },

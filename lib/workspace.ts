@@ -20,6 +20,10 @@ export const pickWorkspaceBySlug = (
   slug?: string | null,
 ) => workspaces?.find((workspace) => workspace.slug === slug) ?? null;
 
+export const pickDefaultWorkspace = (
+  workspaces: WorkspaceDto[] | undefined,
+) => workspaces?.find((workspace) => workspace.isDefault) ?? null;
+
 export const persistWorkspaceSlug = (slug: string) => {
   if (typeof document === "undefined") {
     return;

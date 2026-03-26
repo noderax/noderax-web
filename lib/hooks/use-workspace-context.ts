@@ -9,6 +9,7 @@ import type { WorkspaceDto } from "@/lib/types";
 import {
   buildWorkspacePath,
   isPlatformAdmin,
+  pickDefaultWorkspace,
   isWorkspaceAdminRole,
   persistWorkspaceSlug,
   pickWorkspaceBySlug,
@@ -50,7 +51,10 @@ export const useWorkspaceContext = () => {
   );
 
   const fallbackWorkspace = useMemo<WorkspaceDto | null>(
-    () => (workspace ? null : (query.data?.[0] ?? null)),
+    () =>
+      workspace
+        ? null
+        : (pickDefaultWorkspace(query.data) ?? query.data?.[0] ?? null),
     [query.data, workspace],
   );
 
