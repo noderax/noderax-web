@@ -70,8 +70,10 @@ export const maskToken = (token: string) => {
 export const deriveScopesFromRole = (role: string) => {
   const normalizedRole = role.toLowerCase();
 
-  if (normalizedRole === "admin") {
+  if (normalizedRole === "platform_admin") {
     return [
+      "workspaces:read",
+      "workspaces:write",
       "nodes:read",
       "nodes:write",
       "tasks:read",

@@ -5,8 +5,8 @@ import { ArrowUpRight, ShieldAlert } from "lucide-react";
 
 import { PackageMarket } from "@/components/packages/package-market";
 import { PackagesPage } from "@/components/packages/packages-page";
-import { useAuthSession } from "@/lib/hooks/use-auth-session";
 import { useNode } from "@/lib/hooks/use-noderax-data";
+import { useWorkspaceContext } from "@/lib/hooks/use-workspace-context";
 
 export const NodePackagesScreen = ({
   nodeId,
@@ -17,9 +17,9 @@ export const NodePackagesScreen = ({
   nodeName?: string;
   standalone?: boolean;
 }) => {
-  const authQuery = useAuthSession();
+  const { buildWorkspaceHref, isWorkspaceAdmin } = useWorkspaceContext();
   const nodeQuery = useNode(nodeId);
-  const isAdmin = authQuery.session?.user.role === "admin";
+  const isAdmin = isWorkspaceAdmin;
   const resolvedNodeName = nodeName ?? nodeQuery.data?.name ?? "this node";
 
   return (
@@ -41,7 +41,7 @@ export const NodePackagesScreen = ({
           </div>
 
           <Link
-            href={`/nodes/${nodeId}`}
+            href={buildWorkspaceHref(`nodes/${nodeId}`) ?? "/workspaces"}
             className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline"
           >
             Back to node detail
@@ -73,7 +73,7 @@ export const NodePackagesScreen = ({
           headerAction={
             standalone ? null : (
               <Link
-                href={`/nodes/${nodeId}/packages`}
+                href={buildWorkspaceHref(`nodes/${nodeId}/packages`) ?? "/workspaces"}
                 className="inline-flex items-center gap-1 whitespace-nowrap text-sm font-medium text-primary hover:underline"
               >
                 Open full page

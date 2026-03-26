@@ -21,13 +21,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useCreateUser } from "@/lib/hooks/use-noderax-data";
-import type { UserRole } from "@/lib/types";
 
 const createUserSchema = z.object({
   email: z.string().email("Enter a valid work email."),
   name: z.string().min(2, "Name must be at least 2 characters."),
   password: z.string().min(8, "Password must be at least 8 characters."),
-  role: z.enum(["admin", "user"]),
+  role: z.enum(["platform_admin", "user"]),
 });
 
 type CreateUserValues = z.infer<typeof createUserSchema>;
@@ -90,7 +89,7 @@ export const CreateUserDialog = () => {
         <DialogHeader>
           <DialogTitle>Add user</DialogTitle>
           <DialogDescription>
-            Create a new operator account for the Noderax workspace.
+            Create a new global operator account for the Noderax platform.
           </DialogDescription>
         </DialogHeader>
 
@@ -147,7 +146,7 @@ export const CreateUserDialog = () => {
             <Select
               value={roleValue}
               onValueChange={(value) =>
-                form.setValue("role", (value ?? "user") as UserRole, {
+                form.setValue("role", (value ?? "user") as CreateUserValues["role"], {
                   shouldDirty: true,
                   shouldValidate: true,
                 })
@@ -158,7 +157,7 @@ export const CreateUserDialog = () => {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="user">User</SelectItem>
-                <SelectItem value="admin">Admin</SelectItem>
+                <SelectItem value="platform_admin">Platform admin</SelectItem>
               </SelectContent>
             </Select>
             {form.formState.errors.role ? (

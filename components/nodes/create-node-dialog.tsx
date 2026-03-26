@@ -22,6 +22,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useFinalizeEnrollment } from "@/lib/hooks/use-noderax-data";
+import { useWorkspaceContext } from "@/lib/hooks/use-workspace-context";
 
 const verifyEnrollmentSchema = z.object({
   email: z.string().email("Enter a valid email address."),
@@ -48,6 +49,7 @@ const completeDefaultValues: CompleteEnrollmentValues = {
 
 export const CreateNodeDialog = () => {
   const router = useRouter();
+  const { buildWorkspaceHref } = useWorkspaceContext();
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState<"verify" | "details">("verify");
   const [completionError, setCompletionError] = useState<string | null>(null);
@@ -99,7 +101,7 @@ export const CreateNodeDialog = () => {
 
       setOpen(false);
       resetDialog();
-      router.push(`/nodes/${enrollment.nodeId}`);
+      router.push(buildWorkspaceHref(`nodes/${enrollment.nodeId}`) ?? "/workspaces");
     } catch (error) {
       setCompletionError(
         error instanceof Error

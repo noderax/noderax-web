@@ -19,6 +19,7 @@ import {
   useInstallPackages,
   useRemovePackage,
 } from "@/lib/hooks/use-noderax-data";
+import { useWorkspaceContext } from "@/lib/hooks/use-workspace-context";
 import type { PackageTaskMutationResponse } from "@/lib/types";
 
 const resolveTaskId = (task: PackageTaskMutationResponse) => {
@@ -66,6 +67,7 @@ export const PackageActionDialog = ({
   disabled = false,
 }: PackageActionDialogProps) => {
   const router = useRouter();
+  const { buildWorkspaceHref } = useWorkspaceContext();
   const [open, setOpen] = useState(false);
   const [purge, setPurge] = useState(false);
   const [submissionError, setSubmissionError] = useState<string | null>(null);
@@ -103,7 +105,7 @@ export const PackageActionDialog = ({
 
       setOpen(false);
       startTransition(() => {
-        router.push(`/tasks/${taskId}`);
+        router.push(buildWorkspaceHref(`tasks/${taskId}`) ?? "/workspaces");
       });
     } catch (error) {
       setSubmissionError(

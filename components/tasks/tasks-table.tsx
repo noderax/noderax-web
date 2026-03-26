@@ -26,6 +26,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { TimeDisplay } from "@/components/ui/time-display";
+import { useWorkspaceContext } from "@/lib/hooks/use-workspace-context";
 import type { NodeSummary, TaskSummary } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -72,6 +73,7 @@ export const TasksTable = ({
   createAction?: React.ReactNode;
   canManage?: boolean;
 }) => {
+  const { buildWorkspaceHref } = useWorkspaceContext();
   const selectedNode = nodes.find((node) => node.id === nodeFilter);
 
   const statusControl = (
@@ -290,7 +292,7 @@ export const TasksTable = ({
                     />
                   ) : null}
                   <Link
-                    href={`/tasks/${task.id}`}
+                    href={buildWorkspaceHref(`tasks/${task.id}`) ?? "/workspaces"}
                     className={cn(
                       buttonVariants({ variant: "ghost", size: "sm" }),
                     )}

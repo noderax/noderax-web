@@ -1,6 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { MoreVertical, Power, RefreshCw, RotateCcw } from "lucide-react";
 
@@ -74,7 +73,6 @@ export const NodeActionMenu = ({
   variant?: "icon" | "outline";
   className?: string;
 }) => {
-  const router = useRouter(); // For safety if needed
   const createTask = useCreateTask();
   const [pendingAction, setPendingAction] = useState<NodeAction | null>(null);
   const meta = pendingAction ? actionMeta[pendingAction] : null;

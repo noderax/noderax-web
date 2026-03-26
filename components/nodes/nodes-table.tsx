@@ -31,6 +31,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { TimeDisplay } from "@/components/ui/time-display";
+import { useWorkspaceContext } from "@/lib/hooks/use-workspace-context";
 import type { NodeSummary } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -74,6 +75,7 @@ export const NodesTable = ({
   createAction?: React.ReactNode;
 }) => {
   const [selectedNode, setSelectedNode] = useState<NodeSummary | null>(null);
+  const { buildWorkspaceHref } = useWorkspaceContext();
 
   const filterControl = (
     <Select
@@ -308,7 +310,7 @@ export const NodesTable = ({
                       </div>
                       <div className="flex justify-end pt-2">
                         <Link
-                          href={`/nodes/${node.id}`}
+                          href={buildWorkspaceHref(`nodes/${node.id}`) ?? "/workspaces"}
                           className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
                         >
                           Open node
@@ -330,7 +332,7 @@ export const NodesTable = ({
                   ) : null}
 
                   <Link
-                    href={`/nodes/${node.id}`}
+                    href={buildWorkspaceHref(`nodes/${node.id}`) ?? "/workspaces"}
                     className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}
                   >
                     Open

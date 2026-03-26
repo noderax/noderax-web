@@ -14,7 +14,7 @@ export function proxy(request: NextRequest) {
   }
 
   if (token && isLoginRoute) {
-    return NextResponse.redirect(new URL("/dashboard", request.url));
+    return NextResponse.redirect(new URL("/", request.url));
   }
 
   return NextResponse.next();

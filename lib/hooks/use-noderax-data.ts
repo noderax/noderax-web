@@ -4,7 +4,9 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 import { ApiError, apiClient } from "@/lib/api";
+import { useWorkspaceContext, workspacesQueryKey } from "@/lib/hooks/use-workspace-context";
 import type {
+  AddTeamMemberPayload,
   AuthSession,
   CancelTaskPayload,
   CancelTaskResponse,
@@ -12,8 +14,11 @@ import type {
   CreateBatchTaskPayload,
   CreateScheduledTaskPayload,
   CreateNodePayload,
+  CreateTeamPayload,
   CreateTaskPayload,
   CreateUserPayload,
+  CreateWorkspaceMemberPayload,
+  CreateWorkspacePayload,
   EventFilters,
   FinalizeEnrollmentPayload,
   FinalizeEnrollmentResponse,
@@ -21,60 +26,101 @@ import type {
   MetricFilters,
   NodeFilters,
   RemovePackagePayload,
+  TeamMembershipDto,
   UpdateScheduledTaskPayload,
+  UpdateTeamPayload,
   UpdateUserPreferencesPayload,
+  UpdateWorkspaceMemberPayload,
+  UpdateWorkspacePayload,
   TaskFilters,
   TaskStatus,
+  WorkspaceMembershipDto,
 } from "@/lib/types";
 import { useAppStore } from "@/store/useAppStore";
 
 const readMutationError = (error: unknown) =>
   error instanceof Error ? error.message : "Request failed unexpectedly.";
 
+const requireWorkspaceId = (workspaceId: string | null) => {
+  if (!workspaceId) {
+    throw new Error("Select a workspace before running this action.");
+  }
+
+  return workspaceId;
+};
+
 export const queryKeys = {
+  workspaces: {
+    all: workspacesQueryKey,
+    detail: (workspaceId: string) => ["workspaces", "detail", workspaceId] as const,
+    members: (workspaceId: string) => ["workspaces", workspaceId, "members"] as const,
+    teams: (workspaceId: string) => ["workspaces", workspaceId, "teams"] as const,
+    teamMembers: (workspaceId: string, teamId: string) =>
+      ["workspaces", workspaceId, "teams", teamId, "members"] as const,
+  },
   dashboard: {
-    overview: ["dashboard", "overview"] as const,
+    overview: (workspaceId: string) => ["dashboard", "overview", workspaceId] as const,
   },
   users: {
     all: ["users", "list"] as const,
   },
   nodes: {
-    all: (filters?: NodeFilters) => ["nodes", "list", filters ?? {}] as const,
-    detail: (id: string) => ["nodes", "detail", id] as const,
+    all: (workspaceId: string, filters?: NodeFilters) =>
+      ["nodes", workspaceId, "list", filters ?? {}] as const,
+    detail: (workspaceId: string, id: string) => ["nodes", workspaceId, "detail", id] as const,
   },
   tasks: {
-    all: (filters?: TaskFilters) => ["tasks", "list", filters ?? {}] as const,
-    detail: (id: string) => ["tasks", "detail", id] as const,
-    logs: (id: string, limit = 100) => ["tasks", "logs", id, limit] as const,
+    all: (workspaceId: string, filters?: TaskFilters) =>
+      ["tasks", workspaceId, "list", filters ?? {}] as const,
+    detail: (workspaceId: string, id: string) =>
+      ["tasks", workspaceId, "detail", id] as const,
+    logs: (workspaceId: string, id: string, limit = 100) =>
+      ["tasks", workspaceId, "logs", id, limit] as const,
   },
   scheduledTasks: {
-    all: ["scheduled-tasks", "list"] as const,
+    all: (workspaceId: string) => ["scheduled-tasks", workspaceId, "list"] as const,
   },
   events: {
-    all: (filters?: EventFilters) => ["events", "list", filters ?? {}] as const,
+    all: (workspaceId: string, filters?: EventFilters) =>
+      ["events", workspaceId, "list", filters ?? {}] as const,
   },
   metrics: {
-    all: (filters?: MetricFilters) =>
-      ["metrics", "list", filters ?? {}] as const,
+    all: (workspaceId: string, filters?: MetricFilters) =>
+      ["metrics", workspaceId, "list", filters ?? {}] as const,
   },
   enrollments: {
     status: (token: string) => ["enrollments", "status", token] as const,
   },
   packages: {
-    installed: (nodeId: string) => ["packages", "installed", nodeId] as const,
-    search: (nodeId: string, term: string) =>
-      ["packages-search", nodeId, term] as const,
+    installed: (workspaceId: string, nodeId: string) =>
+      ["packages", workspaceId, "installed", nodeId] as const,
+    search: (workspaceId: string, nodeId: string, term: string) =>
+      ["packages-search", workspaceId, nodeId, term] as const,
   },
 };
 
-export const useDashboardOverview = () =>
-  useQuery({
-    queryKey: queryKeys.dashboard.overview,
-    queryFn: () => apiClient.getDashboardOverview(),
+export const useDashboardOverview = () => {
+  const { workspaceId } = useWorkspaceContext();
+
+  return useQuery({
+    queryKey: workspaceId
+      ? queryKeys.dashboard.overview(workspaceId)
+      : ["dashboard", "overview", "idle"],
+    queryFn: () => apiClient.getDashboardOverview(workspaceId ?? undefined),
+    enabled: Boolean(workspaceId),
     staleTime: Infinity,
     refetchOnWindowFocus: false,
     refetchInterval: 20_000,
     refetchIntervalInBackground: false,
+  });
+};
+
+export const useWorkspaces = (enabled = true) =>
+  useQuery({
+    queryKey: queryKeys.workspaces.all,
+    queryFn: apiClient.getWorkspaces,
+    enabled,
+    staleTime: 30_000,
   });
 
 export const useUsers = (enabled = true) =>
@@ -85,48 +131,77 @@ export const useUsers = (enabled = true) =>
     staleTime: 15_000,
   });
 
-export const useNodes = (filters?: NodeFilters) =>
-  useQuery({
-    queryKey: queryKeys.nodes.all(filters),
-    queryFn: () => apiClient.getNodeSummaries(filters),
-    staleTime: Infinity,
-    refetchOnWindowFocus: false,
-  });
+export const useNodes = (filters?: NodeFilters) => {
+  const { workspaceId } = useWorkspaceContext();
 
-export const useNode = (id: string) =>
-  useQuery({
-    queryKey: queryKeys.nodes.detail(id),
-    queryFn: () => apiClient.getNodeDetail(id),
-    enabled: Boolean(id),
+  return useQuery({
+    queryKey: workspaceId
+      ? queryKeys.nodes.all(workspaceId, filters)
+      : ["nodes", "idle", filters ?? {}],
+    queryFn: () => apiClient.getNodeSummaries(filters, workspaceId ?? undefined),
+    enabled: Boolean(workspaceId),
     staleTime: Infinity,
     refetchOnWindowFocus: false,
   });
+};
 
-export const useTasks = (filters?: TaskFilters) =>
-  useQuery({
-    queryKey: queryKeys.tasks.all(filters),
-    queryFn: () => apiClient.getTaskSummaries(filters),
-    staleTime: Infinity,
-    refetchOnWindowFocus: false,
-  });
+export const useNode = (id: string) => {
+  const { workspaceId } = useWorkspaceContext();
 
-export const useTask = (id: string) =>
-  useQuery({
-    queryKey: queryKeys.tasks.detail(id),
-    queryFn: () => apiClient.getTaskDetail(id),
-    enabled: Boolean(id),
+  return useQuery({
+    queryKey:
+      workspaceId && id
+        ? queryKeys.nodes.detail(workspaceId, id)
+        : ["nodes", "detail", "idle", id],
+    queryFn: () => apiClient.getNodeDetail(id, workspaceId ?? undefined),
+    enabled: Boolean(id && workspaceId),
     staleTime: Infinity,
     refetchOnWindowFocus: false,
   });
+};
 
-export const useScheduledTasks = (enabled = true) =>
-  useQuery({
-    queryKey: queryKeys.scheduledTasks.all,
-    queryFn: () => apiClient.getScheduledTaskSummaries(),
-    enabled,
+export const useTasks = (filters?: TaskFilters) => {
+  const { workspaceId } = useWorkspaceContext();
+
+  return useQuery({
+    queryKey: workspaceId
+      ? queryKeys.tasks.all(workspaceId, filters)
+      : ["tasks", "idle", filters ?? {}],
+    queryFn: () => apiClient.getTaskSummaries(filters, workspaceId ?? undefined),
+    enabled: Boolean(workspaceId),
     staleTime: Infinity,
     refetchOnWindowFocus: false,
   });
+};
+
+export const useTask = (id: string) => {
+  const { workspaceId } = useWorkspaceContext();
+
+  return useQuery({
+    queryKey:
+      workspaceId && id
+        ? queryKeys.tasks.detail(workspaceId, id)
+        : ["tasks", "detail", "idle", id],
+    queryFn: () => apiClient.getTaskDetail(id, workspaceId ?? undefined),
+    enabled: Boolean(id && workspaceId),
+    staleTime: Infinity,
+    refetchOnWindowFocus: false,
+  });
+};
+
+export const useScheduledTasks = (enabled = true) => {
+  const { workspaceId } = useWorkspaceContext();
+
+  return useQuery({
+    queryKey: workspaceId
+      ? queryKeys.scheduledTasks.all(workspaceId)
+      : ["scheduled-tasks", "idle"],
+    queryFn: () => apiClient.getScheduledTaskSummaries(workspaceId ?? undefined),
+    enabled: enabled && Boolean(workspaceId),
+    staleTime: Infinity,
+    refetchOnWindowFocus: false,
+  });
+};
 
 export const useTaskLogs = (
   id: string,
@@ -134,31 +209,53 @@ export const useTaskLogs = (
     limit?: number;
     liveForStatus?: TaskStatus | null;
   },
-) =>
-  useQuery({
-    queryKey: queryKeys.tasks.logs(id, options?.limit ?? 100),
+) => {
+  const { workspaceId } = useWorkspaceContext();
+
+  return useQuery({
+    queryKey:
+      workspaceId && id
+        ? queryKeys.tasks.logs(workspaceId, id, options?.limit ?? 100)
+        : ["tasks", "logs", "idle", id, options?.limit ?? 100],
     queryFn: () =>
-      apiClient.getTaskLogLines(id, { limit: options?.limit ?? 100 }),
-    enabled: Boolean(id),
+      apiClient.getTaskLogLines(
+        id,
+        { limit: options?.limit ?? 100 },
+        workspaceId ?? undefined,
+      ),
+    enabled: Boolean(id && workspaceId),
     staleTime: 2_000,
     refetchInterval: options?.liveForStatus === "running" ? 2_000 : false,
   });
+};
 
-export const useEvents = (filters?: EventFilters) =>
-  useQuery({
-    queryKey: queryKeys.events.all(filters),
-    queryFn: () => apiClient.getEventRecords(filters),
+export const useEvents = (filters?: EventFilters) => {
+  const { workspaceId } = useWorkspaceContext();
+
+  return useQuery({
+    queryKey: workspaceId
+      ? queryKeys.events.all(workspaceId, filters)
+      : ["events", "idle", filters ?? {}],
+    queryFn: () => apiClient.getEventRecords(filters, workspaceId ?? undefined),
+    enabled: Boolean(workspaceId),
     staleTime: Infinity,
     refetchOnWindowFocus: false,
   });
+};
 
-export const useMetrics = (filters?: MetricFilters) =>
-  useQuery({
-    queryKey: queryKeys.metrics.all(filters),
-    queryFn: () => apiClient.getMetrics(filters),
+export const useMetrics = (filters?: MetricFilters) => {
+  const { workspaceId } = useWorkspaceContext();
+
+  return useQuery({
+    queryKey: workspaceId
+      ? queryKeys.metrics.all(workspaceId, filters)
+      : ["metrics", "idle", filters ?? {}],
+    queryFn: () => apiClient.getMetrics(filters, workspaceId ?? undefined),
+    enabled: Boolean(workspaceId),
     staleTime: Infinity,
     refetchOnWindowFocus: false,
   });
+};
 
 export const useCheckEnrollment = (token: string) => {
   const normalizedToken = token.trim();
@@ -171,24 +268,41 @@ export const useCheckEnrollment = (token: string) => {
   });
 };
 
-export const useNodePackages = (nodeId: string) =>
-  useQuery({
-    queryKey: queryKeys.packages.installed(nodeId),
-    queryFn: ({ signal }) => apiClient.getNodePackages(nodeId, { signal }),
-    enabled: Boolean(nodeId),
+export const useNodePackages = (nodeId: string) => {
+  const { workspaceId } = useWorkspaceContext();
+
+  return useQuery({
+    queryKey:
+      workspaceId && nodeId
+        ? queryKeys.packages.installed(workspaceId, nodeId)
+        : ["packages", "idle", nodeId],
+    queryFn: ({ signal }) =>
+      apiClient.getNodePackages(nodeId, {
+        signal,
+        workspaceId: workspaceId ?? undefined,
+      }),
+    enabled: Boolean(nodeId && workspaceId),
     staleTime: 15_000,
     retry: false,
     refetchOnWindowFocus: false,
   });
+};
 
 export const useSearchPackages = (term: string, nodeId: string) => {
+  const { workspaceId } = useWorkspaceContext();
   const normalizedTerm = term.trim();
 
   return useQuery({
-    queryKey: queryKeys.packages.search(nodeId, normalizedTerm),
+    queryKey:
+      workspaceId && nodeId
+        ? queryKeys.packages.search(workspaceId, nodeId, normalizedTerm)
+        : ["packages-search", "idle", nodeId, normalizedTerm],
     queryFn: ({ signal }) =>
-      apiClient.searchPackages(normalizedTerm, nodeId, { signal }),
-    enabled: Boolean(nodeId) && normalizedTerm.length >= 2,
+      apiClient.searchPackages(normalizedTerm, nodeId, {
+        signal,
+        workspaceId: workspaceId ?? undefined,
+      }),
+    enabled: Boolean(nodeId && workspaceId) && normalizedTerm.length >= 2,
     staleTime: 30_000,
     retry: false,
     refetchOnWindowFocus: false,
@@ -197,27 +311,28 @@ export const useSearchPackages = (term: string, nodeId: string) => {
 
 const invalidatePackageQueries = async (
   queryClient: ReturnType<typeof useQueryClient>,
+  workspaceId: string,
   nodeId: string,
 ) => {
   await Promise.all([
     queryClient.invalidateQueries({
-      queryKey: queryKeys.packages.installed(nodeId),
+      queryKey: queryKeys.packages.installed(workspaceId, nodeId),
       refetchType: "active",
     }),
     queryClient.invalidateQueries({
-      queryKey: ["packages-search", nodeId],
+      queryKey: ["packages-search", workspaceId, nodeId],
       refetchType: "active",
     }),
     queryClient.invalidateQueries({
-      queryKey: queryKeys.nodes.detail(nodeId),
+      queryKey: queryKeys.nodes.detail(workspaceId, nodeId),
       refetchType: "active",
     }),
     queryClient.invalidateQueries({
-      queryKey: ["tasks", "list"],
+      queryKey: ["tasks", workspaceId, "list"],
       refetchType: "active",
     }),
     queryClient.invalidateQueries({
-      queryKey: queryKeys.dashboard.overview,
+      queryKey: queryKeys.dashboard.overview(workspaceId),
       refetchType: "active",
     }),
   ]);
@@ -290,26 +405,14 @@ export const useUpdateCurrentUserPreferences = () => {
       });
 
       await Promise.all([
-        queryClient.invalidateQueries({
-          queryKey: queryKeys.scheduledTasks.all,
-          refetchType: "active",
-        }),
-        queryClient.invalidateQueries({
-          queryKey: ["tasks", "list"],
-          refetchType: "active",
-        }),
-        queryClient.invalidateQueries({
-          queryKey: ["events", "list"],
-          refetchType: "active",
-        }),
+        queryClient.invalidateQueries({ queryKey: ["scheduled-tasks"] }),
+        queryClient.invalidateQueries({ queryKey: ["tasks"] }),
+        queryClient.invalidateQueries({ queryKey: ["events"] }),
         queryClient.invalidateQueries({
           queryKey: queryKeys.users.all,
           refetchType: "active",
         }),
-        queryClient.invalidateQueries({
-          queryKey: queryKeys.dashboard.overview,
-          refetchType: "active",
-        }),
+        queryClient.invalidateQueries({ queryKey: ["dashboard"] }),
       ]);
     },
     onError: (error) => {
@@ -322,20 +425,22 @@ export const useUpdateCurrentUserPreferences = () => {
 
 export const useCreateNode = () => {
   const queryClient = useQueryClient();
+  const { workspaceId } = useWorkspaceContext();
 
   return useMutation({
-    mutationFn: (payload: CreateNodePayload) => apiClient.createNode(payload),
+    mutationFn: (payload: CreateNodePayload) =>
+      apiClient.createNode(payload, requireWorkspaceId(workspaceId)),
     onSuccess: async (node) => {
       toast.success("Node added", {
         description: `${node.name} was added to the node inventory.`,
       });
       await Promise.all([
         queryClient.invalidateQueries({
-          queryKey: ["nodes", "list"],
+          queryKey: ["nodes", workspaceId],
           refetchType: "active",
         }),
         queryClient.invalidateQueries({
-          queryKey: queryKeys.dashboard.overview,
+          queryKey: workspaceId ? queryKeys.dashboard.overview(workspaceId) : ["dashboard"],
           refetchType: "active",
         }),
       ]);
@@ -350,31 +455,33 @@ export const useCreateNode = () => {
 
 export const useDeleteNode = () => {
   const queryClient = useQueryClient();
+  const { workspaceId } = useWorkspaceContext();
 
   return useMutation({
-    mutationFn: (id: string) => apiClient.deleteNode(id),
+    mutationFn: (id: string) =>
+      apiClient.deleteNode(id, requireWorkspaceId(workspaceId)),
     onSuccess: async (_, nodeId) => {
       toast.success("Node deleted", {
         description: "The node was removed from inventory.",
       });
       queryClient.removeQueries({
-        queryKey: queryKeys.nodes.detail(nodeId),
+        queryKey: workspaceId ? queryKeys.nodes.detail(workspaceId, nodeId) : ["nodes", "detail", nodeId],
       });
       await Promise.all([
         queryClient.invalidateQueries({
-          queryKey: ["nodes", "list"],
+          queryKey: ["nodes", workspaceId],
           refetchType: "active",
         }),
         queryClient.invalidateQueries({
-          queryKey: queryKeys.dashboard.overview,
+          queryKey: workspaceId ? queryKeys.dashboard.overview(workspaceId) : ["dashboard"],
           refetchType: "active",
         }),
         queryClient.invalidateQueries({
-          queryKey: ["tasks", "list"],
+          queryKey: ["tasks", workspaceId],
           refetchType: "active",
         }),
         queryClient.invalidateQueries({
-          queryKey: ["events", "list"],
+          queryKey: ["events", workspaceId],
           refetchType: "active",
         }),
       ]);
@@ -389,28 +496,33 @@ export const useDeleteNode = () => {
 
 export const useCreateTask = () => {
   const queryClient = useQueryClient();
+  const { workspaceId } = useWorkspaceContext();
 
   return useMutation({
-    mutationFn: (payload: CreateTaskPayload) => apiClient.createTask(payload),
+    mutationFn: (payload: CreateTaskPayload) =>
+      apiClient.createTask(payload, requireWorkspaceId(workspaceId)),
     onSuccess: async (task, payload) => {
       toast.success("Task queued", {
         description: `${task.type} was created for the selected node.`,
       });
       await Promise.all([
         queryClient.invalidateQueries({
-          queryKey: ["tasks", "list"],
+          queryKey: ["tasks", workspaceId],
           refetchType: "active",
         }),
         queryClient.invalidateQueries({
-          queryKey: queryKeys.dashboard.overview,
+          queryKey: workspaceId ? queryKeys.dashboard.overview(workspaceId) : ["dashboard"],
           refetchType: "active",
         }),
         queryClient.invalidateQueries({
-          queryKey: ["events", "list"],
+          queryKey: ["events", workspaceId],
           refetchType: "active",
         }),
         queryClient.invalidateQueries({
-          queryKey: queryKeys.nodes.detail(payload.nodeId),
+          queryKey:
+            workspaceId
+              ? queryKeys.nodes.detail(workspaceId, payload.nodeId)
+              : ["nodes", "detail", payload.nodeId],
           refetchType: "active",
         }),
       ]);
@@ -425,30 +537,34 @@ export const useCreateTask = () => {
 
 export const useCreateBatchTasks = () => {
   const queryClient = useQueryClient();
+  const { workspaceId } = useWorkspaceContext();
 
   return useMutation({
     mutationFn: (payload: CreateBatchTaskPayload) =>
-      apiClient.createBatchTasks(payload),
+      apiClient.createBatchTasks(payload, requireWorkspaceId(workspaceId)),
     onSuccess: async (tasks, payload) => {
       toast.success("Tasks queued", {
         description: `${tasks.length} ${tasks.length === 1 ? "task was" : "tasks were"} created across ${payload.nodeIds.length} ${payload.nodeIds.length === 1 ? "node" : "nodes"}.`,
       });
       await Promise.all([
         queryClient.invalidateQueries({
-          queryKey: ["tasks", "list"],
+          queryKey: ["tasks", workspaceId],
           refetchType: "active",
         }),
         queryClient.invalidateQueries({
-          queryKey: queryKeys.dashboard.overview,
+          queryKey: workspaceId ? queryKeys.dashboard.overview(workspaceId) : ["dashboard"],
           refetchType: "active",
         }),
         queryClient.invalidateQueries({
-          queryKey: ["events", "list"],
+          queryKey: ["events", workspaceId],
           refetchType: "active",
         }),
         ...payload.nodeIds.map((nodeId) =>
           queryClient.invalidateQueries({
-            queryKey: queryKeys.nodes.detail(nodeId),
+            queryKey:
+              workspaceId
+                ? queryKeys.nodes.detail(workspaceId, nodeId)
+                : ["nodes", "detail", nodeId],
             refetchType: "active",
           }),
         ),
@@ -464,29 +580,31 @@ export const useCreateBatchTasks = () => {
 
 export const useCreateScheduledTask = () => {
   const queryClient = useQueryClient();
+  const { workspaceId } = useWorkspaceContext();
 
   return useMutation({
     mutationFn: (payload: CreateScheduledTaskPayload) =>
-      apiClient.createScheduledTask(payload),
+      apiClient.createScheduledTask(payload, requireWorkspaceId(workspaceId)),
     onSuccess: async (schedule) => {
       toast.success("Scheduled task created", {
         description: `${schedule.name} will start running on its next scheduled slot in ${schedule.timezone}.`,
       });
       await Promise.all([
         queryClient.invalidateQueries({
-          queryKey: queryKeys.scheduledTasks.all,
+          queryKey:
+            workspaceId ? queryKeys.scheduledTasks.all(workspaceId) : ["scheduled-tasks"],
           refetchType: "active",
         }),
         queryClient.invalidateQueries({
-          queryKey: ["tasks", "list"],
+          queryKey: ["tasks", workspaceId],
           refetchType: "active",
         }),
         queryClient.invalidateQueries({
-          queryKey: queryKeys.dashboard.overview,
+          queryKey: workspaceId ? queryKeys.dashboard.overview(workspaceId) : ["dashboard"],
           refetchType: "active",
         }),
         queryClient.invalidateQueries({
-          queryKey: ["events", "list"],
+          queryKey: ["events", workspaceId],
           refetchType: "active",
         }),
       ]);
@@ -501,10 +619,11 @@ export const useCreateScheduledTask = () => {
 
 export const useCreateBatchScheduledTasks = () => {
   const queryClient = useQueryClient();
+  const { workspaceId } = useWorkspaceContext();
 
   return useMutation({
     mutationFn: (payload: CreateBatchScheduledTaskPayload) =>
-      apiClient.createBatchScheduledTasks(payload),
+      apiClient.createBatchScheduledTasks(payload, requireWorkspaceId(workspaceId)),
     onSuccess: async (schedules, payload) => {
       const timezone = schedules[0]?.timezone;
 
@@ -513,24 +632,28 @@ export const useCreateBatchScheduledTasks = () => {
       });
       await Promise.all([
         queryClient.invalidateQueries({
-          queryKey: queryKeys.scheduledTasks.all,
+          queryKey:
+            workspaceId ? queryKeys.scheduledTasks.all(workspaceId) : ["scheduled-tasks"],
           refetchType: "active",
         }),
         queryClient.invalidateQueries({
-          queryKey: ["tasks", "list"],
+          queryKey: ["tasks", workspaceId],
           refetchType: "active",
         }),
         queryClient.invalidateQueries({
-          queryKey: queryKeys.dashboard.overview,
+          queryKey: workspaceId ? queryKeys.dashboard.overview(workspaceId) : ["dashboard"],
           refetchType: "active",
         }),
         queryClient.invalidateQueries({
-          queryKey: ["events", "list"],
+          queryKey: ["events", workspaceId],
           refetchType: "active",
         }),
         ...payload.nodeIds.map((nodeId) =>
           queryClient.invalidateQueries({
-            queryKey: queryKeys.nodes.detail(nodeId),
+            queryKey:
+              workspaceId
+                ? queryKeys.nodes.detail(workspaceId, nodeId)
+                : ["nodes", "detail", nodeId],
             refetchType: "active",
           }),
         ),
@@ -546,10 +669,15 @@ export const useCreateBatchScheduledTasks = () => {
 
 export const useUpdateScheduledTask = () => {
   const queryClient = useQueryClient();
+  const { workspaceId } = useWorkspaceContext();
 
   return useMutation({
     mutationFn: (input: { id: string; payload: UpdateScheduledTaskPayload }) =>
-      apiClient.updateScheduledTask(input.id, input.payload),
+      apiClient.updateScheduledTask(
+        input.id,
+        input.payload,
+        requireWorkspaceId(workspaceId),
+      ),
     onSuccess: async (schedule) => {
       toast.success(
         schedule.enabled ? "Scheduled task enabled" : "Scheduled task disabled",
@@ -559,19 +687,20 @@ export const useUpdateScheduledTask = () => {
       );
       await Promise.all([
         queryClient.invalidateQueries({
-          queryKey: queryKeys.scheduledTasks.all,
+          queryKey:
+            workspaceId ? queryKeys.scheduledTasks.all(workspaceId) : ["scheduled-tasks"],
           refetchType: "active",
         }),
         queryClient.invalidateQueries({
-          queryKey: ["tasks", "list"],
+          queryKey: ["tasks", workspaceId],
           refetchType: "active",
         }),
         queryClient.invalidateQueries({
-          queryKey: queryKeys.dashboard.overview,
+          queryKey: workspaceId ? queryKeys.dashboard.overview(workspaceId) : ["dashboard"],
           refetchType: "active",
         }),
         queryClient.invalidateQueries({
-          queryKey: ["events", "list"],
+          queryKey: ["events", workspaceId],
           refetchType: "active",
         }),
       ]);
@@ -586,26 +715,29 @@ export const useUpdateScheduledTask = () => {
 
 export const useDeleteScheduledTask = () => {
   const queryClient = useQueryClient();
+  const { workspaceId } = useWorkspaceContext();
 
   return useMutation({
-    mutationFn: (id: string) => apiClient.deleteScheduledTask(id),
+    mutationFn: (id: string) =>
+      apiClient.deleteScheduledTask(id, requireWorkspaceId(workspaceId)),
     onSuccess: async () => {
       toast.success("Scheduled task deleted");
       await Promise.all([
         queryClient.invalidateQueries({
-          queryKey: queryKeys.scheduledTasks.all,
+          queryKey:
+            workspaceId ? queryKeys.scheduledTasks.all(workspaceId) : ["scheduled-tasks"],
           refetchType: "active",
         }),
         queryClient.invalidateQueries({
-          queryKey: ["tasks", "list"],
+          queryKey: ["tasks", workspaceId],
           refetchType: "active",
         }),
         queryClient.invalidateQueries({
-          queryKey: queryKeys.dashboard.overview,
+          queryKey: workspaceId ? queryKeys.dashboard.overview(workspaceId) : ["dashboard"],
           refetchType: "active",
         }),
         queryClient.invalidateQueries({
-          queryKey: ["events", "list"],
+          queryKey: ["events", workspaceId],
           refetchType: "active",
         }),
       ]);
@@ -620,9 +752,11 @@ export const useDeleteScheduledTask = () => {
 
 export const useCancelTask = () => {
   const queryClient = useQueryClient();
+  const { workspaceId } = useWorkspaceContext();
 
   return useMutation<CancelTaskResponse, unknown, CancelTaskMutationInput>({
-    mutationFn: ({ taskId, payload }) => apiClient.cancelTask(taskId, payload),
+    mutationFn: ({ taskId, payload }) =>
+      apiClient.cancelTask(taskId, payload, requireWorkspaceId(workspaceId)),
     onSuccess: async (task, variables) => {
       if (task.status === "cancelled") {
         toast.success("Task stopped.");
@@ -632,15 +766,18 @@ export const useCancelTask = () => {
 
       await Promise.all([
         queryClient.invalidateQueries({
-          queryKey: ["tasks", "list"],
+          queryKey: ["tasks", workspaceId],
           refetchType: "active",
         }),
         queryClient.invalidateQueries({
-          queryKey: queryKeys.tasks.detail(variables.taskId),
+          queryKey:
+            workspaceId
+              ? queryKeys.tasks.detail(workspaceId, variables.taskId)
+              : ["tasks", "detail", variables.taskId],
           refetchType: "active",
         }),
         queryClient.invalidateQueries({
-          queryKey: queryKeys.dashboard.overview,
+          queryKey: workspaceId ? queryKeys.dashboard.overview(workspaceId) : ["dashboard"],
           refetchType: "active",
         }),
       ]);
@@ -665,10 +802,15 @@ export const useCancelTask = () => {
 
 export const useFinalizeEnrollment = () => {
   const queryClient = useQueryClient();
+  const { workspaceId } = useWorkspaceContext();
 
   return useMutation({
     mutationFn: ({ token, payload }: FinalizeEnrollmentMutationInput) =>
-      apiClient.finalizeNodeEnrollment(token, payload),
+      apiClient.finalizeNodeEnrollment(
+        token,
+        payload,
+        requireWorkspaceId(workspaceId),
+      ),
     onSuccess: async (
       enrollment: FinalizeEnrollmentResponse,
       variables: FinalizeEnrollmentMutationInput,
@@ -679,15 +821,18 @@ export const useFinalizeEnrollment = () => {
 
       await Promise.all([
         queryClient.invalidateQueries({
-          queryKey: ["nodes", "list"],
+          queryKey: ["nodes", workspaceId],
           refetchType: "active",
         }),
         queryClient.invalidateQueries({
-          queryKey: queryKeys.dashboard.overview,
+          queryKey: workspaceId ? queryKeys.dashboard.overview(workspaceId) : ["dashboard"],
           refetchType: "active",
         }),
         queryClient.invalidateQueries({
-          queryKey: queryKeys.nodes.detail(enrollment.nodeId),
+          queryKey:
+            workspaceId
+              ? queryKeys.nodes.detail(workspaceId, enrollment.nodeId)
+              : ["nodes", "detail", enrollment.nodeId],
           refetchType: "active",
         }),
       ]);
@@ -699,10 +844,14 @@ export const useFinalizeEnrollment = () => {
 
 export const useInstallPackages = () => {
   const queryClient = useQueryClient();
+  const { workspaceId } = useWorkspaceContext();
 
   return useMutation({
     mutationFn: (payload: InstallPackagesPayload) =>
-      apiClient.installPackages(payload),
+      apiClient.installPackages({
+        ...payload,
+        workspaceId: requireWorkspaceId(workspaceId),
+      }),
     onSuccess: async (task, payload) => {
       const packageLabel =
         payload.names.length === 1
@@ -713,7 +862,11 @@ export const useInstallPackages = () => {
         description: `${packageLabel} will be installed asynchronously on the selected node.`,
       });
 
-      await invalidatePackageQueries(queryClient, payload.nodeId);
+      await invalidatePackageQueries(
+        queryClient,
+        requireWorkspaceId(workspaceId),
+        payload.nodeId,
+      );
       return task;
     },
     onError: (error) => {
@@ -726,10 +879,14 @@ export const useInstallPackages = () => {
 
 export const useRemovePackage = () => {
   const queryClient = useQueryClient();
+  const { workspaceId } = useWorkspaceContext();
 
   return useMutation({
     mutationFn: (payload: RemovePackagePayload) =>
-      apiClient.removeNodePackage(payload),
+      apiClient.removeNodePackage({
+        ...payload,
+        workspaceId: requireWorkspaceId(workspaceId),
+      }),
     onSuccess: async (_, payload) => {
       toast.success("Package removal task queued", {
         description: payload.purge
@@ -737,11 +894,275 @@ export const useRemovePackage = () => {
           : `${payload.name} will be removed asynchronously on the selected node.`,
       });
 
-      await invalidatePackageQueries(queryClient, payload.nodeId);
+      await invalidatePackageQueries(
+        queryClient,
+        requireWorkspaceId(workspaceId),
+        payload.nodeId,
+      );
     },
     onError: (error) => {
       toast.error("Unable to queue package removal", {
         description: readMutationError(error),
+      });
+    },
+  });
+};
+
+export const useWorkspaceMembers = (enabled = true) => {
+  const { workspaceId } = useWorkspaceContext();
+
+  return useQuery({
+    queryKey:
+      workspaceId
+        ? queryKeys.workspaces.members(workspaceId)
+        : ["workspaces", "members", "idle"],
+    queryFn: () => apiClient.getWorkspaceMembers(workspaceId!),
+    enabled: enabled && Boolean(workspaceId),
+    staleTime: 15_000,
+  });
+};
+
+export const useWorkspaceTeams = (enabled = true) => {
+  const { workspaceId } = useWorkspaceContext();
+
+  return useQuery({
+    queryKey:
+      workspaceId
+        ? queryKeys.workspaces.teams(workspaceId)
+        : ["workspaces", "teams", "idle"],
+    queryFn: () => apiClient.getWorkspaceTeams(workspaceId!),
+    enabled: enabled && Boolean(workspaceId),
+    staleTime: 15_000,
+  });
+};
+
+export const useWorkspaceTeamMembers = (teamId: string, enabled = true) => {
+  const { workspaceId } = useWorkspaceContext();
+
+  return useQuery<TeamMembershipDto[]>({
+    queryKey:
+      workspaceId && teamId
+        ? queryKeys.workspaces.teamMembers(workspaceId, teamId)
+        : ["workspaces", "team-members", "idle", teamId],
+    queryFn: () => apiClient.getWorkspaceTeamMembers(workspaceId!, teamId),
+    enabled: enabled && Boolean(workspaceId && teamId),
+    staleTime: 15_000,
+  });
+};
+
+export const useCreateWorkspace = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (payload: CreateWorkspacePayload) => apiClient.createWorkspace(payload),
+    onSuccess: async (workspace) => {
+      toast.success("Workspace created", {
+        description: workspace.name,
+      });
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.workspaces.all,
+        refetchType: "active",
+      });
+    },
+    onError: (error) => {
+      toast.error("Unable to create workspace", {
+        description: readMutationError(error),
+      });
+    },
+  });
+};
+
+export const useUpdateWorkspace = () => {
+  const queryClient = useQueryClient();
+  const { workspaceId } = useWorkspaceContext();
+
+  return useMutation({
+    mutationFn: (payload: UpdateWorkspacePayload) =>
+      apiClient.updateWorkspace(requireWorkspaceId(workspaceId), payload),
+    onSuccess: async (workspace) => {
+      toast.success("Workspace updated", {
+        description: workspace.name,
+      });
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.workspaces.all,
+          refetchType: "active",
+        }),
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.workspaces.detail(workspace.id),
+          refetchType: "active",
+        }),
+      ]);
+    },
+    onError: (error) => {
+      toast.error("Unable to update workspace", {
+        description: readMutationError(error),
+      });
+    },
+  });
+};
+
+export const useCreateWorkspaceMember = () => {
+  const queryClient = useQueryClient();
+  const { workspaceId } = useWorkspaceContext();
+
+  return useMutation({
+    mutationFn: (payload: CreateWorkspaceMemberPayload) =>
+      apiClient.createWorkspaceMember(requireWorkspaceId(workspaceId), payload),
+    onSuccess: async (membership: WorkspaceMembershipDto) => {
+      toast.success("Member added", {
+        description: membership.userEmail ?? membership.userName ?? "Workspace member added.",
+      });
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.workspaces.members(requireWorkspaceId(workspaceId)),
+        refetchType: "active",
+      });
+    },
+    onError: (error) => {
+      toast.error("Unable to add member", {
+        description: readMutationError(error),
+      });
+    },
+  });
+};
+
+export const useUpdateWorkspaceMember = () => {
+  const queryClient = useQueryClient();
+  const { workspaceId } = useWorkspaceContext();
+
+  return useMutation({
+    mutationFn: (input: { membershipId: string; payload: UpdateWorkspaceMemberPayload }) =>
+      apiClient.updateWorkspaceMember(
+        requireWorkspaceId(workspaceId),
+        input.membershipId,
+        input.payload,
+      ),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.workspaces.members(requireWorkspaceId(workspaceId)),
+        refetchType: "active",
+      });
+    },
+  });
+};
+
+export const useDeleteWorkspaceMember = () => {
+  const queryClient = useQueryClient();
+  const { workspaceId } = useWorkspaceContext();
+
+  return useMutation({
+    mutationFn: (membershipId: string) =>
+      apiClient.deleteWorkspaceMember(
+        requireWorkspaceId(workspaceId),
+        membershipId,
+      ),
+    onSuccess: async () => {
+      toast.success("Member removed");
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.workspaces.members(requireWorkspaceId(workspaceId)),
+        refetchType: "active",
+      });
+    },
+  });
+};
+
+export const useCreateWorkspaceTeam = () => {
+  const queryClient = useQueryClient();
+  const { workspaceId } = useWorkspaceContext();
+
+  return useMutation({
+    mutationFn: (payload: CreateTeamPayload) =>
+      apiClient.createWorkspaceTeam(requireWorkspaceId(workspaceId), payload),
+    onSuccess: async (team) => {
+      toast.success("Team created", {
+        description: team.name,
+      });
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.workspaces.teams(requireWorkspaceId(workspaceId)),
+        refetchType: "active",
+      });
+    },
+  });
+};
+
+export const useUpdateWorkspaceTeam = () => {
+  const queryClient = useQueryClient();
+  const { workspaceId } = useWorkspaceContext();
+
+  return useMutation({
+    mutationFn: (input: { teamId: string; payload: UpdateTeamPayload }) =>
+      apiClient.updateWorkspaceTeam(
+        requireWorkspaceId(workspaceId),
+        input.teamId,
+        input.payload,
+      ),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.workspaces.teams(requireWorkspaceId(workspaceId)),
+        refetchType: "active",
+      });
+    },
+  });
+};
+
+export const useDeleteWorkspaceTeam = () => {
+  const queryClient = useQueryClient();
+  const { workspaceId } = useWorkspaceContext();
+
+  return useMutation({
+    mutationFn: (teamId: string) =>
+      apiClient.deleteWorkspaceTeam(requireWorkspaceId(workspaceId), teamId),
+    onSuccess: async () => {
+      toast.success("Team deleted");
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.workspaces.teams(requireWorkspaceId(workspaceId)),
+        refetchType: "active",
+      });
+    },
+  });
+};
+
+export const useAddWorkspaceTeamMember = (teamId: string) => {
+  const queryClient = useQueryClient();
+  const { workspaceId } = useWorkspaceContext();
+
+  return useMutation({
+    mutationFn: (payload: AddTeamMemberPayload) =>
+      apiClient.addWorkspaceTeamMember(
+        requireWorkspaceId(workspaceId),
+        teamId,
+        payload,
+      ),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.workspaces.teamMembers(
+          requireWorkspaceId(workspaceId),
+          teamId,
+        ),
+        refetchType: "active",
+      });
+    },
+  });
+};
+
+export const useDeleteWorkspaceTeamMember = (teamId: string) => {
+  const queryClient = useQueryClient();
+  const { workspaceId } = useWorkspaceContext();
+
+  return useMutation({
+    mutationFn: (userId: string) =>
+      apiClient.deleteWorkspaceTeamMember(
+        requireWorkspaceId(workspaceId),
+        teamId,
+        userId,
+      ),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.workspaces.teamMembers(
+          requireWorkspaceId(workspaceId),
+          teamId,
+        ),
+        refetchType: "active",
       });
     },
   });

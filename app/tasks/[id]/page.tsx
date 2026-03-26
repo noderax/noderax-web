@@ -1,4 +1,4 @@
-import { TaskDetailView } from "@/components/tasks/task-detail-view";
+import { redirectToStoredWorkspace } from "@/lib/server-workspace";
 
 export default async function TaskDetailPage({
   params,
@@ -7,5 +7,5 @@ export default async function TaskDetailPage({
 }) {
   const { id } = await params;
 
-  return <TaskDetailView id={id} />;
+  await redirectToStoredWorkspace(`tasks/${id}`);
 }

@@ -1,5 +1,5 @@
-import { DashboardView } from "@/components/dashboard/dashboard-view";
+import { redirectToStoredWorkspace } from "@/lib/server-workspace";
 
-export default function DashboardPage() {
-  return <DashboardView />;
+export default async function DashboardPage() {
+  await redirectToStoredWorkspace("dashboard");
 }

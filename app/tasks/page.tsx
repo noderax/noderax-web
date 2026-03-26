@@ -1,5 +1,5 @@
-import { TasksPageView } from "@/components/tasks/tasks-page-view";
+import { redirectToStoredWorkspace } from "@/lib/server-workspace";
 
-export default function TasksPage() {
-  return <TasksPageView />;
+export default async function TasksPage() {
+  await redirectToStoredWorkspace("tasks");
 }

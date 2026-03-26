@@ -1,5 +1,5 @@
-import { NodesPageView } from "@/components/nodes/nodes-page-view";
+import { redirectToStoredWorkspace } from "@/lib/server-workspace";
 
-export default function NodesPage() {
-  return <NodesPageView />;
+export default async function NodesPage() {
+  await redirectToStoredWorkspace("nodes");
 }

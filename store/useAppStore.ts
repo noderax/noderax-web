@@ -39,6 +39,7 @@ interface AppState {
   realtimeHealth: RealtimeHealthSnapshot;
   realtimeCounters: RealtimeCounters;
   session: AuthSession | null;
+  activeWorkspaceSlug: string | null;
   setSidebarCollapsed: (collapsed: boolean) => void;
   toggleSidebar: () => void;
   setMobileSidebarOpen: (open: boolean) => void;
@@ -49,6 +50,7 @@ interface AppState {
   bumpRealtimeCounter: (key: keyof RealtimeCounters, value?: number) => void;
   setRealtimeCounter: (key: keyof RealtimeCounters, value: number) => void;
   setSession: (session: AuthSession | null) => void;
+  setActiveWorkspaceSlug: (slug: string | null) => void;
   clearSession: () => void;
 }
 
@@ -64,6 +66,7 @@ export const useAppStore = create<AppState>()(
         realtimeHealth: initialRealtimeHealth,
         realtimeCounters: initialRealtimeCounters,
         session: null,
+        activeWorkspaceSlug: null,
         setSidebarCollapsed: (sidebarCollapsed) => set({ sidebarCollapsed }),
         toggleSidebar: () =>
           set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed })),
@@ -101,9 +104,12 @@ export const useAppStore = create<AppState>()(
             },
           })),
         setSession: (session) => set({ session }),
+        setActiveWorkspaceSlug: (activeWorkspaceSlug) =>
+          set({ activeWorkspaceSlug }),
         clearSession: () =>
           set({
             session: null,
+            activeWorkspaceSlug: null,
             searchQuery: "",
             eventSeverityFilter: "all",
             realtimeStatus: "idle",
@@ -117,6 +123,7 @@ export const useAppStore = create<AppState>()(
         partialize: (state) => ({
           sidebarCollapsed: state.sidebarCollapsed,
           eventSeverityFilter: state.eventSeverityFilter,
+          activeWorkspaceSlug: state.activeWorkspaceSlug,
         }),
       },
     ),

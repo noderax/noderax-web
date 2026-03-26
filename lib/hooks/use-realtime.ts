@@ -5,7 +5,6 @@ import { type QueryClient, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 import { mapEventRecord, mapMetricDtoToPoint } from "@/lib/noderax";
-import { queryKeys } from "@/lib/hooks/use-noderax-data";
 import { getRealtimeClient, type RealtimeMessage } from "@/lib/websocket";
 import type {
   DashboardOverview,
@@ -113,13 +112,13 @@ const collectTrackedNodeIds = (queryClient: QueryClient) => {
   const trackedNodeIds = new Set<string>();
 
   queryClient
-    .getQueriesData<NodeSummary[]>({ queryKey: ["nodes", "list"] })
+    .getQueriesData<NodeSummary[]>({ queryKey: ["nodes"] })
     .forEach(([, nodes]) => {
       nodes?.forEach((node) => trackedNodeIds.add(node.id));
     });
 
   queryClient
-    .getQueriesData<NodeDetail>({ queryKey: ["nodes", "detail"] })
+    .getQueriesData<NodeDetail>({ queryKey: ["nodes"] })
     .forEach(([, node]) => {
       if (node) {
         trackedNodeIds.add(node.id);
@@ -127,7 +126,7 @@ const collectTrackedNodeIds = (queryClient: QueryClient) => {
     });
 
   queryClient
-    .getQueriesData<TaskDetail>({ queryKey: ["tasks", "detail"] })
+    .getQueriesData<TaskDetail>({ queryKey: ["tasks"] })
     .forEach(([, task]) => {
       if (task?.node?.id) {
         trackedNodeIds.add(task.node.id);
@@ -136,7 +135,7 @@ const collectTrackedNodeIds = (queryClient: QueryClient) => {
 
   queryClient
     .getQueriesData<DashboardOverview>({
-      queryKey: queryKeys.dashboard.overview,
+      queryKey: ["dashboard", "overview"],
     })
     .forEach(([, overview]) => {
       overview?.nodes.forEach((node) => trackedNodeIds.add(node.id));
@@ -219,7 +218,7 @@ export const useRealtimeBridge = () => {
 
     snapshot.forEach(([nodeId, queued]) => {
       queryClient.setQueriesData<NodeSummary[]>(
-        { queryKey: ["nodes", "list"] },
+        { queryKey: ["nodes"] },
         (current) =>
           current?.map((node) =>
             node.id === nodeId
@@ -231,8 +230,8 @@ export const useRealtimeBridge = () => {
           ),
       );
 
-      queryClient.setQueryData<NodeDetail | undefined>(
-        queryKeys.nodes.detail(nodeId),
+      queryClient.setQueriesData<NodeDetail | undefined>(
+        { queryKey: ["nodes"] },
         (current) =>
           current
             ? {
@@ -248,8 +247,8 @@ export const useRealtimeBridge = () => {
             : current,
       );
 
-      queryClient.setQueryData<DashboardOverview | undefined>(
-        queryKeys.dashboard.overview,
+      queryClient.setQueriesData<DashboardOverview | undefined>(
+        { queryKey: ["dashboard", "overview"] },
         (current) =>
           updateDashboardNodes(current, (node) =>
             node.id === nodeId
@@ -332,7 +331,7 @@ export const useRealtimeBridge = () => {
 
       if (!previousStatus) {
         const detail = queryClient.getQueryData<NodeDetail | undefined>(
-          queryKeys.nodes.detail(nodeId),
+          ["nodes"],
         );
 
         if (detail) {
@@ -343,7 +342,7 @@ export const useRealtimeBridge = () => {
 
       if (!previousStatus) {
         queryClient
-          .getQueriesData<NodeSummary[]>({ queryKey: ["nodes", "list"] })
+          .getQueriesData<NodeSummary[]>({ queryKey: ["nodes"] })
           .forEach(([, nodes]) => {
             const matched = nodes?.find((node) => node.id === nodeId);
             if (matched) {
@@ -354,7 +353,7 @@ export const useRealtimeBridge = () => {
       }
 
       queryClient.setQueriesData<NodeSummary[]>(
-        { queryKey: ["nodes", "list"] },
+        { queryKey: ["nodes"] },
         (current) =>
           current?.map((node) =>
             node.id === nodeId
@@ -367,8 +366,8 @@ export const useRealtimeBridge = () => {
           ),
       );
 
-      queryClient.setQueryData<NodeDetail | undefined>(
-        queryKeys.nodes.detail(nodeId),
+      queryClient.setQueriesData<NodeDetail | undefined>(
+        { queryKey: ["nodes"] },
         (current) =>
           current
             ? {
@@ -379,8 +378,8 @@ export const useRealtimeBridge = () => {
             : current,
       );
 
-      queryClient.setQueryData<DashboardOverview | undefined>(
-        queryKeys.dashboard.overview,
+      queryClient.setQueriesData<DashboardOverview | undefined>(
+        { queryKey: ["dashboard", "overview"] },
         (current) =>
           updateDashboardNodes(current, (node) =>
             node.id === nodeId
@@ -446,15 +445,16 @@ export const useRealtimeBridge = () => {
       });
 
       queryClient.invalidateQueries({
-        queryKey: queryKeys.dashboard.overview,
+        queryKey: ["dashboard", "overview"],
         refetchType: "active",
       });
 
       if (message.type === "task.updated") {
-        queryClient.setQueryData<TaskDetail | undefined>(
-          queryKeys.tasks.detail(message.data.id),
+        queryClient.setQueriesData<TaskDetail | undefined>(
+          { queryKey: ["tasks"] },
           (current) =>
             current
+              && current.id === message.data.id
               ? {
                   ...current,
                   status: message.data.status,
@@ -489,12 +489,12 @@ export const useRealtimeBridge = () => {
       const event = mapEventRecord(message.data);
 
       queryClient.setQueriesData<EventRecord[]>(
-        { queryKey: ["events", "list"] },
+        { queryKey: ["events"] },
         (current) => prependUnique(current, event),
       );
 
-      queryClient.setQueryData<DashboardOverview | undefined>(
-        queryKeys.dashboard.overview,
+      queryClient.setQueriesData<DashboardOverview | undefined>(
+        { queryKey: ["dashboard", "overview"] },
         (current) =>
           current
             ? {
@@ -513,12 +513,12 @@ export const useRealtimeBridge = () => {
         )
       ) {
         queryClient.invalidateQueries({
-          queryKey: ["nodes", "list"],
+          queryKey: ["nodes"],
           refetchType: "active",
         });
 
         queryClient.invalidateQueries({
-          queryKey: queryKeys.dashboard.overview,
+          queryKey: ["dashboard", "overview"],
           refetchType: "active",
         });
       }

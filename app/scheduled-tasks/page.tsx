@@ -1,5 +1,5 @@
-import { ScheduledTasksPageView } from "@/components/tasks/scheduled-tasks-page-view";
+import { redirectToStoredWorkspace } from "@/lib/server-workspace";
 
-export default function ScheduledTasksPage() {
-  return <ScheduledTasksPageView />;
+export default async function ScheduledTasksPage() {
+  await redirectToStoredWorkspace("scheduled-tasks");
 }

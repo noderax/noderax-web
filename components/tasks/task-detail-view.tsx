@@ -28,8 +28,8 @@ import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TimeDisplay } from "@/components/ui/time-display";
 import { apiClient } from "@/lib/api";
-import { useAuthSession } from "@/lib/hooks/use-auth-session";
 import { queryKeys, useTask } from "@/lib/hooks/use-noderax-data";
+import { useWorkspaceContext } from "@/lib/hooks/use-workspace-context";
 import type { TaskDetail, TaskStatus } from "@/lib/types";
 
 const QUEUED_CLAIM_WARNING_THRESHOLD_MS = 20_000;
@@ -66,7 +66,8 @@ const formatTerminalOutput = (task: TaskDetail) => {
 
 export const TaskDetailView = ({ id }: { id: string }) => {
   const queryClient = useQueryClient();
-  const authQuery = useAuthSession();
+  const { buildWorkspaceHref, isWorkspaceAdmin, workspaceId } =
+    useWorkspaceContext();
   const taskQuery = useTask(id);
   const task = taskQuery.data;
   const [now, setNow] = useState(() => Date.now());
@@ -107,7 +108,7 @@ export const TaskDetailView = ({ id }: { id: string }) => {
     isCancelling && task?.status === "running"
       ? "cancelling"
       : (task?.status ?? "queued");
-  const isAdmin = authQuery.session?.user.role === "admin";
+  const isAdmin = isWorkspaceAdmin;
   const syncCancellationState = useEffectEvent((status: TaskStatus) => {
     if (status === "cancelled") {
       toast.success("Task stopped.");
@@ -147,7 +148,7 @@ export const TaskDetailView = ({ id }: { id: string }) => {
           refetchType: "active",
         });
         queryClient.invalidateQueries({
-          queryKey: queryKeys.dashboard.overview,
+          queryKey: ["dashboard", "overview"],
           refetchType: "active",
         });
       }
@@ -165,13 +166,15 @@ export const TaskDetailView = ({ id }: { id: string }) => {
       }
 
       try {
-        const latestTask = await apiClient.getTask(id);
+        const latestTask = await apiClient.getTask(id, workspaceId ?? undefined);
         if (stopped) {
           return;
         }
 
         queryClient.setQueryData<TaskDetail | undefined>(
-          queryKeys.tasks.detail(id),
+          workspaceId
+            ? queryKeys.tasks.detail(workspaceId, id)
+            : (["tasks", "detail", id] as const),
           (current) =>
             current
               ? {
@@ -206,7 +209,7 @@ export const TaskDetailView = ({ id }: { id: string }) => {
       stopped = true;
       globalThis.clearInterval(interval);
     };
-  }, [id, isCancelling, queryClient, task]);
+  }, [id, isCancelling, queryClient, task, workspaceId]);
 
   if (taskQuery.isError || (!taskQuery.isPending && !task)) {
     return (
@@ -471,10 +474,12 @@ export const TaskDetailView = ({ id }: { id: string }) => {
                   key={event.id}
                   href={
                     event.entityType === "node" && event.entityId
-                      ? `/nodes/${event.entityId}`
+                      ? (buildWorkspaceHref(`nodes/${event.entityId}`) ??
+                        "/workspaces")
                       : event.entityType === "task" && event.entityId
-                        ? `/tasks/${event.entityId}`
-                        : "/events"
+                        ? (buildWorkspaceHref(`tasks/${event.entityId}`) ??
+                          "/workspaces")
+                        : (buildWorkspaceHref("events") ?? "/workspaces")
                   }
                   className="surface-subtle surface-hover block rounded-[18px] border px-4 py-3"
                 >

@@ -22,16 +22,16 @@ import { useUsers } from "@/lib/hooks/use-noderax-data";
 
 export const UsersPageView = () => {
   const authQuery = useAuthSession();
-  const isAdmin = authQuery.session?.user.role === "admin";
+  const isAdmin = authQuery.session?.user.role === "platform_admin";
   const usersQuery = useUsers(isAdmin);
 
   return (
     <AppShell>
       {!authQuery.session && authQuery.isPending ? (
         <SectionPanel
-          eyebrow="Workspace"
+          eyebrow="Platform"
           title="Users"
-          description="Manage operator accounts and access roles."
+          description="Manage global operator accounts and platform access roles."
           contentClassName="space-y-3"
         >
           {Array.from({ length: 5 }).map((_, index) => (
@@ -41,7 +41,7 @@ export const UsersPageView = () => {
       ) : !isAdmin ? (
         <EmptyState
           title="Admin access required"
-          description="Only administrators can manage workspace users from this panel."
+          description="Only platform admins can manage global users from this panel."
           icon={ShieldAlert}
           variant="plain"
         />
@@ -56,9 +56,9 @@ export const UsersPageView = () => {
         />
       ) : (
         <SectionPanel
-          eyebrow="Workspace"
+          eyebrow="Platform"
           title="Users"
-          description="Manage operator accounts and workspace roles."
+          description="Manage operator accounts and platform roles."
           action={<CreateUserDialog />}
           contentClassName="p-0"
         >

@@ -1,5 +1,4 @@
-import { AppShell } from "@/components/layout/app-shell";
-import { NodePackagesScreen } from "@/components/packages/node-packages-screen";
+import { redirectToStoredWorkspace } from "@/lib/server-workspace";
 
 export default async function NodePackagesPage({
   params,
@@ -8,9 +7,5 @@ export default async function NodePackagesPage({
 }) {
   const { id } = await params;
 
-  return (
-    <AppShell>
-      <NodePackagesScreen nodeId={id} standalone />
-    </AppShell>
-  );
+  await redirectToStoredWorkspace(`nodes/${id}/packages`);
 }

@@ -13,7 +13,12 @@ export type ScheduledTaskCadence =
   | "weekly";
 export type EventSeverity = "info" | "warning" | "critical";
 export type TaskLogLevel = "info" | "stdout" | "stderr" | "error";
-export type UserRole = "admin" | "user";
+export type UserRole = "platform_admin" | "user";
+export type WorkspaceMembershipRole =
+  | "owner"
+  | "admin"
+  | "member"
+  | "viewer";
 export type EnrollmentStatus = "pending" | "approved" | "revoked";
 export type RealtimeStatus =
   | "idle"
@@ -49,6 +54,7 @@ export interface RealtimeCounters {
 
 export interface NodeDto {
   id: string;
+  workspaceId: string;
   name: string;
   hostname: string;
   os: string;
@@ -61,6 +67,7 @@ export interface NodeDto {
 
 export interface TaskDto {
   id: string;
+  workspaceId: string;
   nodeId: string;
   type: string;
   payload: Record<string, unknown>;
@@ -75,6 +82,7 @@ export interface TaskDto {
 
 export interface ScheduledTaskDto {
   id: string;
+  workspaceId: string;
   nodeId: string;
   ownerUserId: string | null;
   ownerName: string | null;
@@ -87,6 +95,7 @@ export interface ScheduledTaskDto {
   dayOfWeek: number | null;
   intervalMinutes: number | null;
   timezone: string;
+  timezoneSource: "workspace" | "legacy_fixed";
   enabled: boolean;
   nextRunAt: string | null;
   lastRunAt: string | null;
@@ -119,6 +128,7 @@ export interface TaskLogDto {
 
 export interface EventDto {
   id: string;
+  workspaceId: string;
   nodeId: string | null;
   type: string;
   severity: EventSeverity;
@@ -129,6 +139,7 @@ export interface EventDto {
 
 export interface MetricDto {
   id: string;
+  workspaceId: string;
   nodeId: string;
   cpuUsage: number;
   memoryUsage: number;
@@ -272,6 +283,47 @@ export interface AuthSession {
   tokenPreview: string;
 }
 
+export interface WorkspaceDto {
+  id: string;
+  name: string;
+  slug: string;
+  defaultTimezone: string;
+  createdByUserId: string | null;
+  isArchived: boolean;
+  currentUserRole?: WorkspaceMembershipRole | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface WorkspaceMembershipDto {
+  id: string;
+  workspaceId: string;
+  userId: string;
+  role: WorkspaceMembershipRole;
+  userName?: string | null;
+  userEmail?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface TeamDto {
+  id: string;
+  workspaceId: string;
+  name: string;
+  description: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface TeamMembershipDto {
+  id: string;
+  teamId: string;
+  userId: string;
+  userName?: string | null;
+  userEmail?: string | null;
+  createdAt: string;
+}
+
 export interface LoginPayload {
   email: string;
   password: string;
@@ -283,6 +335,45 @@ export interface CreateUserPayload {
   name: string;
   password: string;
   role?: UserRole;
+}
+
+export interface CreateWorkspacePayload {
+  name: string;
+  slug: string;
+  defaultTimezone?: string;
+  isArchived?: boolean;
+}
+
+export interface UpdateWorkspacePayload {
+  name?: string;
+  slug?: string;
+  defaultTimezone?: string;
+  isArchived?: boolean;
+}
+
+export interface CreateWorkspaceMemberPayload {
+  email: string;
+  name?: string;
+  password?: string;
+  role: WorkspaceMembershipRole;
+}
+
+export interface UpdateWorkspaceMemberPayload {
+  role: WorkspaceMembershipRole;
+}
+
+export interface CreateTeamPayload {
+  name: string;
+  description?: string;
+}
+
+export interface UpdateTeamPayload {
+  name?: string;
+  description?: string;
+}
+
+export interface AddTeamMemberPayload {
+  userId: string;
 }
 
 export interface CreateNodePayload {
@@ -350,12 +441,14 @@ export interface CancelTaskResponse {
 }
 
 export interface InstallPackagesPayload {
+  workspaceId?: string;
   nodeId: string;
   names: string[];
   purge?: boolean;
 }
 
 export interface RemovePackagePayload {
+  workspaceId?: string;
   nodeId: string;
   name: string;
   purge?: boolean;

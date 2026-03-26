@@ -1,5 +1,5 @@
-import { redirect } from "next/navigation";
+import { redirectToStoredWorkspace } from "@/lib/server-workspace";
 
-export default function Home() {
-  redirect("/dashboard");
+export default async function Home() {
+  await redirectToStoredWorkspace("dashboard");
 }

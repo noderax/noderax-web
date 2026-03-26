@@ -7,8 +7,8 @@ import { CreateNodeDialog } from "@/components/nodes/create-node-dialog";
 import { AppShell } from "@/components/layout/app-shell";
 import { NodesTable } from "@/components/nodes/nodes-table";
 import { StatStrip } from "@/components/ui/stat-strip";
-import { useAuthSession } from "@/lib/hooks/use-auth-session";
 import { useNodes } from "@/lib/hooks/use-noderax-data";
+import { useWorkspaceContext } from "@/lib/hooks/use-workspace-context";
 import type { NodeSummary } from "@/lib/types";
 import { useAppStore } from "@/store/useAppStore";
 
@@ -16,7 +16,7 @@ const PAGE_SIZE = 25;
 const EMPTY_NODES: NodeSummary[] = [];
 
 export const NodesPageView = () => {
-  const authQuery = useAuthSession();
+  const { isWorkspaceAdmin } = useWorkspaceContext();
   const searchQuery = useAppStore((state) => state.searchQuery);
   const deferredSearchQuery = useDeferredValue(searchQuery.trim());
   const [pageState, setPageState] = useState({
@@ -33,7 +33,7 @@ export const NodesPageView = () => {
     offset: page * PAGE_SIZE,
   });
   const nodes = nodesQuery.data ?? EMPTY_NODES;
-  const isAdmin = authQuery.session?.user.role === "admin";
+  const isAdmin = isWorkspaceAdmin;
 
   const onlineNodes = nodes.filter((node) => node.status === "online");
   const offlineNodes = nodes.filter((node) => node.status === "offline");

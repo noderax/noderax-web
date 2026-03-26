@@ -29,13 +29,13 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
-import { useAuthSession } from "@/lib/hooks/use-auth-session";
 import {
   useCreateBatchScheduledTasks,
   useCreateBatchTasks,
   useCreateScheduledTask,
   useCreateTask,
 } from "@/lib/hooks/use-noderax-data";
+import { useWorkspaceContext } from "@/lib/hooks/use-workspace-context";
 import { DEFAULT_TIMEZONE } from "@/lib/timezone";
 import type {
   CreateScheduledTaskPayload,
@@ -370,7 +370,7 @@ export const CreateTaskDialog = ({
   defaultTab = "on-demand",
   triggerLabel = "Create task",
   title = "Create task",
-  description = "Queue a one-off task, configure a recurring shell command, or target multiple nodes in your saved timezone.",
+  description = "Queue a one-off task, configure a recurring shell command, or target multiple nodes in your active workspace.",
 }: {
   nodes: NodeSummary[];
   defaultTab?: DialogTab;
@@ -378,7 +378,7 @@ export const CreateTaskDialog = ({
   title?: string;
   description?: string;
 }) => {
-  const authQuery = useAuthSession();
+  const { workspace } = useWorkspaceContext();
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState<DialogTab>(defaultTab);
   const [taskSubmissionError, setTaskSubmissionError] = useState<string | null>(
@@ -394,7 +394,7 @@ export const CreateTaskDialog = ({
   const createScheduledTaskMutation = useCreateScheduledTask();
   const createBatchTaskMutation = useCreateBatchTasks();
   const createBatchScheduledTaskMutation = useCreateBatchScheduledTasks();
-  const timezone = authQuery.session?.user.timezone ?? DEFAULT_TIMEZONE;
+  const timezone = workspace?.defaultTimezone ?? DEFAULT_TIMEZONE;
 
   const taskForm = useForm<CreateTaskValues>({
     resolver: zodResolver(createTaskSchema),
@@ -920,10 +920,10 @@ export const CreateTaskDialog = ({
                 ) : null}
 
                 <div className="surface-subtle rounded-[18px] border px-4 py-3 text-sm text-muted-foreground">
-                  New schedules follow your saved timezone{" "}
+                  New schedules follow the workspace timezone{" "}
                   <span className="font-medium text-foreground">{timezone}</span>.
-                  If you change it later in settings, existing schedules move with
-                  that preference.
+                  If the workspace timezone changes later, enabled schedules will
+                  move with that setting.
                 </div>
 
                 {scheduleSubmissionError ? (
@@ -1071,7 +1071,7 @@ export const CreateTaskDialog = ({
                   <div className="surface-subtle rounded-[18px] border px-4 py-3 text-sm text-muted-foreground">
                     {multiModeValue === "scheduled" ? (
                       <>
-                        Batch schedules follow your saved timezone{" "}
+                        Batch schedules follow the workspace timezone{" "}
                         <span className="font-medium text-foreground">{timezone}</span>.
                       </>
                     ) : (

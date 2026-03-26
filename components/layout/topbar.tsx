@@ -30,6 +30,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { apiClient } from "@/lib/api";
 import { useAuthSession } from "@/lib/hooks/use-auth-session";
+import { useWorkspaceContext } from "@/lib/hooks/use-workspace-context";
+import { buildWorkspacePath } from "@/lib/workspace";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/store/useAppStore";
 
@@ -42,6 +44,10 @@ const sectionNames: Record<string, string> = {
   "/tasks": "Tasks",
   "/scheduled-tasks": "Scheduled Tasks",
   "/events": "Events",
+  "/members": "Members",
+  "/teams": "Teams",
+  "/workspace-settings": "Workspace Settings",
+  "/workspaces": "Workspaces",
   "/users": "Users",
   "/settings": "Settings",
 };
@@ -53,8 +59,31 @@ const sectionDescriptions: Record<string, string> = {
   "/scheduled-tasks":
     "Manage recurring shell commands and schedule timing across nodes.",
   "/events": "Review alerts, warnings, and platform event history.",
-  "/users": "Manage operators, access roles, and workspace accounts.",
+  "/members": "Manage who can access this workspace and which role they hold.",
+  "/teams": "Organize workspace members into teams for collaboration.",
+  "/workspace-settings":
+    "Configure workspace name, slug, and execution timezone.",
+  "/workspaces": "Create, switch, and manage isolated operational workspaces.",
+  "/users": "Manage global operator accounts and platform roles.",
   "/settings": "Manage appearance, session metadata, and preferences.",
+};
+
+const resolveSectionPath = (pathname: string) => {
+  if (pathname.startsWith("/w/")) {
+    const segments = pathname.split("/").filter(Boolean);
+    return `/${segments[2] ?? "dashboard"}`;
+  }
+
+  return pathname;
+};
+
+const resolveWorkspaceChildPath = (pathname: string) => {
+  if (!pathname.startsWith("/w/")) {
+    return "dashboard";
+  }
+
+  const segments = pathname.split("/").filter(Boolean).slice(2);
+  return segments.length ? segments.join("/") : "dashboard";
 };
 
 const realtimeStatusHint: Record<string, string> = {
@@ -104,6 +133,8 @@ export const Topbar = () => {
   const router = useRouter();
   const queryClient = useQueryClient();
   const authQuery = useAuthSession();
+  const { workspace, workspaceId, workspaceSlug, data: workspaces = [] } =
+    useWorkspaceContext();
   const { session } = authQuery;
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const realtimeStatus = useAppStore((state) => state.realtimeStatus);
@@ -112,15 +143,24 @@ export const Topbar = () => {
   const setMobileSidebarOpen = useAppStore(
     (state) => state.setMobileSidebarOpen,
   );
+  const setActiveWorkspaceSlug = useAppStore(
+    (state) => state.setActiveWorkspaceSlug,
+  );
   const clearSession = useAppStore((state) => state.clearSession);
 
   const statusConfig = realtimeConfig[realtimeStatus];
   const statusHint = realtimeStatusHint[realtimeStatus] ?? "Realtime status";
   const StatusIcon = statusConfig.icon;
+  const sectionPath = resolveSectionPath(pathname);
+  const currentWorkspaceChildPath = resolveWorkspaceChildPath(pathname);
   const queuedTaskHealthQuery = useQuery({
-    queryKey: ["tasks", "queued-health"],
-    queryFn: () => apiClient.getTasks({ status: "queued", limit: 30 }),
-    enabled: Boolean(session),
+    queryKey: ["tasks", "queued-health", workspaceId ?? "none"],
+    queryFn: () =>
+      apiClient.getTasks(
+        { status: "queued", limit: 30 },
+        workspaceId ?? undefined,
+      ),
+    enabled: Boolean(session && workspaceId),
     staleTime: 15_000,
     refetchInterval: 20_000,
     refetchIntervalInBackground: false,
@@ -164,13 +204,24 @@ export const Topbar = () => {
     }
   };
 
+  const handleWorkspaceSelect = (nextWorkspaceSlug: string) => {
+    if (!nextWorkspaceSlug || nextWorkspaceSlug === workspaceSlug) {
+      return;
+    }
+
+    setActiveWorkspaceSlug(nextWorkspaceSlug);
+    startTransition(() => {
+      router.push(buildWorkspacePath(nextWorkspaceSlug, currentWorkspaceChildPath));
+    });
+  };
+
   const section =
     Object.entries(sectionNames).find(([key]) =>
-      pathname.startsWith(key),
+      sectionPath.startsWith(key),
     )?.[1] ?? "Workspace";
   const sectionDescription =
     Object.entries(sectionDescriptions).find(([key]) =>
-      pathname.startsWith(key),
+      sectionPath.startsWith(key),
     )?.[1] ?? "Manage your operations workspace.";
 
   useEffect(() => {
@@ -233,6 +284,47 @@ export const Topbar = () => {
         </div>
 
         <div className="flex items-center gap-2 sm:gap-3">
+          {workspace ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                className="control-surface hidden h-10 items-center gap-3 rounded-xl border px-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:flex"
+              >
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium">
+                    {workspace.name}
+                  </p>
+                  <p className="truncate text-xs text-muted-foreground">
+                    {workspace.defaultTimezone}
+                  </p>
+                </div>
+                <ChevronsUpDown className="size-3.5 text-muted-foreground" />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-72">
+                <DropdownMenuLabel>Workspace</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuGroup>
+                  {workspaces.map((item) => (
+                    <DropdownMenuItem
+                      key={item.id}
+                      onClick={() => handleWorkspaceSelect(item.slug)}
+                    >
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate font-medium">{item.name}</p>
+                        <p className="truncate text-xs text-muted-foreground">
+                          {item.slug} · {item.defaultTimezone}
+                        </p>
+                      </div>
+                      {item.slug === workspaceSlug ? (
+                        <span className="text-xs text-muted-foreground">
+                          Current
+                        </span>
+                      ) : null}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuGroup>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : null}
           <div className="relative hidden w-[280px] md:block lg:w-[360px]">
             <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input
@@ -264,6 +356,17 @@ export const Topbar = () => {
                 <DropdownMenuLabel>Account</DropdownMenuLabel>
               </DropdownMenuGroup>
               <DropdownMenuSeparator />
+              {workspace ? (
+                <DropdownMenuItem
+                  onClick={() =>
+                    startTransition(() => {
+                      router.push(buildWorkspacePath(workspace.slug, "workspace-settings"));
+                    })
+                  }
+                >
+                  Workspace settings
+                </DropdownMenuItem>
+              ) : null}
               <DropdownMenuItem onClick={() => router.push("/settings")}>
                 <Settings2 className="size-4" />
                 Settings

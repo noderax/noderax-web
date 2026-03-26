@@ -8,6 +8,7 @@ import { CreateTaskDialog } from "@/components/tasks/create-task-dialog";
 import { ScheduledTasksPanel } from "@/components/tasks/scheduled-tasks-panel";
 import { SectionPanel } from "@/components/ui/section-panel";
 import { useAuthSession } from "@/lib/hooks/use-auth-session";
+import { useWorkspaceContext } from "@/lib/hooks/use-workspace-context";
 import {
   useNodes,
   useScheduledTasks,
@@ -15,9 +16,10 @@ import {
 
 export const ScheduledTasksPageView = () => {
   const authQuery = useAuthSession();
+  const { isWorkspaceAdmin, workspace } = useWorkspaceContext();
   const nodesQuery = useNodes({ limit: 100 });
-  const isAdmin = authQuery.session?.user.role === "admin";
-  const timezone = authQuery.session?.user.timezone;
+  const isAdmin = isWorkspaceAdmin;
+  const timezone = workspace?.defaultTimezone;
   const scheduledTasksQuery = useScheduledTasks(isAdmin);
   const createAction =
     nodesQuery.data !== undefined ? (
@@ -26,7 +28,7 @@ export const ScheduledTasksPageView = () => {
         defaultTab="scheduled"
         triggerLabel="Create schedule"
         title="Create schedule"
-        description={`Configure a recurring shell command. New schedules follow your saved timezone${timezone ? ` (${timezone})` : ""}.`}
+        description={`Configure a recurring shell command. New schedules follow the workspace timezone${timezone ? ` (${timezone})` : ""}.`}
       />
     ) : undefined;
 

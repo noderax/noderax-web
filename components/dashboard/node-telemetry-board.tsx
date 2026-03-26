@@ -32,6 +32,7 @@ import {
 } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { TimeDisplay } from "@/components/ui/time-display";
+import { useWorkspaceContext } from "@/lib/hooks/use-workspace-context";
 import type { NodeSummary } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -99,6 +100,7 @@ const serverLights = [
 
 export const NodeTelemetryBoard = ({ nodes }: { nodes: NodeSummary[] }) => {
   const router = useRouter();
+  const { buildWorkspaceHref } = useWorkspaceContext();
   const [pageIndex, setPageIndex] = useState(0);
   const [mobileNodeId, setMobileNodeId] = useState<string | null>(null);
   const sortedNodes = useMemo(() => sortNodes(nodes), [nodes]);
@@ -214,7 +216,10 @@ export const NodeTelemetryBoard = ({ nodes }: { nodes: NodeSummary[] }) => {
                       target.closest(".action-menu-area")
                     )
                       return;
-                    router.push(`/nodes/${activeMobileNode.id}`);
+                    router.push(
+                      buildWorkspaceHref(`nodes/${activeMobileNode.id}`) ??
+                        "/workspaces",
+                    );
                   }}
                 >
                   <MagicCard
@@ -379,7 +384,9 @@ export const NodeTelemetryBoard = ({ nodes }: { nodes: NodeSummary[] }) => {
                       target.closest(".action-menu-area")
                     )
                       return;
-                    router.push(`/nodes/${node.id}`);
+                    router.push(
+                      buildWorkspaceHref(`nodes/${node.id}`) ?? "/workspaces",
+                    );
                   }}
                 >
                   <MagicCard

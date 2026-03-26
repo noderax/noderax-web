@@ -10,6 +10,7 @@ import {
   mapTaskSummary,
 } from "@/lib/noderax";
 import type {
+  AddTeamMemberPayload,
   AuthSession,
   CancelTaskPayload,
   CancelTaskResponse,
@@ -17,8 +18,11 @@ import type {
   CreateBatchTaskPayload,
   CreateScheduledTaskPayload,
   CreateNodePayload,
+  CreateTeamPayload,
   CreateTaskPayload,
   CreateUserPayload,
+  CreateWorkspaceMemberPayload,
+  CreateWorkspacePayload,
   DashboardOverview,
   DeleteScheduledTaskResponse,
   DeleteNodeResponse,
@@ -43,6 +47,8 @@ import type {
   RemovePackagePayload,
   ScheduledTaskDto,
   ScheduledTaskSummary,
+  TeamDto,
+  TeamMembershipDto,
   TaskDetail,
   TaskDto,
   TaskFilters,
@@ -51,7 +57,12 @@ import type {
   TaskFlowDiagnostics,
   TaskSummary,
   UpdateUserPreferencesPayload,
+  UpdateTeamPayload,
+  UpdateWorkspaceMemberPayload,
+  UpdateWorkspacePayload,
   UserDto,
+  WorkspaceDto,
+  WorkspaceMembershipDto,
 } from "@/lib/types";
 
 class ApiError extends Error {
@@ -425,6 +436,9 @@ const request = async <T>(path: string, init?: RequestInit): Promise<T> => {
   return (await response.json()) as T;
 };
 
+const buildWorkspaceApiPath = (workspaceId: string, path = "") =>
+  `/api/proxy/workspaces/${workspaceId}${path}`;
+
 const getTaskDto = (id: string, signal?: AbortSignal) =>
   request<TaskDto>(`/api/proxy/tasks/${id}`, {
     signal,
@@ -579,6 +593,115 @@ export const apiClient = {
   getCurrentUser() {
     return request<UserDto>("/api/proxy/users/me");
   },
+  getWorkspaces() {
+    return request<WorkspaceDto[]>("/api/proxy/workspaces");
+  },
+  createWorkspace(payload: CreateWorkspacePayload) {
+    return request<WorkspaceDto>("/api/proxy/workspaces", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  },
+  getWorkspace(workspaceId: string) {
+    return request<WorkspaceDto>(buildWorkspaceApiPath(workspaceId));
+  },
+  updateWorkspace(workspaceId: string, payload: UpdateWorkspacePayload) {
+    return request<WorkspaceDto>(buildWorkspaceApiPath(workspaceId), {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    });
+  },
+  getWorkspaceMembers(workspaceId: string) {
+    return request<WorkspaceMembershipDto[]>(
+      buildWorkspaceApiPath(workspaceId, "/members"),
+    );
+  },
+  createWorkspaceMember(
+    workspaceId: string,
+    payload: CreateWorkspaceMemberPayload,
+  ) {
+    return request<WorkspaceMembershipDto>(
+      buildWorkspaceApiPath(workspaceId, "/members"),
+      {
+        method: "POST",
+        body: JSON.stringify(payload),
+      },
+    );
+  },
+  updateWorkspaceMember(
+    workspaceId: string,
+    membershipId: string,
+    payload: UpdateWorkspaceMemberPayload,
+  ) {
+    return request<WorkspaceMembershipDto>(
+      buildWorkspaceApiPath(workspaceId, `/members/${membershipId}`),
+      {
+        method: "PATCH",
+        body: JSON.stringify(payload),
+      },
+    );
+  },
+  deleteWorkspaceMember(workspaceId: string, membershipId: string) {
+    return request<{ deleted: true; id: string }>(
+      buildWorkspaceApiPath(workspaceId, `/members/${membershipId}`),
+      {
+        method: "DELETE",
+      },
+    );
+  },
+  getWorkspaceTeams(workspaceId: string) {
+    return request<TeamDto[]>(buildWorkspaceApiPath(workspaceId, "/teams"));
+  },
+  createWorkspaceTeam(workspaceId: string, payload: CreateTeamPayload) {
+    return request<TeamDto>(buildWorkspaceApiPath(workspaceId, "/teams"), {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  },
+  updateWorkspaceTeam(
+    workspaceId: string,
+    teamId: string,
+    payload: UpdateTeamPayload,
+  ) {
+    return request<TeamDto>(buildWorkspaceApiPath(workspaceId, `/teams/${teamId}`), {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    });
+  },
+  deleteWorkspaceTeam(workspaceId: string, teamId: string) {
+    return request<{ deleted: true; id: string }>(
+      buildWorkspaceApiPath(workspaceId, `/teams/${teamId}`),
+      {
+        method: "DELETE",
+      },
+    );
+  },
+  getWorkspaceTeamMembers(workspaceId: string, teamId: string) {
+    return request<TeamMembershipDto[]>(
+      buildWorkspaceApiPath(workspaceId, `/teams/${teamId}/members`),
+    );
+  },
+  addWorkspaceTeamMember(
+    workspaceId: string,
+    teamId: string,
+    payload: AddTeamMemberPayload,
+  ) {
+    return request<TeamMembershipDto>(
+      buildWorkspaceApiPath(workspaceId, `/teams/${teamId}/members`),
+      {
+        method: "POST",
+        body: JSON.stringify(payload),
+      },
+    );
+  },
+  deleteWorkspaceTeamMember(workspaceId: string, teamId: string, userId: string) {
+    return request<{ deleted: true; userId: string }>(
+      buildWorkspaceApiPath(workspaceId, `/teams/${teamId}/members/${userId}`),
+      {
+        method: "DELETE",
+      },
+    );
+  },
   getUsers() {
     return request<UserDto[]>("/api/proxy/users");
   },
@@ -594,9 +717,9 @@ export const apiClient = {
       body: JSON.stringify(payload),
     });
   },
-  getNodes(filters?: NodeFilters) {
+  getNodes(filters?: NodeFilters, workspaceId?: string) {
     return request<NodeDto[]>(
-      `/api/proxy/nodes${buildQueryString({
+      `${workspaceId ? buildWorkspaceApiPath(workspaceId, "/nodes") : "/api/proxy/nodes"}${buildQueryString({
         status: filters?.status,
         search: filters?.search,
         limit: filters?.limit,
@@ -604,44 +727,84 @@ export const apiClient = {
       })}`,
     );
   },
-  createNode(payload: CreateNodePayload) {
-    return request<NodeDto>("/api/proxy/nodes", {
+  createNode(payload: CreateNodePayload, workspaceId?: string) {
+    return request<NodeDto>(
+      workspaceId ? buildWorkspaceApiPath(workspaceId, "/nodes") : "/api/proxy/nodes",
+      {
       method: "POST",
       body: JSON.stringify(payload),
-    });
+      },
+    );
   },
-  getScheduledTasks() {
-    return request<ScheduledTaskDto[]>("/api/proxy/scheduled-tasks");
+  getScheduledTasks(workspaceId?: string) {
+    return request<ScheduledTaskDto[]>(
+      workspaceId
+        ? buildWorkspaceApiPath(workspaceId, "/scheduled-tasks")
+        : "/api/proxy/scheduled-tasks",
+    );
   },
-  createScheduledTask(payload: CreateScheduledTaskPayload) {
-    return request<ScheduledTaskDto>("/api/proxy/scheduled-tasks", {
+  createScheduledTask(payload: CreateScheduledTaskPayload, workspaceId?: string) {
+    return request<ScheduledTaskDto>(
+      workspaceId
+        ? buildWorkspaceApiPath(workspaceId, "/scheduled-tasks")
+        : "/api/proxy/scheduled-tasks",
+      {
       method: "POST",
       body: JSON.stringify(payload),
-    });
+      },
+    );
   },
-  createBatchScheduledTasks(payload: CreateBatchScheduledTaskPayload) {
-    return request<ScheduledTaskDto[]>("/api/proxy/scheduled-tasks/batch", {
+  createBatchScheduledTasks(
+    payload: CreateBatchScheduledTaskPayload,
+    workspaceId?: string,
+  ) {
+    return request<ScheduledTaskDto[]>(
+      workspaceId
+        ? buildWorkspaceApiPath(workspaceId, "/scheduled-tasks/batch")
+        : "/api/proxy/scheduled-tasks/batch",
+      {
       method: "POST",
       body: JSON.stringify(payload),
-    });
+      },
+    );
   },
-  updateScheduledTask(id: string, payload: { enabled: boolean }) {
-    return request<ScheduledTaskDto>(`/api/proxy/scheduled-tasks/${id}`, {
+  updateScheduledTask(
+    id: string,
+    payload: { enabled: boolean },
+    workspaceId?: string,
+  ) {
+    return request<ScheduledTaskDto>(
+      workspaceId
+        ? buildWorkspaceApiPath(workspaceId, `/scheduled-tasks/${id}`)
+        : `/api/proxy/scheduled-tasks/${id}`,
+      {
       method: "PATCH",
       body: JSON.stringify(payload),
-    });
+      },
+    );
   },
-  deleteScheduledTask(id: string) {
+  deleteScheduledTask(id: string, workspaceId?: string) {
     return request<DeleteScheduledTaskResponse>(
-      `/api/proxy/scheduled-tasks/${id}`,
+      workspaceId
+        ? buildWorkspaceApiPath(workspaceId, `/scheduled-tasks/${id}`)
+        : `/api/proxy/scheduled-tasks/${id}`,
       {
         method: "DELETE",
       },
     );
   },
-  finalizeNodeEnrollment(token: string, payload: FinalizeEnrollmentPayload) {
+  finalizeNodeEnrollment(
+    token: string,
+    payload: FinalizeEnrollmentPayload,
+    workspaceId?: string,
+  ) {
     return request<FinalizeEnrollmentResponse>(
-      `/api/proxy/enrollments/${encodeURIComponent(token)}/finalize`,
+      workspaceId
+        ? buildWorkspaceApiPath(
+            workspaceId,
+            `/enrollments/${encodeURIComponent(token)}/finalize`,
+          )
+        : `/api/proxy/enrollments/${encodeURIComponent(token)}/finalize`,
       {
         method: "POST",
         body: JSON.stringify(payload),
@@ -653,17 +816,24 @@ export const apiClient = {
       `/api/proxy/enrollments/${encodeURIComponent(token)}`,
     );
   },
-  getNode(id: string) {
-    return request<NodeDto>(`/api/proxy/nodes/${id}`);
+  getNode(id: string, workspaceId?: string) {
+    return request<NodeDto>(
+      workspaceId
+        ? buildWorkspaceApiPath(workspaceId, `/nodes/${id}`)
+        : `/api/proxy/nodes/${id}`,
+    );
   },
   async getNodePackages(
     nodeId: string,
     options?: {
+      workspaceId?: string;
       signal?: AbortSignal;
     },
   ): Promise<InstalledPackage[]> {
     const response = await request<unknown>(
-      `/api/proxy/nodes/${nodeId}/packages`,
+      options?.workspaceId
+        ? buildWorkspaceApiPath(options.workspaceId, `/nodes/${nodeId}/packages`)
+        : `/api/proxy/nodes/${nodeId}/packages`,
       {
         signal: options?.signal,
       },
@@ -676,11 +846,12 @@ export const apiClient = {
     term: string,
     nodeId: string,
     options?: {
+      workspaceId?: string;
       signal?: AbortSignal;
     },
   ): Promise<PackageSearchResult[]> {
     const response = await request<unknown>(
-      `/api/proxy/packages/search${buildQueryString({
+      `${options?.workspaceId ? buildWorkspaceApiPath(options.workspaceId, "/packages/search") : "/api/proxy/packages/search"}${buildQueryString({
         term,
         nodeId,
       })}`,
@@ -696,9 +867,12 @@ export const apiClient = {
     nodeId,
     names,
     purge,
+    workspaceId,
   }: InstallPackagesPayload): Promise<PackageTaskMutationResponse> {
     const response = await request<unknown>(
-      `/api/proxy/nodes/${nodeId}/packages`,
+      workspaceId
+        ? buildWorkspaceApiPath(workspaceId, `/nodes/${nodeId}/packages`)
+        : `/api/proxy/nodes/${nodeId}/packages`,
       {
         method: "POST",
         body: JSON.stringify({
@@ -714,9 +888,10 @@ export const apiClient = {
     nodeId,
     name,
     purge,
+    workspaceId,
   }: RemovePackagePayload): Promise<PackageTaskMutationResponse> {
     const response = await request<unknown>(
-      `/api/proxy/nodes/${nodeId}/packages/${encodeURIComponent(name)}${buildQueryString(
+      `${workspaceId ? buildWorkspaceApiPath(workspaceId, `/nodes/${nodeId}/packages/${encodeURIComponent(name)}`) : `/api/proxy/nodes/${nodeId}/packages/${encodeURIComponent(name)}`}${buildQueryString(
         {
           purge: purge !== undefined ? String(purge) : undefined,
         },
@@ -728,14 +903,19 @@ export const apiClient = {
 
     return normalizePackageTaskMutationResponse(response);
   },
-  deleteNode(id: string) {
-    return request<DeleteNodeResponse>(`/api/proxy/nodes/${id}`, {
+  deleteNode(id: string, workspaceId?: string) {
+    return request<DeleteNodeResponse>(
+      workspaceId
+        ? buildWorkspaceApiPath(workspaceId, `/nodes/${id}`)
+        : `/api/proxy/nodes/${id}`,
+      {
       method: "DELETE",
-    });
+      },
+    );
   },
-  getTasks(filters?: TaskFilters) {
+  getTasks(filters?: TaskFilters, workspaceId?: string) {
     return request<TaskDto[]>(
-      `/api/proxy/tasks${buildQueryString({
+      `${workspaceId ? buildWorkspaceApiPath(workspaceId, "/tasks") : "/api/proxy/tasks"}${buildQueryString({
         nodeId: filters?.nodeId,
         status: filters?.status,
         limit: filters?.limit,
@@ -743,24 +923,35 @@ export const apiClient = {
       })}`,
     );
   },
-  createTask(payload: CreateTaskPayload) {
-    return request<TaskDto>("/api/proxy/tasks", {
+  createTask(payload: CreateTaskPayload, workspaceId?: string) {
+    return request<TaskDto>(
+      workspaceId ? buildWorkspaceApiPath(workspaceId, "/tasks") : "/api/proxy/tasks",
+      {
       method: "POST",
       body: JSON.stringify(payload),
-    });
+      },
+    );
   },
-  createBatchTasks(payload: CreateBatchTaskPayload) {
-    return request<TaskDto[]>("/api/proxy/tasks/batch", {
+  createBatchTasks(payload: CreateBatchTaskPayload, workspaceId?: string) {
+    return request<TaskDto[]>(
+      workspaceId
+        ? buildWorkspaceApiPath(workspaceId, "/tasks/batch")
+        : "/api/proxy/tasks/batch",
+      {
       method: "POST",
       body: JSON.stringify(payload),
-    });
+      },
+    );
   },
   async cancelTask(
     taskId: string,
     payload?: CancelTaskPayload,
+    workspaceId?: string,
   ): Promise<CancelTaskResponse> {
     const response = await request<unknown>(
-      `/api/proxy/tasks/${taskId}/cancel`,
+      workspaceId
+        ? buildWorkspaceApiPath(workspaceId, `/tasks/${taskId}/cancel`)
+        : `/api/proxy/tasks/${taskId}/cancel`,
       {
         method: "POST",
         body: JSON.stringify({
@@ -771,19 +962,21 @@ export const apiClient = {
 
     return normalizeCancelTaskResponse(taskId, response);
   },
-  getTask(id: string) {
-    return getTaskDto(id);
+  getTask(id: string, workspaceId?: string) {
+    return workspaceId
+      ? request<TaskDto>(buildWorkspaceApiPath(workspaceId, `/tasks/${id}`))
+      : getTaskDto(id);
   },
-  getTaskLogs(id: string, filters?: TaskLogFilters) {
+  getTaskLogs(id: string, filters?: TaskLogFilters, workspaceId?: string) {
     return request<TaskLogDto[]>(
-      `/api/proxy/tasks/${id}/logs${buildQueryString({
+      `${workspaceId ? buildWorkspaceApiPath(workspaceId, `/tasks/${id}/logs`) : `/api/proxy/tasks/${id}/logs`}${buildQueryString({
         limit: filters?.limit,
       })}`,
     );
   },
-  getEvents(filters?: EventFilters) {
+  getEvents(filters?: EventFilters, workspaceId?: string) {
     return request<EventDto[]>(
-      `/api/proxy/events${buildQueryString({
+      `${workspaceId ? buildWorkspaceApiPath(workspaceId, "/events") : "/api/proxy/events"}${buildQueryString({
         nodeId: filters?.nodeId,
         type: filters?.type,
         severity: filters?.severity === "all" ? undefined : filters?.severity,
@@ -791,20 +984,20 @@ export const apiClient = {
       })}`,
     );
   },
-  getMetrics(filters?: MetricFilters) {
+  getMetrics(filters?: MetricFilters, workspaceId?: string) {
     return request<MetricDto[]>(
-      `/api/proxy/metrics${buildQueryString({
+      `${workspaceId ? buildWorkspaceApiPath(workspaceId, "/metrics") : "/api/proxy/metrics"}${buildQueryString({
         nodeId: filters?.nodeId,
         limit: filters?.limit,
       })}`,
     );
   },
-  async getDashboardOverview(): Promise<DashboardOverview> {
+  async getDashboardOverview(workspaceId?: string): Promise<DashboardOverview> {
     const [nodes, tasks, events, metrics] = await Promise.all([
-      this.getNodes({ limit: 100 }),
-      this.getTasks({ limit: 100 }),
-      this.getEvents({ limit: 12 }),
-      this.getMetrics({ limit: 100 }),
+      this.getNodes({ limit: 100 }, workspaceId),
+      this.getTasks({ limit: 100 }, workspaceId),
+      this.getEvents({ limit: 12 }, workspaceId),
+      this.getMetrics({ limit: 100 }, workspaceId),
     ]);
 
     const metricsByNodeId = createMetricsByNodeId(metrics);
@@ -822,21 +1015,24 @@ export const apiClient = {
       metrics,
     });
   },
-  async getNodeSummaries(filters?: NodeFilters): Promise<NodeSummary[]> {
+  async getNodeSummaries(
+    filters?: NodeFilters,
+    workspaceId?: string,
+  ): Promise<NodeSummary[]> {
     const [nodes, metrics] = await Promise.all([
-      this.getNodes(filters),
-      this.getMetrics({ limit: 100 }),
+      this.getNodes(filters, workspaceId),
+      this.getMetrics({ limit: 100 }, workspaceId),
     ]);
 
     const metricsByNodeId = createMetricsByNodeId(metrics);
     return nodes.map((node) => mapNodeSummary(node, metricsByNodeId));
   },
-  async getNodeDetail(id: string): Promise<NodeDetail> {
+  async getNodeDetail(id: string, workspaceId?: string): Promise<NodeDetail> {
     const [node, metrics, tasks, events] = await Promise.all([
-      this.getNode(id),
-      this.getMetrics({ nodeId: id, limit: 24 }),
-      this.getTasks({ nodeId: id, limit: 50 }),
-      this.getEvents({ nodeId: id, limit: 20 }),
+      this.getNode(id, workspaceId),
+      this.getMetrics({ nodeId: id, limit: 24 }, workspaceId),
+      this.getTasks({ nodeId: id, limit: 50 }, workspaceId),
+      this.getEvents({ nodeId: id, limit: 20 }, workspaceId),
     ]);
 
     const runningTasks = tasks.filter(
@@ -854,32 +1050,37 @@ export const apiClient = {
       nodeLookup,
     });
   },
-  async getTaskSummaries(filters?: TaskFilters): Promise<TaskSummary[]> {
+  async getTaskSummaries(
+    filters?: TaskFilters,
+    workspaceId?: string,
+  ): Promise<TaskSummary[]> {
     const [tasks, nodes] = await Promise.all([
-      this.getTasks(filters),
-      this.getNodes({ limit: 100 }),
+      this.getTasks(filters, workspaceId),
+      this.getNodes({ limit: 100 }, workspaceId),
     ]);
 
     const nodeLookup = createNodeLookup(nodes);
     return tasks.map((task) => mapTaskSummary(task, nodeLookup));
   },
-  async getScheduledTaskSummaries(): Promise<ScheduledTaskSummary[]> {
+  async getScheduledTaskSummaries(
+    workspaceId?: string,
+  ): Promise<ScheduledTaskSummary[]> {
     const [scheduledTasks, nodes] = await Promise.all([
-      this.getScheduledTasks(),
-      this.getNodes({ limit: 100 }),
+      this.getScheduledTasks(workspaceId),
+      this.getNodes({ limit: 100 }, workspaceId),
     ]);
 
     const nodeLookup = createNodeLookup(nodes);
     return scheduledTasks.map((task) => mapScheduledTaskSummary(task, nodeLookup));
   },
-  async getTaskDetail(id: string): Promise<TaskDetail> {
-    const task = await this.getTask(id);
+  async getTaskDetail(id: string, workspaceId?: string): Promise<TaskDetail> {
+    const task = await this.getTask(id, workspaceId);
 
     const [node, metrics, logs, events] = await Promise.all([
-      this.getNode(task.nodeId),
-      this.getMetrics({ nodeId: task.nodeId, limit: 1 }),
-      this.getTaskLogs(id, { limit: 100 }),
-      this.getEvents({ nodeId: task.nodeId, limit: 50 }),
+      this.getNode(task.nodeId, workspaceId),
+      this.getMetrics({ nodeId: task.nodeId, limit: 1 }, workspaceId),
+      this.getTaskLogs(id, { limit: 100 }, workspaceId),
+      this.getEvents({ nodeId: task.nodeId, limit: 50 }, workspaceId),
     ]);
 
     const nodeSummary = mapNodeSummary(node, createMetricsByNodeId(metrics));
@@ -893,8 +1094,8 @@ export const apiClient = {
       nodeLookup,
     });
   },
-  async getTaskLogLines(id: string, filters?: TaskLogFilters) {
-    return (await this.getTaskLogs(id, filters)).map((log) => ({
+  async getTaskLogLines(id: string, filters?: TaskLogFilters, workspaceId?: string) {
+    return (await this.getTaskLogs(id, filters, workspaceId)).map((log) => ({
       id: log.id,
       taskId: log.taskId,
       timestamp: log.timestamp ?? log.createdAt,
@@ -902,8 +1103,8 @@ export const apiClient = {
       message: log.message,
     }));
   },
-  async getEventRecords(filters?: EventFilters) {
-    const events = await this.getEvents(filters);
+  async getEventRecords(filters?: EventFilters, workspaceId?: string) {
+    const events = await this.getEvents(filters, workspaceId);
     return filterEventsByQuery(events.map(mapEventRecord), filters?.query);
   },
 };

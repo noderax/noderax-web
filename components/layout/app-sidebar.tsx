@@ -25,6 +25,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+import { useWorkspaceContext } from "@/lib/hooks/use-workspace-context";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/store/useAppStore";
 
@@ -66,47 +67,84 @@ const SidebarContent = ({
   const pathname = usePathname();
   const toggleSidebar = useAppStore((state) => state.toggleSidebar);
   const realtimeStatus = useAppStore((state) => state.realtimeStatus);
-  const session = useAppStore((state) => state.session);
-  const isAdmin = session?.user.role === "admin";
+  const {
+    workspace,
+    buildWorkspaceHref,
+    isPlatformAdmin,
+    isWorkspaceAdmin,
+  } = useWorkspaceContext();
+  const dashboardHref = buildWorkspaceHref("dashboard") ?? "/workspaces";
+  const nodesHref = buildWorkspaceHref("nodes") ?? "/workspaces";
+  const tasksHref = buildWorkspaceHref("tasks") ?? "/workspaces";
+  const scheduledTasksHref =
+    buildWorkspaceHref("scheduled-tasks") ?? "/workspaces";
+  const eventsHref = buildWorkspaceHref("events") ?? "/workspaces";
+  const membersHref = buildWorkspaceHref("members") ?? "/workspaces";
+  const teamsHref = buildWorkspaceHref("teams") ?? "/workspaces";
+  const workspaceSettingsHref =
+    buildWorkspaceHref("workspace-settings") ?? "/workspaces";
   const tasksSectionActive =
-    pathname === "/tasks" ||
-    pathname.startsWith("/tasks/") ||
-    pathname === "/scheduled-tasks" ||
-    pathname.startsWith("/scheduled-tasks/");
+    pathname === tasksHref ||
+    pathname.startsWith(`${tasksHref}/`) ||
+    pathname === scheduledTasksHref ||
+    pathname.startsWith(`${scheduledTasksHref}/`);
   const [tasksExpanded, setTasksExpanded] = useState(false);
   const isTasksExpanded = tasksSectionActive || tasksExpanded;
 
   const navigation = [
     {
       label: "Overview",
-      items: [{ href: "/dashboard", label: "Dashboard", icon: Home }],
+      items: [{ href: dashboardHref, label: "Dashboard", icon: Home }],
     },
     {
       label: "Operations",
       items: [
-        { href: "/nodes", label: "Nodes", icon: Boxes },
-        ...(isAdmin
+        { href: nodesHref, label: "Nodes", icon: Boxes },
+        ...(isWorkspaceAdmin
           ? [
               {
                 label: "Tasks",
                 icon: Workflow,
                 children: [
-                  { href: "/tasks", label: "Task runs" },
-                  { href: "/scheduled-tasks", label: "Scheduled tasks" },
+                  { href: tasksHref, label: "Task runs" },
+                  { href: scheduledTasksHref, label: "Scheduled tasks" },
                 ],
               },
             ]
-          : [{ href: "/tasks", label: "Tasks", icon: Workflow }]),
-        { href: "/events", label: "Events", icon: Siren },
+          : [{ href: tasksHref, label: "Tasks", icon: Workflow }]),
+        { href: eventsHref, label: "Events", icon: Siren },
       ],
     },
     {
       label: "Workspace",
       items: [
-        ...(session?.user.role === "admin"
-          ? [{ href: "/users", label: "Users", icon: Users }]
+        ...(workspace
+          ? [
+              { href: membersHref, label: "Members", icon: Users },
+              { href: teamsHref, label: "Teams", icon: Users },
+              ...(isWorkspaceAdmin
+                ? [
+                    {
+                      href: workspaceSettingsHref,
+                      label: "Workspace Settings",
+                      icon: Settings,
+                    },
+                  ]
+                : []),
+            ]
           : []),
-        { href: "/settings", label: "Settings", icon: Settings },
+        { href: "/settings", label: "My Settings", icon: Settings },
+      ],
+    },
+    {
+      label: "Platform",
+      items: [
+        ...(isPlatformAdmin
+          ? [
+              { href: "/workspaces", label: "Workspaces", icon: Workflow },
+              { href: "/users", label: "Users", icon: Users },
+            ]
+          : []),
       ],
     },
   ] satisfies Array<{
@@ -151,7 +189,7 @@ const SidebarContent = ({
                       return (
                         <Link
                           key={item.label}
-                          href={childItems[0]?.href ?? "/tasks"}
+                          href={childItems[0]?.href ?? tasksHref}
                           onClick={onNavigate}
                           className={cn(
                             "flex h-10 items-center gap-3 rounded-xl border border-transparent px-3 text-sm font-medium transition-colors",
@@ -210,7 +248,7 @@ const SidebarContent = ({
 
                               return (
                                 <Link
-                                  key={child.href}
+                                  key={`${child.label}:${child.href}`}
                                   href={child.href}
                                   onClick={onNavigate}
                                   className={cn(
@@ -236,7 +274,7 @@ const SidebarContent = ({
 
                   return (
                     <Link
-                      key={item.href}
+                      key={`${item.label}:${item.href}`}
                       href={item.href}
                       onClick={onNavigate}
                       className={cn(
@@ -274,13 +312,15 @@ const SidebarContent = ({
         {!collapsed ? (
           <div className="mb-3 rounded-2xl border border-sidebar-border bg-background/70 px-3.5 py-3">
             <p className="text-xs font-medium text-sidebar-foreground">
-              Workspace
+              {workspace ? "Workspace" : "Connection"}
             </p>
             <p className="mt-1 text-sm font-semibold text-sidebar-foreground">
-              {realtimeLabels[realtimeStatus]}
+              {workspace?.name ?? realtimeLabels[realtimeStatus]}
             </p>
             <p className="mt-1 text-xs text-muted-foreground">
-              Nodes, tasks, metrics, and events in one control surface.
+              {workspace
+                ? `Timezone ${workspace.defaultTimezone} · ${workspace.currentUserRole ?? "member"} access`
+                : "Select a workspace to scope nodes, tasks, metrics, and events."}
             </p>
           </div>
         ) : null}

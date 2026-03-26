@@ -16,9 +16,9 @@ import { TaskStatusBadge } from "@/components/tasks/task-status-badge";
 import { SectionPanel } from "@/components/ui/section-panel";
 import { StatStrip } from "@/components/ui/stat-strip";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useAuthSession } from "@/lib/hooks/use-auth-session";
 import { useNode } from "@/lib/hooks/use-noderax-data";
 import { useNodeRealtimeSubscription } from "@/lib/hooks/use-realtime";
+import { useWorkspaceContext } from "@/lib/hooks/use-workspace-context";
 
 const readFirstNumber = (
   record: Record<string, unknown> | null,
@@ -85,13 +85,13 @@ const formatNetworkSummary = (stats: Record<string, unknown> | null) => {
 
 export const NodeDetailView = ({ id }: { id: string }) => {
   const router = useRouter();
-  const authQuery = useAuthSession();
+  const { buildWorkspaceHref, isWorkspaceAdmin } = useWorkspaceContext();
 
   useNodeRealtimeSubscription(id);
 
   const nodeQuery = useNode(id);
   const node = nodeQuery.data;
-  const isAdmin = authQuery.session?.user.role === "admin";
+  const isAdmin = isWorkspaceAdmin;
 
   if (nodeQuery.isError || (!nodeQuery.isPending && !node)) {
     return (
@@ -147,7 +147,7 @@ export const NodeDetailView = ({ id }: { id: string }) => {
             nodeName={node.name}
             triggerLabel="Delete node"
             triggerVariant="destructive"
-            onDeleted={() => router.replace("/nodes")}
+            onDeleted={() => router.replace(buildWorkspaceHref("nodes") ?? "/workspaces")}
           />
         ) : null}
       </div>
@@ -244,7 +244,7 @@ export const NodeDetailView = ({ id }: { id: string }) => {
               node.runningTasks.map((task) => (
                 <Link
                   key={task.id}
-                  href={`/tasks/${task.id}`}
+                  href={buildWorkspaceHref(`tasks/${task.id}`) ?? "/workspaces"}
                   className="surface-subtle surface-hover block rounded-[18px] border px-4 py-3"
                 >
                   <div className="flex items-center justify-between gap-4">

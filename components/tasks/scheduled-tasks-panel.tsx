@@ -32,6 +32,7 @@ import {
   useDeleteScheduledTask,
   useUpdateScheduledTask,
 } from "@/lib/hooks/use-noderax-data";
+import { useWorkspaceContext } from "@/lib/hooks/use-workspace-context";
 import type { ScheduledTaskSummary } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -50,6 +51,7 @@ export const ScheduledTasksPanel = ({
 }) => {
   const updateScheduledTask = useUpdateScheduledTask();
   const deleteScheduledTask = useDeleteScheduledTask();
+  const { buildWorkspaceHref } = useWorkspaceContext();
   const [pendingDelete, setPendingDelete] = useState<ScheduledTaskSummary | null>(null);
 
   const orderedSchedules = useMemo(
@@ -80,12 +82,12 @@ export const ScheduledTasksPanel = ({
 
   if (isLoading) {
     return (
-      <SectionPanel
-        eyebrow="Automation"
-        title="Scheduled tasks"
-        description="Recurring shell commands aligned to each schedule owner's saved timezone."
-        action={action}
-        contentClassName="space-y-3"
+        <SectionPanel
+          eyebrow="Automation"
+          title="Scheduled tasks"
+          description="Recurring shell commands aligned to the workspace execution timezone."
+          action={action}
+          contentClassName="space-y-3"
       >
         {Array.from({ length: 4 }).map((_, index) => (
           <Skeleton key={index} className="h-16 rounded-[18px]" />
@@ -96,11 +98,11 @@ export const ScheduledTasksPanel = ({
 
   if (isError) {
     return (
-      <SectionPanel
-        eyebrow="Automation"
-        title="Scheduled tasks"
-        description="Recurring shell commands aligned to each schedule owner's saved timezone."
-      >
+        <SectionPanel
+          eyebrow="Automation"
+          title="Scheduled tasks"
+          description="Recurring shell commands aligned to the workspace execution timezone."
+        >
         <EmptyState
           title="Scheduled tasks are unavailable"
           description="The recurring task configuration could not be loaded from the authenticated API connection."
@@ -114,11 +116,11 @@ export const ScheduledTasksPanel = ({
 
   if (!orderedSchedules.length) {
     return (
-      <SectionPanel
-        eyebrow="Automation"
-        title="Scheduled tasks"
-        description="Recurring shell commands aligned to each schedule owner's saved timezone."
-        action={action}
+        <SectionPanel
+          eyebrow="Automation"
+          title="Scheduled tasks"
+          description="Recurring shell commands aligned to the workspace execution timezone."
+          action={action}
       >
         <EmptyState
           title="No scheduled tasks yet"
@@ -131,12 +133,12 @@ export const ScheduledTasksPanel = ({
 
   return (
     <>
-      <SectionPanel
-        eyebrow="Automation"
-        title="Scheduled tasks"
-        description="Recurring shell commands aligned to each schedule owner's saved timezone."
-        action={action}
-        contentClassName="p-0"
+        <SectionPanel
+          eyebrow="Automation"
+          title="Scheduled tasks"
+          description="Recurring shell commands aligned to the workspace execution timezone."
+          action={action}
+          contentClassName="p-0"
       >
         <Table>
           <TableHeader>
@@ -230,7 +232,10 @@ export const ScheduledTasksPanel = ({
                     />
                     {schedule.lastRunTaskId ? (
                       <Link
-                        href={`/tasks/${schedule.lastRunTaskId}`}
+                        href={
+                          buildWorkspaceHref(`tasks/${schedule.lastRunTaskId}`) ??
+                          "/workspaces"
+                        }
                         className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}
                       >
                         Details

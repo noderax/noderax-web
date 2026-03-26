@@ -1,4 +1,4 @@
-import { NodeDetailView } from "@/components/nodes/node-detail-view";
+import { redirectToStoredWorkspace } from "@/lib/server-workspace";
 
 export default async function NodeDetailPage({
   params,
@@ -7,5 +7,5 @@ export default async function NodeDetailPage({
 }) {
   const { id } = await params;
 
-  return <NodeDetailView id={id} />;
+  await redirectToStoredWorkspace(`nodes/${id}`);
 }
