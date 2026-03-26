@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useEffectEvent, useRef } from "react";
-import { type QueryClient, useQueryClient } from "@tanstack/react-query";
+import { type Query, type QueryClient, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 import { mapEventRecord, mapMetricDtoToPoint } from "@/lib/noderax";
@@ -108,17 +108,28 @@ const updateDashboardNodes = (
   };
 };
 
+const isNodeListQuery = (query: Query) =>
+  query.queryKey[0] === "nodes" && query.queryKey[2] === "list";
+
+const isNodeDetailQuery = (query: Query) =>
+  query.queryKey[0] === "nodes" && query.queryKey[2] === "detail";
+
+const isTaskDetailQuery = (query: Query) =>
+  query.queryKey[0] === "tasks" && query.queryKey[2] === "detail";
+
 const collectTrackedNodeIds = (queryClient: QueryClient) => {
   const trackedNodeIds = new Set<string>();
 
   queryClient
-    .getQueriesData<NodeSummary[]>({ queryKey: ["nodes"] })
+    .getQueriesData<NodeSummary[]>({ predicate: isNodeListQuery })
     .forEach(([, nodes]) => {
-      nodes?.forEach((node) => trackedNodeIds.add(node.id));
+      if (Array.isArray(nodes)) {
+        nodes.forEach((node) => trackedNodeIds.add(node.id));
+      }
     });
 
   queryClient
-    .getQueriesData<NodeDetail>({ queryKey: ["nodes"] })
+    .getQueriesData<NodeDetail>({ predicate: isNodeDetailQuery })
     .forEach(([, node]) => {
       if (node) {
         trackedNodeIds.add(node.id);
@@ -126,7 +137,7 @@ const collectTrackedNodeIds = (queryClient: QueryClient) => {
     });
 
   queryClient
-    .getQueriesData<TaskDetail>({ queryKey: ["tasks"] })
+    .getQueriesData<TaskDetail>({ predicate: isTaskDetailQuery })
     .forEach(([, task]) => {
       if (task?.node?.id) {
         trackedNodeIds.add(task.node.id);
@@ -218,7 +229,7 @@ export const useRealtimeBridge = () => {
 
     snapshot.forEach(([nodeId, queued]) => {
       queryClient.setQueriesData<NodeSummary[]>(
-        { queryKey: ["nodes"] },
+        { predicate: isNodeListQuery },
         (current) =>
           current?.map((node) =>
             node.id === nodeId
@@ -231,7 +242,7 @@ export const useRealtimeBridge = () => {
       );
 
       queryClient.setQueriesData<NodeDetail | undefined>(
-        { queryKey: ["nodes"] },
+        { predicate: isNodeDetailQuery },
         (current) =>
           current
             ? {
@@ -261,7 +272,7 @@ export const useRealtimeBridge = () => {
       );
 
       queryClient.setQueriesData<TaskDetail | undefined>(
-        { queryKey: ["tasks", "detail"] },
+        { predicate: isTaskDetailQuery },
         (current) =>
           current?.node?.id === nodeId
             ? {
@@ -330,21 +341,25 @@ export const useRealtimeBridge = () => {
       let nodeLabel = message.data.hostname ?? "Node";
 
       if (!previousStatus) {
-        const detail = queryClient.getQueryData<NodeDetail | undefined>(
-          ["nodes"],
-        );
+        queryClient
+          .getQueriesData<NodeDetail>({ predicate: isNodeDetailQuery })
+          .forEach(([, detail]) => {
+            if (!detail || detail.id !== nodeId || previousStatus) {
+              return;
+            }
 
-        if (detail) {
-          previousStatus = detail.status;
-          nodeLabel = detail.name || detail.hostname || nodeLabel;
-        }
+            previousStatus = detail.status;
+            nodeLabel = detail.name || detail.hostname || nodeLabel;
+          });
       }
 
       if (!previousStatus) {
         queryClient
-          .getQueriesData<NodeSummary[]>({ queryKey: ["nodes"] })
+          .getQueriesData<NodeSummary[]>({ predicate: isNodeListQuery })
           .forEach(([, nodes]) => {
-            const matched = nodes?.find((node) => node.id === nodeId);
+            const matched = Array.isArray(nodes)
+              ? nodes.find((node) => node.id === nodeId)
+              : undefined;
             if (matched) {
               previousStatus = matched.status;
               nodeLabel = matched.name || matched.hostname || nodeLabel;
@@ -353,7 +368,7 @@ export const useRealtimeBridge = () => {
       }
 
       queryClient.setQueriesData<NodeSummary[]>(
-        { queryKey: ["nodes"] },
+        { predicate: isNodeListQuery },
         (current) =>
           current?.map((node) =>
             node.id === nodeId
@@ -367,7 +382,7 @@ export const useRealtimeBridge = () => {
       );
 
       queryClient.setQueriesData<NodeDetail | undefined>(
-        { queryKey: ["nodes"] },
+        { predicate: isNodeDetailQuery },
         (current) =>
           current
             ? {
@@ -393,7 +408,7 @@ export const useRealtimeBridge = () => {
       );
 
       queryClient.setQueriesData<TaskDetail | undefined>(
-        { queryKey: ["tasks", "detail"] },
+        { predicate: isTaskDetailQuery },
         (current) =>
           current?.node?.id === nodeId
             ? {
