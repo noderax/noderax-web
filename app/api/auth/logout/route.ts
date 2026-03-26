@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { AUTH_PERSIST_COOKIE, AUTH_SESSION_COOKIE, AUTH_TOKEN_COOKIE } from "@/lib/auth";
+import { WORKSPACE_COOKIE } from "@/lib/workspace";
 
 export async function POST() {
   const response = NextResponse.json({ success: true });
@@ -14,6 +15,10 @@ export async function POST() {
     path: "/",
   });
   response.cookies.set(AUTH_PERSIST_COOKIE, "", {
+    expires: new Date(0),
+    path: "/",
+  });
+  response.cookies.set(WORKSPACE_COOKIE, "", {
     expires: new Date(0),
     path: "/",
   });

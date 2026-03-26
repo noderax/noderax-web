@@ -10,6 +10,7 @@ import {
 } from "@tanstack/react-query";
 
 import { apiClient } from "@/lib/api";
+import { clearPersistedWorkspaceSlug } from "@/lib/workspace";
 import type { LoginPayload } from "@/lib/types";
 import { useAppStore } from "@/store/useAppStore";
 
@@ -26,6 +27,9 @@ const refreshAccountQueries = (queryClient: QueryClient) =>
 export const useAuthSession = () => {
   const queryClient = useQueryClient();
   const setSession = useAppStore((state) => state.setSession);
+  const setActiveWorkspaceSlug = useAppStore(
+    (state) => state.setActiveWorkspaceSlug,
+  );
   const clearSession = useAppStore((state) => state.clearSession);
   const storedSession = useAppStore((state) => state.session);
 
@@ -39,12 +43,20 @@ export const useAuthSession = () => {
   useEffect(() => {
     if (query.data) {
       if (storedSession?.user.id && storedSession.user.id !== query.data.user.id) {
+        setActiveWorkspaceSlug(null);
+        clearPersistedWorkspaceSlug();
         void refreshAccountQueries(queryClient);
       }
 
       setSession(query.data);
     }
-  }, [query.data, queryClient, setSession, storedSession?.user.id]);
+  }, [
+    query.data,
+    queryClient,
+    setActiveWorkspaceSlug,
+    setSession,
+    storedSession?.user.id,
+  ]);
 
   useEffect(() => {
     if (query.error) {

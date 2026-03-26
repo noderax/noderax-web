@@ -35,8 +35,17 @@ import { Label } from "@/components/ui/label";
 import { Particles } from "@/components/ui/particles";
 import { Switch } from "@/components/ui/switch";
 import { ApiError } from "@/lib/api";
+import { apiClient } from "@/lib/api";
 import { useLogin } from "@/lib/hooks/use-auth-session";
+import {
+  buildWorkspacePath,
+  clearPersistedWorkspaceSlug,
+  persistWorkspaceSlug,
+  pickDefaultWorkspace,
+  readWorkspaceChildPath,
+} from "@/lib/workspace";
 import { cn } from "@/lib/utils";
+import { useAppStore } from "@/store/useAppStore";
 
 const loginSchema = z.object({
   email: z.string().email("Enter a valid work email."),
@@ -117,6 +126,9 @@ export const LoginScreen = ({ nextPath }: { nextPath?: string }) => {
   const reduceMotion = Boolean(useReducedMotion());
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const loginMutation = useLogin();
+  const setActiveWorkspaceSlug = useAppStore(
+    (state) => state.setActiveWorkspaceSlug,
+  );
 
   const form = useForm<LoginValues>({
     resolver: zodResolver(loginSchema),
@@ -138,7 +150,25 @@ export const LoginScreen = ({ nextPath }: { nextPath?: string }) => {
     try {
       await loginMutation.mutateAsync(values);
 
-      const destination = nextPath?.startsWith("/") ? nextPath : "/dashboard";
+      const workspaces = await apiClient.getWorkspaces();
+      const preferredWorkspace = pickDefaultWorkspace(workspaces) ?? workspaces[0] ?? null;
+      const workspaceTargetPath = resolveWorkspaceTargetPath(nextPath);
+
+      if (preferredWorkspace) {
+        setActiveWorkspaceSlug(preferredWorkspace.slug);
+        persistWorkspaceSlug(preferredWorkspace.slug);
+      } else {
+        setActiveWorkspaceSlug(null);
+        clearPersistedWorkspaceSlug();
+      }
+
+      const destination = preferredWorkspace
+        ? workspaceTargetPath
+          ? buildWorkspacePath(preferredWorkspace.slug, workspaceTargetPath)
+          : nextPath?.startsWith("/")
+            ? nextPath
+            : buildWorkspacePath(preferredWorkspace.slug, "dashboard")
+        : "/workspaces";
 
       startTransition(() => {
         router.replace(destination);
@@ -377,4 +407,31 @@ export const LoginScreen = ({ nextPath }: { nextPath?: string }) => {
       </div>
     </div>
   );
+};
+
+const resolveWorkspaceTargetPath = (nextPath?: string) => {
+  if (!nextPath?.startsWith("/")) {
+    return "dashboard";
+  }
+
+  if (nextPath === "/" || nextPath === "/dashboard") {
+    return "dashboard";
+  }
+
+  if (
+    nextPath === "/nodes" ||
+    nextPath.startsWith("/nodes/") ||
+    nextPath === "/tasks" ||
+    nextPath.startsWith("/tasks/") ||
+    nextPath === "/events" ||
+    nextPath === "/scheduled-tasks"
+  ) {
+    return nextPath.replace(/^\/+/, "");
+  }
+
+  if (nextPath.startsWith("/w/")) {
+    return readWorkspaceChildPath(nextPath);
+  }
+
+  return null;
 };

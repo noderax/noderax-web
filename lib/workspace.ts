@@ -10,6 +10,18 @@ export const buildWorkspacePath = (workspaceSlug: string, path = "dashboard") =>
   return `/w/${workspaceSlug}${normalizedPath ? `/${normalizedPath}` : ""}`;
 };
 
+export const readWorkspaceChildPath = (
+  pathname: string | null | undefined,
+  fallback = "dashboard",
+) => {
+  if (!pathname?.startsWith("/w/")) {
+    return fallback;
+  }
+
+  const segments = pathname.split("/").filter(Boolean).slice(2);
+  return segments.length ? segments.join("/") : fallback;
+};
+
 export const isPlatformAdmin = (role?: UserRole | null) => role === "platform_admin";
 
 export const isWorkspaceAdminRole = (role?: WorkspaceMembershipRole | null) =>
@@ -30,4 +42,12 @@ export const persistWorkspaceSlug = (slug: string) => {
   }
 
   document.cookie = `${WORKSPACE_COOKIE}=${encodeURIComponent(slug)}; path=/; max-age=31536000; samesite=lax`;
+};
+
+export const clearPersistedWorkspaceSlug = () => {
+  if (typeof document === "undefined") {
+    return;
+  }
+
+  document.cookie = `${WORKSPACE_COOKIE}=; path=/; expires=${new Date(0).toUTCString()}; samesite=lax`;
 };
