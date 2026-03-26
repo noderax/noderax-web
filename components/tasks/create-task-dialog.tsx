@@ -51,6 +51,7 @@ const scheduledCadenceOptions = [
   "daily",
   "weekly",
 ] as const;
+const SHELL_EXEC_TASK_TYPE = "shell.exec";
 
 type DialogTab = "on-demand" | "scheduled" | "multi-tasking";
 type MultiTaskMode = "run-now" | "scheduled";
@@ -63,6 +64,12 @@ type SharedScheduledValues = {
   intervalMinutesText: string;
   timeText: string;
   dayOfWeek: string;
+};
+
+type CommandTaskValues = {
+  type: string;
+  command: string;
+  payloadText: string;
 };
 
 const validatePayloadText = (
@@ -180,6 +187,36 @@ const validateScheduledFields = (
   }
 };
 
+const validateCommandTaskFields = (
+  value: CommandTaskValues,
+  ctx: z.RefinementCtx,
+) => {
+  const normalizedType = value.type.trim();
+
+  if (normalizedType.length < 2) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["type"],
+      message: "Task type must be at least 2 characters.",
+    });
+    return;
+  }
+
+  if (normalizedType === SHELL_EXEC_TASK_TYPE) {
+    if (!value.command.trim()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["command"],
+        message: "Command is required.",
+      });
+    }
+
+    return;
+  }
+
+  validatePayloadText(value.payloadText, ctx);
+};
+
 const buildScheduledMutationPayload = (
   values: SharedScheduledValues,
 ): Omit<CreateScheduledTaskPayload, "nodeId"> => {
@@ -228,13 +265,21 @@ const buildScheduledMutationPayload = (
 const parsePayloadObject = (payloadText: string) =>
   JSON.parse(payloadText) as Record<string, unknown>;
 
-const createTaskSchema = z.object({
-  nodeId: z.string().min(1, "Select a node."),
-  type: z.string().min(2, "Task type must be at least 2 characters."),
-  payloadText: z.string().superRefine((value, ctx) => {
-    validatePayloadText(value, ctx);
-  }),
-});
+const buildOnDemandPayload = (values: CommandTaskValues) =>
+  values.type.trim() === SHELL_EXEC_TASK_TYPE
+    ? { command: values.command.trim() }
+    : parsePayloadObject(values.payloadText);
+
+const createTaskSchema = z
+  .object({
+    nodeId: z.string().min(1, "Select a node."),
+    type: z.string(),
+    command: z.string(),
+    payloadText: z.string(),
+  })
+  .superRefine((value, ctx) => {
+    validateCommandTaskFields(value, ctx);
+  });
 
 const scheduledTaskSchema = z
   .object({
@@ -256,9 +301,9 @@ const multiTaskSchema = z
     nodeIds: z.array(z.string()).min(1, "Select at least one node."),
     mode: z.enum(["run-now", "scheduled"]),
     type: z.string(),
+    command: z.string(),
     payloadText: z.string(),
     name: z.string(),
-    command: z.string(),
     cadence: z.enum(scheduledCadenceOptions),
     minuteText: z.string(),
     intervalMinutesText: z.string(),
@@ -267,15 +312,7 @@ const multiTaskSchema = z
   })
   .superRefine((value, ctx) => {
     if (value.mode === "run-now") {
-      if (value.type.trim().length < 2) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ["type"],
-          message: "Task type must be at least 2 characters.",
-        });
-      }
-
-      validatePayloadText(value.payloadText, ctx);
+      validateCommandTaskFields(value, ctx);
       return;
     }
 
@@ -288,7 +325,8 @@ type MultiTaskValues = z.infer<typeof multiTaskSchema>;
 
 const defaultTaskValues: CreateTaskValues = {
   nodeId: "",
-  type: "",
+  type: SHELL_EXEC_TASK_TYPE,
+  command: "",
   payloadText: "{}",
 };
 
@@ -306,10 +344,10 @@ const defaultScheduledValues: ScheduledTaskValues = {
 const defaultMultiValues: MultiTaskValues = {
   nodeIds: [],
   mode: "run-now",
-  type: "",
+  type: SHELL_EXEC_TASK_TYPE,
+  command: "",
   payloadText: "{}",
   name: "",
-  command: "",
   cadence: "hourly",
   minuteText: "0",
   intervalMinutesText: "5",
@@ -375,6 +413,10 @@ export const CreateTaskDialog = ({
     control: taskForm.control,
     name: "nodeId",
   });
+  const taskTypeValue = useWatch({
+    control: taskForm.control,
+    name: "type",
+  });
   const scheduleNodeIdValue = useWatch({
     control: scheduledForm.control,
     name: "nodeId",
@@ -395,6 +437,10 @@ export const CreateTaskDialog = ({
     control: multiForm.control,
     name: "mode",
   });
+  const multiTaskTypeValue = useWatch({
+    control: multiForm.control,
+    name: "type",
+  });
   const multiCadenceValue = useWatch({
     control: multiForm.control,
     name: "cadence",
@@ -413,6 +459,10 @@ export const CreateTaskDialog = ({
       nodes.filter((node) => (multiNodeIdsValue ?? []).includes(node.id)),
     [multiNodeIdsValue, nodes],
   );
+  const isTaskShellExec = taskTypeValue.trim() === SHELL_EXEC_TASK_TYPE;
+  const isMultiRunNowShellExec =
+    multiModeValue === "run-now" &&
+    multiTaskTypeValue.trim() === SHELL_EXEC_TASK_TYPE;
   const selectedMultiNodeCount = selectedMultiNodes.length;
   const isMultiSubmitting =
     multiModeValue === "scheduled"
@@ -451,10 +501,12 @@ export const CreateTaskDialog = ({
     setTaskSubmissionError(null);
 
     try {
+      const normalizedType = values.type.trim();
+
       await createTaskMutation.mutateAsync({
         nodeId: values.nodeId,
-        type: values.type.trim(),
-        payload: parsePayloadObject(values.payloadText),
+        type: normalizedType,
+        payload: buildOnDemandPayload(values),
       });
       resetDialogState();
       setOpen(false);
@@ -494,10 +546,12 @@ export const CreateTaskDialog = ({
           ...buildScheduledMutationPayload(values),
         });
       } else {
+        const normalizedType = values.type.trim();
+
         await createBatchTaskMutation.mutateAsync({
           nodeIds: values.nodeIds,
-          type: values.type.trim(),
-          payload: parsePayloadObject(values.payloadText),
+          type: normalizedType,
+          payload: buildOnDemandPayload(values),
         });
       }
 
@@ -539,14 +593,18 @@ export const CreateTaskDialog = ({
         <Plus className="size-4" />
         {triggerLabel}
       </DialogTrigger>
-      <DialogContent className="sm:max-w-3xl">
-        <DialogHeader>
+      <DialogContent className="flex max-h-[calc(100vh-1rem)] flex-col overflow-hidden sm:max-w-4xl xl:max-w-5xl">
+        <DialogHeader className="shrink-0">
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
 
-        <Tabs value={tab} onValueChange={(value) => setTab(value as DialogTab)} className="space-y-4">
-          <TabsList className="grid w-full grid-cols-3">
+        <Tabs
+          value={tab}
+          onValueChange={(value) => setTab(value as DialogTab)}
+          className="flex min-h-0 flex-1 flex-col gap-4"
+        >
+          <TabsList className="grid w-full shrink-0 grid-cols-3">
             <TabsTrigger value="on-demand">
               <Sparkles className="size-4" />
               On-demand
@@ -561,76 +619,100 @@ export const CreateTaskDialog = ({
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="on-demand" className="mt-0">
-            <form className="space-y-4" onSubmit={onSubmitTask}>
-              <div className="space-y-2">
-                <Label htmlFor="task-node">Node</Label>
-                <Select
-                  value={taskNodeIdValue}
-                  onValueChange={(value) =>
-                    taskForm.setValue("nodeId", value ?? "", {
-                      shouldDirty: true,
-                      shouldValidate: true,
-                    })
-                  }
-                >
-                  <SelectTrigger id="task-node" className="w-full">
-                    <SelectValue placeholder="Select a node">
-                      {selectedTaskNode
-                        ? `${selectedTaskNode.name} (${selectedTaskNode.hostname})`
-                        : undefined}
-                    </SelectValue>
-                  </SelectTrigger>
-                  <SelectContent>
-                    {nodes.map((node) => (
-                      <SelectItem key={node.id} value={node.id}>
-                        {node.name} ({node.hostname})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {taskForm.formState.errors.nodeId ? (
-                  <p className="text-sm text-tone-danger">
-                    {taskForm.formState.errors.nodeId.message}
-                  </p>
+          <TabsContent value="on-demand" className="mt-0 flex min-h-0 flex-1 flex-col overflow-hidden">
+            <form className="flex min-h-0 flex-1 flex-col" onSubmit={onSubmitTask}>
+              <div className="flex-1 space-y-4 overflow-y-auto pr-1">
+                <div className="space-y-2">
+                  <Label htmlFor="task-node">Node</Label>
+                  <Select
+                    value={taskNodeIdValue}
+                    onValueChange={(value) =>
+                      taskForm.setValue("nodeId", value ?? "", {
+                        shouldDirty: true,
+                        shouldValidate: true,
+                      })
+                    }
+                  >
+                    <SelectTrigger id="task-node" className="w-full">
+                      <SelectValue placeholder="Select a node">
+                        {selectedTaskNode
+                          ? `${selectedTaskNode.name} (${selectedTaskNode.hostname})`
+                          : undefined}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {nodes.map((node) => (
+                        <SelectItem key={node.id} value={node.id}>
+                          {node.name} ({node.hostname})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {taskForm.formState.errors.nodeId ? (
+                    <p className="text-sm text-tone-danger">
+                      {taskForm.formState.errors.nodeId.message}
+                    </p>
+                  ) : null}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="task-type">Task type</Label>
+                  <Input
+                    id="task-type"
+                    placeholder="shell.exec"
+                    aria-invalid={Boolean(taskForm.formState.errors.type)}
+                    {...taskForm.register("type")}
+                  />
+                  {taskForm.formState.errors.type ? (
+                    <p className="text-sm text-tone-danger">
+                      {taskForm.formState.errors.type.message}
+                    </p>
+                  ) : isTaskShellExec ? (
+                    <p className="text-xs text-muted-foreground">
+                      `shell.exec` uses the same direct command input as scheduled tasks.
+                    </p>
+                  ) : null}
+                </div>
+
+                {isTaskShellExec ? (
+                  <div className="space-y-2">
+                    <Label htmlFor="task-command">Command</Label>
+                    <Textarea
+                      id="task-command"
+                      placeholder="hostname"
+                      className="min-h-28 font-mono text-xs"
+                      aria-invalid={Boolean(taskForm.formState.errors.command)}
+                      {...taskForm.register("command")}
+                    />
+                    {taskForm.formState.errors.command ? (
+                      <p className="text-sm text-tone-danger">
+                        {taskForm.formState.errors.command.message}
+                      </p>
+                    ) : null}
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <Label htmlFor="task-payload">Payload JSON</Label>
+                    <Textarea
+                      id="task-payload"
+                      className="min-h-44 font-mono text-xs"
+                      aria-invalid={Boolean(taskForm.formState.errors.payloadText)}
+                      {...taskForm.register("payloadText")}
+                    />
+                    {taskForm.formState.errors.payloadText ? (
+                      <p className="text-sm text-tone-danger">
+                        {taskForm.formState.errors.payloadText.message}
+                      </p>
+                    ) : null}
+                  </div>
+                )}
+
+                {taskSubmissionError ? (
+                  <p className="text-sm text-tone-danger">{taskSubmissionError}</p>
                 ) : null}
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="task-type">Task type</Label>
-                <Input
-                  id="task-type"
-                  placeholder="shell.exec"
-                  aria-invalid={Boolean(taskForm.formState.errors.type)}
-                  {...taskForm.register("type")}
-                />
-                {taskForm.formState.errors.type ? (
-                  <p className="text-sm text-tone-danger">
-                    {taskForm.formState.errors.type.message}
-                  </p>
-                ) : null}
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="task-payload">Payload JSON</Label>
-                <Textarea
-                  id="task-payload"
-                  className="min-h-44 font-mono text-xs"
-                  aria-invalid={Boolean(taskForm.formState.errors.payloadText)}
-                  {...taskForm.register("payloadText")}
-                />
-                {taskForm.formState.errors.payloadText ? (
-                  <p className="text-sm text-tone-danger">
-                    {taskForm.formState.errors.payloadText.message}
-                  </p>
-                ) : null}
-              </div>
-
-              {taskSubmissionError ? (
-                <p className="text-sm text-tone-danger">{taskSubmissionError}</p>
-              ) : null}
-
-              <DialogFooter>
+              <DialogFooter className="shrink-0 bg-[var(--surface-dialog)] pt-3">
                 <DialogClose render={<Button variant="outline" type="button" />}>
                   Cancel
                 </DialogClose>
@@ -641,213 +723,215 @@ export const CreateTaskDialog = ({
             </form>
           </TabsContent>
 
-          <TabsContent value="scheduled" className="mt-0">
-            <form className="space-y-4" onSubmit={onSubmitScheduledTask}>
-              <div className="space-y-2">
-                <Label htmlFor="schedule-node">Node</Label>
-                <Select
-                  value={scheduleNodeIdValue}
-                  onValueChange={(value) =>
-                    scheduledForm.setValue("nodeId", value ?? "", {
-                      shouldDirty: true,
-                      shouldValidate: true,
-                    })
-                  }
-                >
-                  <SelectTrigger id="schedule-node" className="w-full">
-                    <SelectValue placeholder="Select a node">
-                      {selectedScheduleNode
-                        ? `${selectedScheduleNode.name} (${selectedScheduleNode.hostname})`
-                        : undefined}
-                    </SelectValue>
-                  </SelectTrigger>
-                  <SelectContent>
-                    {nodes.map((node) => (
-                      <SelectItem key={node.id} value={node.id}>
-                        {node.name} ({node.hostname})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {scheduledForm.formState.errors.nodeId ? (
-                  <p className="text-sm text-tone-danger">
-                    {scheduledForm.formState.errors.nodeId.message}
-                  </p>
-                ) : null}
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="schedule-name">Schedule name</Label>
-                <Input
-                  id="schedule-name"
-                  placeholder="Daily hostname check"
-                  aria-invalid={Boolean(scheduledForm.formState.errors.name)}
-                  {...scheduledForm.register("name")}
-                />
-                {scheduledForm.formState.errors.name ? (
-                  <p className="text-sm text-tone-danger">
-                    {scheduledForm.formState.errors.name.message}
-                  </p>
-                ) : null}
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="schedule-command">Command</Label>
-                <Textarea
-                  id="schedule-command"
-                  placeholder="hostname"
-                  className="min-h-28 font-mono text-xs"
-                  aria-invalid={Boolean(scheduledForm.formState.errors.command)}
-                  {...scheduledForm.register("command")}
-                />
-                {scheduledForm.formState.errors.command ? (
-                  <p className="text-sm text-tone-danger">
-                    {scheduledForm.formState.errors.command.message}
-                  </p>
-                ) : null}
-              </div>
-
-              <div className="grid gap-4 sm:grid-cols-2">
+          <TabsContent value="scheduled" className="mt-0 flex min-h-0 flex-1 flex-col overflow-hidden">
+            <form className="flex min-h-0 flex-1 flex-col" onSubmit={onSubmitScheduledTask}>
+              <div className="flex-1 space-y-4 overflow-y-auto pr-1">
                 <div className="space-y-2">
-                  <Label htmlFor="schedule-cadence">Cadence</Label>
+                  <Label htmlFor="schedule-node">Node</Label>
                   <Select
-                    value={cadenceValue}
+                    value={scheduleNodeIdValue}
                     onValueChange={(value) =>
-                      scheduledForm.setValue(
-                        "cadence",
-                        (value ?? "hourly") as ScheduledTaskValues["cadence"],
-                        {
-                          shouldDirty: true,
-                          shouldValidate: true,
-                        },
-                      )
-                    }
-                  >
-                    <SelectTrigger id="schedule-cadence" className="w-full">
-                      <SelectValue placeholder="Select cadence" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="minutely">Every minute</SelectItem>
-                      <SelectItem value="custom">Custom interval</SelectItem>
-                      <SelectItem value="hourly">Hourly</SelectItem>
-                      <SelectItem value="daily">Daily</SelectItem>
-                      <SelectItem value="weekly">Weekly</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {cadenceValue === "minutely" ? (
-                  <div className="surface-subtle flex items-center rounded-[16px] border px-4 py-3 text-sm text-muted-foreground">
-                    This schedule runs every minute.
-                  </div>
-                ) : cadenceValue === "custom" ? (
-                  <div className="space-y-2">
-                    <Label htmlFor="schedule-interval-minutes">
-                      Interval in minutes
-                    </Label>
-                    <Input
-                      id="schedule-interval-minutes"
-                      type="number"
-                      min={1}
-                      max={10080}
-                      placeholder="5"
-                      aria-invalid={Boolean(
-                        scheduledForm.formState.errors.intervalMinutesText,
-                      )}
-                      {...scheduledForm.register("intervalMinutesText")}
-                    />
-                    {scheduledForm.formState.errors.intervalMinutesText ? (
-                      <p className="text-sm text-tone-danger">
-                        {
-                          scheduledForm.formState.errors.intervalMinutesText
-                            .message
-                        }
-                      </p>
-                    ) : (
-                      <p className="text-xs text-muted-foreground">
-                        Example: 5 for every 5 minutes, 7 for every 7 minutes.
-                      </p>
-                    )}
-                  </div>
-                ) : cadenceValue === "hourly" ? (
-                  <div className="space-y-2">
-                    <Label htmlFor="schedule-minute">Minute</Label>
-                    <Input
-                      id="schedule-minute"
-                      type="number"
-                      min={0}
-                      max={59}
-                      placeholder="15"
-                      aria-invalid={Boolean(scheduledForm.formState.errors.minuteText)}
-                      {...scheduledForm.register("minuteText")}
-                    />
-                    {scheduledForm.formState.errors.minuteText ? (
-                      <p className="text-sm text-tone-danger">
-                        {scheduledForm.formState.errors.minuteText.message}
-                      </p>
-                    ) : null}
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    <Label htmlFor="schedule-time">Local time</Label>
-                    <Input
-                      id="schedule-time"
-                      type="time"
-                      aria-invalid={Boolean(scheduledForm.formState.errors.timeText)}
-                      {...scheduledForm.register("timeText")}
-                    />
-                    {scheduledForm.formState.errors.timeText ? (
-                      <p className="text-sm text-tone-danger">
-                        {scheduledForm.formState.errors.timeText.message}
-                      </p>
-                    ) : null}
-                  </div>
-                )}
-              </div>
-
-              {cadenceValue === "weekly" ? (
-                <div className="space-y-2">
-                  <Label htmlFor="schedule-day">Day of week</Label>
-                  <Select
-                    value={scheduleDayOfWeekValue}
-                    onValueChange={(value) =>
-                      scheduledForm.setValue("dayOfWeek", value ?? "1", {
+                      scheduledForm.setValue("nodeId", value ?? "", {
                         shouldDirty: true,
                         shouldValidate: true,
                       })
                     }
                   >
-                    <SelectTrigger id="schedule-day" className="w-full">
-                      <SelectValue placeholder="Select day" />
+                    <SelectTrigger id="schedule-node" className="w-full">
+                      <SelectValue placeholder="Select a node">
+                        {selectedScheduleNode
+                          ? `${selectedScheduleNode.name} (${selectedScheduleNode.hostname})`
+                          : undefined}
+                      </SelectValue>
                     </SelectTrigger>
                     <SelectContent>
-                      {WEEKDAY_OPTIONS.map((option) => (
-                        <SelectItem key={option.value} value={option.value}>
-                          {option.label}
+                      {nodes.map((node) => (
+                        <SelectItem key={node.id} value={node.id}>
+                          {node.name} ({node.hostname})
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
-                  {scheduledForm.formState.errors.dayOfWeek ? (
+                  {scheduledForm.formState.errors.nodeId ? (
                     <p className="text-sm text-tone-danger">
-                      {scheduledForm.formState.errors.dayOfWeek.message}
+                      {scheduledForm.formState.errors.nodeId.message}
                     </p>
                   ) : null}
                 </div>
-              ) : null}
 
-              <div className="surface-subtle rounded-[18px] border px-4 py-3 text-sm text-muted-foreground">
-                New schedules follow your saved timezone{" "}
-                <span className="font-medium text-foreground">{timezone}</span>.
-                If you change it later in settings, existing schedules move with
-                that preference.
+                <div className="space-y-2">
+                  <Label htmlFor="schedule-name">Schedule name</Label>
+                  <Input
+                    id="schedule-name"
+                    placeholder="Daily hostname check"
+                    aria-invalid={Boolean(scheduledForm.formState.errors.name)}
+                    {...scheduledForm.register("name")}
+                  />
+                  {scheduledForm.formState.errors.name ? (
+                    <p className="text-sm text-tone-danger">
+                      {scheduledForm.formState.errors.name.message}
+                    </p>
+                  ) : null}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="schedule-command">Command</Label>
+                  <Textarea
+                    id="schedule-command"
+                    placeholder="hostname"
+                    className="min-h-28 font-mono text-xs"
+                    aria-invalid={Boolean(scheduledForm.formState.errors.command)}
+                    {...scheduledForm.register("command")}
+                  />
+                  {scheduledForm.formState.errors.command ? (
+                    <p className="text-sm text-tone-danger">
+                      {scheduledForm.formState.errors.command.message}
+                    </p>
+                  ) : null}
+                </div>
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="schedule-cadence">Cadence</Label>
+                    <Select
+                      value={cadenceValue}
+                      onValueChange={(value) =>
+                        scheduledForm.setValue(
+                          "cadence",
+                          (value ?? "hourly") as ScheduledTaskValues["cadence"],
+                          {
+                            shouldDirty: true,
+                            shouldValidate: true,
+                          },
+                        )
+                      }
+                    >
+                      <SelectTrigger id="schedule-cadence" className="w-full">
+                        <SelectValue placeholder="Select cadence" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="minutely">Every minute</SelectItem>
+                        <SelectItem value="custom">Custom interval</SelectItem>
+                        <SelectItem value="hourly">Hourly</SelectItem>
+                        <SelectItem value="daily">Daily</SelectItem>
+                        <SelectItem value="weekly">Weekly</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {cadenceValue === "minutely" ? (
+                    <div className="surface-subtle flex items-center rounded-[16px] border px-4 py-3 text-sm text-muted-foreground">
+                      This schedule runs every minute.
+                    </div>
+                  ) : cadenceValue === "custom" ? (
+                    <div className="space-y-2">
+                      <Label htmlFor="schedule-interval-minutes">
+                        Interval in minutes
+                      </Label>
+                      <Input
+                        id="schedule-interval-minutes"
+                        type="number"
+                        min={1}
+                        max={10080}
+                        placeholder="5"
+                        aria-invalid={Boolean(
+                          scheduledForm.formState.errors.intervalMinutesText,
+                        )}
+                        {...scheduledForm.register("intervalMinutesText")}
+                      />
+                      {scheduledForm.formState.errors.intervalMinutesText ? (
+                        <p className="text-sm text-tone-danger">
+                          {
+                            scheduledForm.formState.errors.intervalMinutesText
+                              .message
+                          }
+                        </p>
+                      ) : (
+                        <p className="text-xs text-muted-foreground">
+                          Example: 5 for every 5 minutes, 7 for every 7 minutes.
+                        </p>
+                      )}
+                    </div>
+                  ) : cadenceValue === "hourly" ? (
+                    <div className="space-y-2">
+                      <Label htmlFor="schedule-minute">Minute</Label>
+                      <Input
+                        id="schedule-minute"
+                        type="number"
+                        min={0}
+                        max={59}
+                        placeholder="15"
+                        aria-invalid={Boolean(scheduledForm.formState.errors.minuteText)}
+                        {...scheduledForm.register("minuteText")}
+                      />
+                      {scheduledForm.formState.errors.minuteText ? (
+                        <p className="text-sm text-tone-danger">
+                          {scheduledForm.formState.errors.minuteText.message}
+                        </p>
+                      ) : null}
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <Label htmlFor="schedule-time">Local time</Label>
+                      <Input
+                        id="schedule-time"
+                        type="time"
+                        aria-invalid={Boolean(scheduledForm.formState.errors.timeText)}
+                        {...scheduledForm.register("timeText")}
+                      />
+                      {scheduledForm.formState.errors.timeText ? (
+                        <p className="text-sm text-tone-danger">
+                          {scheduledForm.formState.errors.timeText.message}
+                        </p>
+                      ) : null}
+                    </div>
+                  )}
+                </div>
+
+                {cadenceValue === "weekly" ? (
+                  <div className="space-y-2">
+                    <Label htmlFor="schedule-day">Day of week</Label>
+                    <Select
+                      value={scheduleDayOfWeekValue}
+                      onValueChange={(value) =>
+                        scheduledForm.setValue("dayOfWeek", value ?? "1", {
+                          shouldDirty: true,
+                          shouldValidate: true,
+                        })
+                      }
+                    >
+                      <SelectTrigger id="schedule-day" className="w-full">
+                        <SelectValue placeholder="Select day" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {WEEKDAY_OPTIONS.map((option) => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {scheduledForm.formState.errors.dayOfWeek ? (
+                      <p className="text-sm text-tone-danger">
+                        {scheduledForm.formState.errors.dayOfWeek.message}
+                      </p>
+                    ) : null}
+                  </div>
+                ) : null}
+
+                <div className="surface-subtle rounded-[18px] border px-4 py-3 text-sm text-muted-foreground">
+                  New schedules follow your saved timezone{" "}
+                  <span className="font-medium text-foreground">{timezone}</span>.
+                  If you change it later in settings, existing schedules move with
+                  that preference.
+                </div>
+
+                {scheduleSubmissionError ? (
+                  <p className="text-sm text-tone-danger">{scheduleSubmissionError}</p>
+                ) : null}
               </div>
 
-              {scheduleSubmissionError ? (
-                <p className="text-sm text-tone-danger">{scheduleSubmissionError}</p>
-              ) : null}
-
-              <DialogFooter>
+              <DialogFooter className="shrink-0 bg-[var(--surface-dialog)] pt-3">
                 <DialogClose render={<Button variant="outline" type="button" />}>
                   Cancel
                 </DialogClose>
@@ -860,343 +944,372 @@ export const CreateTaskDialog = ({
             </form>
           </TabsContent>
 
-          <TabsContent value="multi-tasking" className="mt-0">
-            <form className="space-y-4" onSubmit={onSubmitMultiTask}>
-              <div className="space-y-3">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div className="space-y-1">
-                    <Label>Target nodes</Label>
-                    <p className="text-xs text-muted-foreground">
-                      Pick one or more nodes to run the same action from a single place.
-                    </p>
+          <TabsContent
+            value="multi-tasking"
+            className="mt-0 flex min-h-0 flex-1 flex-col overflow-hidden"
+          >
+            <form className="flex min-h-0 flex-1 flex-col" onSubmit={onSubmitMultiTask}>
+              <div className="flex-1 space-y-4 overflow-y-auto pr-1">
+                <div className="space-y-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="space-y-1">
+                      <Label>Target nodes</Label>
+                      <p className="text-xs text-muted-foreground">
+                        Pick one or more nodes to run the same action from a single place.
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setMultiNodeIds(nodes.map((node) => node.id))}
+                      >
+                        Select all
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setMultiNodeIds([])}
+                      >
+                        Clear
+                      </Button>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setMultiNodeIds(nodes.map((node) => node.id))}
-                    >
-                      Select all
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setMultiNodeIds([])}
-                    >
-                      Clear
-                    </Button>
-                  </div>
-                </div>
 
-                <ScrollArea className="h-56 rounded-[20px] border">
-                  <div className="grid gap-2 p-3 sm:grid-cols-2">
-                    {nodes.map((node) => {
-                      const isSelected = selectedMultiNodes.some(
-                        (selectedNode) => selectedNode.id === node.id,
-                      );
+                  <ScrollArea className="h-56 rounded-[20px] border lg:h-64">
+                    <div className="grid gap-2 p-3 sm:grid-cols-2 xl:grid-cols-3">
+                      {nodes.map((node) => {
+                        const isSelected = selectedMultiNodes.some(
+                          (selectedNode) => selectedNode.id === node.id,
+                        );
 
-                      return (
-                        <button
-                          key={node.id}
-                          type="button"
-                          onClick={() => toggleMultiNode(node.id)}
-                          aria-pressed={isSelected}
-                          className={cn(
-                            "text-left rounded-[18px] border px-4 py-3 transition-colors",
-                            isSelected
-                              ? "border-primary/50 bg-primary/8"
-                              : "control-surface hover:border-border/80 hover:bg-[var(--control-hover)]",
-                          )}
-                        >
-                          <div className="flex items-start justify-between gap-3">
-                            <div className="min-w-0">
-                              <p className="truncate font-medium text-foreground">
-                                {node.name}
-                              </p>
-                              <p className="truncate text-xs text-muted-foreground">
-                                {node.hostname}
-                              </p>
+                        return (
+                          <button
+                            key={node.id}
+                            type="button"
+                            onClick={() => toggleMultiNode(node.id)}
+                            aria-pressed={isSelected}
+                            className={cn(
+                              "text-left rounded-[18px] border px-4 py-3 transition-colors",
+                              isSelected
+                                ? "border-primary/50 bg-primary/8"
+                                : "control-surface hover:border-border/80 hover:bg-[var(--control-hover)]",
+                            )}
+                          >
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="min-w-0">
+                                <p className="truncate font-medium text-foreground">
+                                  {node.name}
+                                </p>
+                                <p className="truncate text-xs text-muted-foreground">
+                                  {node.hostname}
+                                </p>
+                              </div>
+                              <span
+                                className={cn(
+                                  "rounded-full px-2 py-0.5 text-[11px] font-medium uppercase tracking-[0.14em]",
+                                  isSelected
+                                    ? "bg-primary/14 text-primary"
+                                    : "bg-muted text-muted-foreground",
+                                )}
+                              >
+                                {isSelected ? "Selected" : node.status}
+                              </span>
                             </div>
-                            <span
-                              className={cn(
-                                "rounded-full px-2 py-0.5 text-[11px] font-medium uppercase tracking-[0.14em]",
-                                isSelected
-                                  ? "bg-primary/14 text-primary"
-                                  : "bg-muted text-muted-foreground",
-                              )}
-                            >
-                              {isSelected ? "Selected" : node.status}
-                            </span>
-                          </div>
-                          <p className="mt-2 text-xs text-muted-foreground">
-                            {node.os} / {node.arch}
-                          </p>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </ScrollArea>
+                            <p className="mt-2 text-xs text-muted-foreground">
+                              {node.os} / {node.arch}
+                            </p>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </ScrollArea>
 
-                {multiForm.formState.errors.nodeIds ? (
-                  <p className="text-sm text-tone-danger">
-                    {multiForm.formState.errors.nodeIds.message}
-                  </p>
-                ) : (
-                  <p className="text-xs text-muted-foreground">
-                    {selectedMultiNodeCount > 0
-                      ? `${selectedMultiNodeCount} ${selectedMultiNodeCount === 1 ? "node is" : "nodes are"} selected.`
-                      : "No nodes selected yet."}
-                  </p>
-                )}
-              </div>
-
-              <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-                <div className="space-y-2">
-                  <Label htmlFor="multi-mode">Mode</Label>
-                  <Select
-                    value={multiModeValue}
-                    onValueChange={(value) =>
-                      multiForm.setValue(
-                        "mode",
-                        (value ?? "run-now") as MultiTaskMode,
-                        {
-                          shouldDirty: true,
-                          shouldValidate: true,
-                        },
-                      )
-                    }
-                  >
-                    <SelectTrigger id="multi-mode" className="w-full">
-                      <SelectValue placeholder="Choose a mode" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="run-now">Run now on all selected nodes</SelectItem>
-                      <SelectItem value="scheduled">
-                        Create the same schedule on all selected nodes
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="surface-subtle rounded-[18px] border px-4 py-3 text-sm text-muted-foreground">
-                  {multiModeValue === "scheduled" ? (
-                    <>
-                      Batch schedules follow your saved timezone{" "}
-                      <span className="font-medium text-foreground">{timezone}</span>.
-                    </>
+                  {multiForm.formState.errors.nodeIds ? (
+                    <p className="text-sm text-tone-danger">
+                      {multiForm.formState.errors.nodeIds.message}
+                    </p>
                   ) : (
-                    <>
-                      One submission queues the same task definition for every selected node.
-                    </>
+                    <p className="text-xs text-muted-foreground">
+                      {selectedMultiNodeCount > 0
+                        ? `${selectedMultiNodeCount} ${selectedMultiNodeCount === 1 ? "node is" : "nodes are"} selected.`
+                        : "No nodes selected yet."}
+                    </p>
                   )}
                 </div>
-              </div>
 
-              {multiModeValue === "run-now" ? (
-                <>
+                <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
                   <div className="space-y-2">
-                    <Label htmlFor="multi-task-type">Task type</Label>
-                    <Input
-                      id="multi-task-type"
-                      placeholder="shell.exec"
-                      aria-invalid={Boolean(multiForm.formState.errors.type)}
-                      {...multiForm.register("type")}
-                    />
-                    {multiForm.formState.errors.type ? (
-                      <p className="text-sm text-tone-danger">
-                        {multiForm.formState.errors.type.message}
-                      </p>
-                    ) : null}
+                    <Label htmlFor="multi-mode">Mode</Label>
+                    <Select
+                      value={multiModeValue}
+                      onValueChange={(value) =>
+                        multiForm.setValue(
+                          "mode",
+                          (value ?? "run-now") as MultiTaskMode,
+                          {
+                            shouldDirty: true,
+                            shouldValidate: true,
+                          },
+                        )
+                      }
+                    >
+                      <SelectTrigger id="multi-mode" className="w-full">
+                        <SelectValue placeholder="Choose a mode" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="run-now">Run now on all selected nodes</SelectItem>
+                        <SelectItem value="scheduled">
+                          Create the same schedule on all selected nodes
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="multi-task-payload">Payload JSON</Label>
-                    <Textarea
-                      id="multi-task-payload"
-                      className="min-h-44 font-mono text-xs"
-                      aria-invalid={Boolean(multiForm.formState.errors.payloadText)}
-                      {...multiForm.register("payloadText")}
-                    />
-                    {multiForm.formState.errors.payloadText ? (
-                      <p className="text-sm text-tone-danger">
-                        {multiForm.formState.errors.payloadText.message}
-                      </p>
-                    ) : null}
+                  <div className="surface-subtle rounded-[18px] border px-4 py-3 text-sm text-muted-foreground">
+                    {multiModeValue === "scheduled" ? (
+                      <>
+                        Batch schedules follow your saved timezone{" "}
+                        <span className="font-medium text-foreground">{timezone}</span>.
+                      </>
+                    ) : (
+                      <>
+                        One submission queues the same task definition for every selected node.
+                      </>
+                    )}
                   </div>
-                </>
-              ) : (
-                <>
-                  <div className="space-y-2">
-                    <Label htmlFor="multi-schedule-name">Schedule name</Label>
-                    <Input
-                      id="multi-schedule-name"
-                      placeholder="Daily hostname check"
-                      aria-invalid={Boolean(multiForm.formState.errors.name)}
-                      {...multiForm.register("name")}
-                    />
-                    {multiForm.formState.errors.name ? (
-                      <p className="text-sm text-tone-danger">
-                        {multiForm.formState.errors.name.message}
-                      </p>
-                    ) : null}
-                  </div>
+                </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="multi-schedule-command">Command</Label>
-                    <Textarea
-                      id="multi-schedule-command"
-                      placeholder="hostname"
-                      className="min-h-28 font-mono text-xs"
-                      aria-invalid={Boolean(multiForm.formState.errors.command)}
-                      {...multiForm.register("command")}
-                    />
-                    {multiForm.formState.errors.command ? (
-                      <p className="text-sm text-tone-danger">
-                        {multiForm.formState.errors.command.message}
-                      </p>
-                    ) : null}
-                  </div>
-
-                  <div className="grid gap-4 sm:grid-cols-2">
+                {multiModeValue === "run-now" ? (
+                  <>
                     <div className="space-y-2">
-                      <Label htmlFor="multi-schedule-cadence">Cadence</Label>
-                      <Select
-                        value={multiCadenceValue}
-                        onValueChange={(value) =>
-                          multiForm.setValue(
-                            "cadence",
-                            (value ?? "hourly") as ScheduledTaskValues["cadence"],
-                            {
-                              shouldDirty: true,
-                              shouldValidate: true,
-                            },
-                          )
-                        }
-                      >
-                        <SelectTrigger id="multi-schedule-cadence" className="w-full">
-                          <SelectValue placeholder="Select cadence" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="minutely">Every minute</SelectItem>
-                          <SelectItem value="custom">Custom interval</SelectItem>
-                          <SelectItem value="hourly">Hourly</SelectItem>
-                          <SelectItem value="daily">Daily</SelectItem>
-                          <SelectItem value="weekly">Weekly</SelectItem>
-                        </SelectContent>
-                      </Select>
+                      <Label htmlFor="multi-task-type">Task type</Label>
+                      <Input
+                        id="multi-task-type"
+                        placeholder="shell.exec"
+                        aria-invalid={Boolean(multiForm.formState.errors.type)}
+                        {...multiForm.register("type")}
+                      />
+                      {multiForm.formState.errors.type ? (
+                        <p className="text-sm text-tone-danger">
+                          {multiForm.formState.errors.type.message}
+                        </p>
+                      ) : isMultiRunNowShellExec ? (
+                        <p className="text-xs text-muted-foreground">
+                          `shell.exec` runs with the same command field used by scheduled tasks.
+                        </p>
+                      ) : null}
                     </div>
 
-                    {multiCadenceValue === "minutely" ? (
-                      <div className="surface-subtle flex items-center rounded-[16px] border px-4 py-3 text-sm text-muted-foreground">
-                        This schedule runs every minute on each selected node.
-                      </div>
-                    ) : multiCadenceValue === "custom" ? (
+                    {isMultiRunNowShellExec ? (
                       <div className="space-y-2">
-                        <Label htmlFor="multi-schedule-interval">
-                          Interval in minutes
-                        </Label>
-                        <Input
-                          id="multi-schedule-interval"
-                          type="number"
-                          min={1}
-                          max={10080}
-                          placeholder="5"
-                          aria-invalid={Boolean(
-                            multiForm.formState.errors.intervalMinutesText,
-                          )}
-                          {...multiForm.register("intervalMinutesText")}
+                        <Label htmlFor="multi-task-command">Command</Label>
+                        <Textarea
+                          id="multi-task-command"
+                          placeholder="hostname"
+                          className="min-h-28 font-mono text-xs"
+                          aria-invalid={Boolean(multiForm.formState.errors.command)}
+                          {...multiForm.register("command")}
                         />
-                        {multiForm.formState.errors.intervalMinutesText ? (
+                        {multiForm.formState.errors.command ? (
                           <p className="text-sm text-tone-danger">
-                            {
-                              multiForm.formState.errors.intervalMinutesText
-                                .message
-                            }
-                          </p>
-                        ) : (
-                          <p className="text-xs text-muted-foreground">
-                            Example: 5 for every 5 minutes, 7 for every 7 minutes.
-                          </p>
-                        )}
-                      </div>
-                    ) : multiCadenceValue === "hourly" ? (
-                      <div className="space-y-2">
-                        <Label htmlFor="multi-schedule-minute">Minute</Label>
-                        <Input
-                          id="multi-schedule-minute"
-                          type="number"
-                          min={0}
-                          max={59}
-                          placeholder="15"
-                          aria-invalid={Boolean(
-                            multiForm.formState.errors.minuteText,
-                          )}
-                          {...multiForm.register("minuteText")}
-                        />
-                        {multiForm.formState.errors.minuteText ? (
-                          <p className="text-sm text-tone-danger">
-                            {multiForm.formState.errors.minuteText.message}
+                            {multiForm.formState.errors.command.message}
                           </p>
                         ) : null}
                       </div>
                     ) : (
                       <div className="space-y-2">
-                        <Label htmlFor="multi-schedule-time">Local time</Label>
-                        <Input
-                          id="multi-schedule-time"
-                          type="time"
-                          aria-invalid={Boolean(multiForm.formState.errors.timeText)}
-                          {...multiForm.register("timeText")}
+                        <Label htmlFor="multi-task-payload">Payload JSON</Label>
+                        <Textarea
+                          id="multi-task-payload"
+                          className="min-h-44 font-mono text-xs"
+                          aria-invalid={Boolean(
+                            multiForm.formState.errors.payloadText,
+                          )}
+                          {...multiForm.register("payloadText")}
                         />
-                        {multiForm.formState.errors.timeText ? (
+                        {multiForm.formState.errors.payloadText ? (
                           <p className="text-sm text-tone-danger">
-                            {multiForm.formState.errors.timeText.message}
+                            {multiForm.formState.errors.payloadText.message}
                           </p>
                         ) : null}
                       </div>
                     )}
-                  </div>
-
-                  {multiCadenceValue === "weekly" ? (
+                  </>
+                ) : (
+                  <>
                     <div className="space-y-2">
-                      <Label htmlFor="multi-schedule-day">Day of week</Label>
-                      <Select
-                        value={multiDayOfWeekValue}
-                        onValueChange={(value) =>
-                          multiForm.setValue("dayOfWeek", value ?? "1", {
-                            shouldDirty: true,
-                            shouldValidate: true,
-                          })
-                        }
-                      >
-                        <SelectTrigger id="multi-schedule-day" className="w-full">
-                          <SelectValue placeholder="Select day" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {WEEKDAY_OPTIONS.map((option) => (
-                            <SelectItem key={option.value} value={option.value}>
-                              {option.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      {multiForm.formState.errors.dayOfWeek ? (
+                      <Label htmlFor="multi-schedule-name">Schedule name</Label>
+                      <Input
+                        id="multi-schedule-name"
+                        placeholder="Daily hostname check"
+                        aria-invalid={Boolean(multiForm.formState.errors.name)}
+                        {...multiForm.register("name")}
+                      />
+                      {multiForm.formState.errors.name ? (
                         <p className="text-sm text-tone-danger">
-                          {multiForm.formState.errors.dayOfWeek.message}
+                          {multiForm.formState.errors.name.message}
                         </p>
                       ) : null}
                     </div>
-                  ) : null}
-                </>
-              )}
 
-              {multiSubmissionError ? (
-                <p className="text-sm text-tone-danger">{multiSubmissionError}</p>
-              ) : null}
+                    <div className="space-y-2">
+                      <Label htmlFor="multi-schedule-command">Command</Label>
+                      <Textarea
+                        id="multi-schedule-command"
+                        placeholder="hostname"
+                        className="min-h-28 font-mono text-xs"
+                        aria-invalid={Boolean(multiForm.formState.errors.command)}
+                        {...multiForm.register("command")}
+                      />
+                      {multiForm.formState.errors.command ? (
+                        <p className="text-sm text-tone-danger">
+                          {multiForm.formState.errors.command.message}
+                        </p>
+                      ) : null}
+                    </div>
 
-              <DialogFooter>
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <div className="space-y-2">
+                        <Label htmlFor="multi-schedule-cadence">Cadence</Label>
+                        <Select
+                          value={multiCadenceValue}
+                          onValueChange={(value) =>
+                            multiForm.setValue(
+                              "cadence",
+                              (value ?? "hourly") as ScheduledTaskValues["cadence"],
+                              {
+                                shouldDirty: true,
+                                shouldValidate: true,
+                              },
+                            )
+                          }
+                        >
+                          <SelectTrigger id="multi-schedule-cadence" className="w-full">
+                            <SelectValue placeholder="Select cadence" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="minutely">Every minute</SelectItem>
+                            <SelectItem value="custom">Custom interval</SelectItem>
+                            <SelectItem value="hourly">Hourly</SelectItem>
+                            <SelectItem value="daily">Daily</SelectItem>
+                            <SelectItem value="weekly">Weekly</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      {multiCadenceValue === "minutely" ? (
+                        <div className="surface-subtle flex items-center rounded-[16px] border px-4 py-3 text-sm text-muted-foreground">
+                          This schedule runs every minute on each selected node.
+                        </div>
+                      ) : multiCadenceValue === "custom" ? (
+                        <div className="space-y-2">
+                          <Label htmlFor="multi-schedule-interval">
+                            Interval in minutes
+                          </Label>
+                          <Input
+                            id="multi-schedule-interval"
+                            type="number"
+                            min={1}
+                            max={10080}
+                            placeholder="5"
+                            aria-invalid={Boolean(
+                              multiForm.formState.errors.intervalMinutesText,
+                            )}
+                            {...multiForm.register("intervalMinutesText")}
+                          />
+                          {multiForm.formState.errors.intervalMinutesText ? (
+                            <p className="text-sm text-tone-danger">
+                              {
+                                multiForm.formState.errors.intervalMinutesText
+                                  .message
+                              }
+                            </p>
+                          ) : (
+                            <p className="text-xs text-muted-foreground">
+                              Example: 5 for every 5 minutes, 7 for every 7 minutes.
+                            </p>
+                          )}
+                        </div>
+                      ) : multiCadenceValue === "hourly" ? (
+                        <div className="space-y-2">
+                          <Label htmlFor="multi-schedule-minute">Minute</Label>
+                          <Input
+                            id="multi-schedule-minute"
+                            type="number"
+                            min={0}
+                            max={59}
+                            placeholder="15"
+                            aria-invalid={Boolean(
+                              multiForm.formState.errors.minuteText,
+                            )}
+                            {...multiForm.register("minuteText")}
+                          />
+                          {multiForm.formState.errors.minuteText ? (
+                            <p className="text-sm text-tone-danger">
+                              {multiForm.formState.errors.minuteText.message}
+                            </p>
+                          ) : null}
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          <Label htmlFor="multi-schedule-time">Local time</Label>
+                          <Input
+                            id="multi-schedule-time"
+                            type="time"
+                            aria-invalid={Boolean(multiForm.formState.errors.timeText)}
+                            {...multiForm.register("timeText")}
+                          />
+                          {multiForm.formState.errors.timeText ? (
+                            <p className="text-sm text-tone-danger">
+                              {multiForm.formState.errors.timeText.message}
+                            </p>
+                          ) : null}
+                        </div>
+                      )}
+                    </div>
+
+                    {multiCadenceValue === "weekly" ? (
+                      <div className="space-y-2">
+                        <Label htmlFor="multi-schedule-day">Day of week</Label>
+                        <Select
+                          value={multiDayOfWeekValue}
+                          onValueChange={(value) =>
+                            multiForm.setValue("dayOfWeek", value ?? "1", {
+                              shouldDirty: true,
+                              shouldValidate: true,
+                            })
+                          }
+                        >
+                          <SelectTrigger id="multi-schedule-day" className="w-full">
+                            <SelectValue placeholder="Select day" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {WEEKDAY_OPTIONS.map((option) => (
+                              <SelectItem key={option.value} value={option.value}>
+                                {option.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        {multiForm.formState.errors.dayOfWeek ? (
+                          <p className="text-sm text-tone-danger">
+                            {multiForm.formState.errors.dayOfWeek.message}
+                          </p>
+                        ) : null}
+                      </div>
+                    ) : null}
+                  </>
+                )}
+
+                {multiSubmissionError ? (
+                  <p className="text-sm text-tone-danger">{multiSubmissionError}</p>
+                ) : null}
+              </div>
+
+              <DialogFooter className="shrink-0 bg-[var(--surface-dialog)] pt-3">
                 <DialogClose render={<Button variant="outline" type="button" />}>
                   Cancel
                 </DialogClose>
