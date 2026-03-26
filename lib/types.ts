@@ -298,8 +298,25 @@ export interface CreateTaskPayload {
   payload?: Record<string, unknown>;
 }
 
+export interface CreateBatchTaskPayload {
+  nodeIds: string[];
+  type: string;
+  payload?: Record<string, unknown>;
+}
+
 export interface CreateScheduledTaskPayload {
   nodeId: string;
+  name: string;
+  command: string;
+  cadence: ScheduledTaskCadence;
+  minute: number;
+  hour?: number;
+  dayOfWeek?: number;
+  intervalMinutes?: number;
+}
+
+export interface CreateBatchScheduledTaskPayload {
+  nodeIds: string[];
   name: string;
   command: string;
   cadence: ScheduledTaskCadence;

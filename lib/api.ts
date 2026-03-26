@@ -13,6 +13,8 @@ import type {
   AuthSession,
   CancelTaskPayload,
   CancelTaskResponse,
+  CreateBatchScheduledTaskPayload,
+  CreateBatchTaskPayload,
   CreateScheduledTaskPayload,
   CreateNodePayload,
   CreateTaskPayload,
@@ -617,6 +619,12 @@ export const apiClient = {
       body: JSON.stringify(payload),
     });
   },
+  createBatchScheduledTasks(payload: CreateBatchScheduledTaskPayload) {
+    return request<ScheduledTaskDto[]>("/api/proxy/scheduled-tasks/batch", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  },
   updateScheduledTask(id: string, payload: { enabled: boolean }) {
     return request<ScheduledTaskDto>(`/api/proxy/scheduled-tasks/${id}`, {
       method: "PATCH",
@@ -737,6 +745,12 @@ export const apiClient = {
   },
   createTask(payload: CreateTaskPayload) {
     return request<TaskDto>("/api/proxy/tasks", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  },
+  createBatchTasks(payload: CreateBatchTaskPayload) {
+    return request<TaskDto[]>("/api/proxy/tasks/batch", {
       method: "POST",
       body: JSON.stringify(payload),
     });

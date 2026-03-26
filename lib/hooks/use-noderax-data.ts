@@ -8,6 +8,8 @@ import type {
   AuthSession,
   CancelTaskPayload,
   CancelTaskResponse,
+  CreateBatchScheduledTaskPayload,
+  CreateBatchTaskPayload,
   CreateScheduledTaskPayload,
   CreateNodePayload,
   CreateTaskPayload,
@@ -421,6 +423,45 @@ export const useCreateTask = () => {
   });
 };
 
+export const useCreateBatchTasks = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (payload: CreateBatchTaskPayload) =>
+      apiClient.createBatchTasks(payload),
+    onSuccess: async (tasks, payload) => {
+      toast.success("Tasks queued", {
+        description: `${tasks.length} ${tasks.length === 1 ? "task was" : "tasks were"} created across ${payload.nodeIds.length} ${payload.nodeIds.length === 1 ? "node" : "nodes"}.`,
+      });
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: ["tasks", "list"],
+          refetchType: "active",
+        }),
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.dashboard.overview,
+          refetchType: "active",
+        }),
+        queryClient.invalidateQueries({
+          queryKey: ["events", "list"],
+          refetchType: "active",
+        }),
+        ...payload.nodeIds.map((nodeId) =>
+          queryClient.invalidateQueries({
+            queryKey: queryKeys.nodes.detail(nodeId),
+            refetchType: "active",
+          }),
+        ),
+      ]);
+    },
+    onError: (error) => {
+      toast.error("Unable to create tasks", {
+        description: readMutationError(error),
+      });
+    },
+  });
+};
+
 export const useCreateScheduledTask = () => {
   const queryClient = useQueryClient();
 
@@ -452,6 +493,51 @@ export const useCreateScheduledTask = () => {
     },
     onError: (error) => {
       toast.error("Unable to create scheduled task", {
+        description: readMutationError(error),
+      });
+    },
+  });
+};
+
+export const useCreateBatchScheduledTasks = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (payload: CreateBatchScheduledTaskPayload) =>
+      apiClient.createBatchScheduledTasks(payload),
+    onSuccess: async (schedules, payload) => {
+      const timezone = schedules[0]?.timezone;
+
+      toast.success("Scheduled tasks created", {
+        description: `${schedules.length} ${schedules.length === 1 ? "schedule was" : "schedules were"} created across ${payload.nodeIds.length} ${payload.nodeIds.length === 1 ? "node" : "nodes"}${timezone ? ` in ${timezone}` : ""}.`,
+      });
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.scheduledTasks.all,
+          refetchType: "active",
+        }),
+        queryClient.invalidateQueries({
+          queryKey: ["tasks", "list"],
+          refetchType: "active",
+        }),
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.dashboard.overview,
+          refetchType: "active",
+        }),
+        queryClient.invalidateQueries({
+          queryKey: ["events", "list"],
+          refetchType: "active",
+        }),
+        ...payload.nodeIds.map((nodeId) =>
+          queryClient.invalidateQueries({
+            queryKey: queryKeys.nodes.detail(nodeId),
+            refetchType: "active",
+          }),
+        ),
+      ]);
+    },
+    onError: (error) => {
+      toast.error("Unable to create scheduled tasks", {
         description: readMutationError(error),
       });
     },
