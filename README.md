@@ -22,9 +22,11 @@ The current product surface includes:
 - Dashboard snapshot views
 - Node list and detail pages
 - Task list, detail, and log streaming
+- Scheduled task management with timezone-aware recurring commands
+- Multi-node task dispatch from a single create-task workflow
 - Event history and filtering
 - Admin-only user management
-- Session, appearance, and workspace settings
+- Session, appearance, workspace, and timezone settings
 - **Node Action Menu:** Quick reboot and agent restart with confirmation dialogs
 - Realtime node status and telemetry updates
 
@@ -35,10 +37,16 @@ The current product surface includes:
 - Socket.IO connection to the `/realtime` namespace
 - Realtime online and offline node state updates
 - Centralized React Query cache for nodes, tasks, events, and metrics
+- Operator-level timezone preference with IANA timezone selection
+- Absolute timestamp rendering based on the signed-in operator's saved timezone
+- Unified task dialog with `On-demand`, `Scheduled`, and `Multi Tasking` flows
+- Batch task dispatch and batch schedule creation across multiple nodes
 - Admin actions:
   - create node
   - delete node
   - create task
+  - create recurring schedules
+  - create batch tasks and schedules
   - list users
   - create user
 - Redesigned **Package Management** screens with full-width cards and structured metadata
@@ -87,6 +95,7 @@ Primary endpoints used:
 
 - `POST /auth/login`
 - `GET /users/me`
+- `PATCH /users/me/preferences`
 - `GET /users`
 - `POST /users`
 - `GET /nodes`
@@ -97,6 +106,12 @@ Primary endpoints used:
 - `GET /tasks/:id`
 - `GET /tasks/:id/logs`
 - `POST /tasks`
+- `POST /tasks/batch`
+- `GET /scheduled-tasks`
+- `POST /scheduled-tasks`
+- `POST /scheduled-tasks/batch`
+- `PATCH /scheduled-tasks/:id`
+- `DELETE /scheduled-tasks/:id`
 - `GET /events`
 - `GET /metrics`
 
@@ -120,11 +135,19 @@ Primary endpoints used:
   - server-side `status`, `nodeId`, `limit`, and `offset` filters
   - client-side text search
   - admin-only create task action
+  - on-demand task queueing and multi-node batch dispatch from one dialog
+  - scheduled-origin task badges in run history
+- `/scheduled-tasks`
+  - admin-only recurring shell command management
+  - enable or disable schedules
+  - delete schedules
+  - timezone-aware next-run and last-run visibility
 - `/tasks/[id]`
   - task detail
   - execution metadata
   - related events
   - live log stream
+  - scheduled task origin badge and schedule metadata when applicable
 - `/events`
   - server-side `severity`, `nodeId`, `type`, and `limit` controls
   - client-side text search
@@ -133,8 +156,22 @@ Primary endpoints used:
   - user listing and create user dialog
 - `/settings`
   - session, appearance, and preference surfaces
+  - saved timezone picker with browser-timezone helper
 - `/login`
   - authentication screen
+
+## Tasking Experience
+
+Task operations are grouped into three operator-facing flows:
+
+- `On-demand`: Queue a single task for one node immediately.
+- `Scheduled`: Create a recurring `shell.exec` command that follows the creator's saved timezone.
+- `Multi Tasking`: Target multiple nodes from one modal and either queue the same task now or create the same schedule across all selected nodes.
+
+For admins, the sidebar nests these surfaces under `Tasks`:
+
+- `Task Runs` for execution history and logs
+- `Scheduled Tasks` for recurring command definitions
 
 ## Realtime Behavior
 
@@ -240,6 +277,7 @@ app/
   dashboard/            Dashboard page
   nodes/                Node list and detail routes
   tasks/                Task list and detail routes
+  scheduled-tasks/      Admin-only scheduled task management
   events/               Events page
   users/                Admin-only users page
   settings/             Settings
