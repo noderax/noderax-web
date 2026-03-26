@@ -47,6 +47,10 @@ import type {
   RemovePackagePayload,
   ScheduledTaskDto,
   ScheduledTaskSummary,
+  SetupInstallPayload,
+  SetupInstallResponse,
+  SetupApiConfigResponse,
+  SetupStatusResponse,
   TeamDto,
   TeamMembershipDto,
   TaskDetail,
@@ -57,10 +61,15 @@ import type {
   TaskFlowDiagnostics,
   TaskSummary,
   UpdateUserPreferencesPayload,
+  UpdateSetupApiConfigPayload,
   UpdateTeamPayload,
   UpdateWorkspaceMemberPayload,
   UpdateWorkspacePayload,
   UserDto,
+  ValidatePostgresSetupPayload,
+  ValidatePostgresSetupResponse,
+  ValidateRedisSetupPayload,
+  ValidateRedisSetupResponse,
   WorkspaceDto,
   WorkspaceMembershipDto,
 } from "@/lib/types";
@@ -559,6 +568,39 @@ export const apiClient = {
   },
   getRealtimeToken() {
     return request<{ token: string }>("/api/auth/realtime-token");
+  },
+  getSetupStatus() {
+    return request<SetupStatusResponse>("/api/setup/status");
+  },
+  getSetupApiConfig() {
+    return request<SetupApiConfigResponse>("/api/setup/config");
+  },
+  updateSetupApiConfig(payload: UpdateSetupApiConfigPayload) {
+    return request<SetupApiConfigResponse & { success: true }>("/api/setup/config", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  },
+  validateSetupPostgres(payload: ValidatePostgresSetupPayload) {
+    return request<ValidatePostgresSetupResponse>(
+      "/api/setup/validate/postgres",
+      {
+        method: "POST",
+        body: JSON.stringify(payload),
+      },
+    );
+  },
+  validateSetupRedis(payload: ValidateRedisSetupPayload) {
+    return request<ValidateRedisSetupResponse>("/api/setup/validate/redis", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  },
+  installSetup(payload: SetupInstallPayload) {
+    return request<SetupInstallResponse>("/api/setup/install", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
   },
   async getTaskFlowDiagnostics(): Promise<TaskFlowDiagnostics> {
     const candidatePaths = [

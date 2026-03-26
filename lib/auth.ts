@@ -4,7 +4,10 @@ import { buildAuthSession } from "@/lib/noderax";
 export const AUTH_TOKEN_COOKIE = "noderax_token";
 export const AUTH_SESSION_COOKIE = "noderax_session";
 export const AUTH_PERSIST_COOKIE = "noderax_persist";
+export const API_BASE_URL_COOKIE = "noderax_api_url";
 const API_PREFIX = "/api/v1";
+
+export type ApiBaseUrlSource = "cookie" | "env" | "missing";
 
 const DURATION_UNITS: Record<string, number> = {
   s: 1_000,
@@ -13,8 +16,61 @@ const DURATION_UNITS: Record<string, number> = {
   d: 86_400_000,
 };
 
-export const getApiBaseUrl = () =>
-  process.env.NODERAX_API_URL ?? process.env.NEXT_PUBLIC_NODERAX_API_URL ?? "";
+export const normalizeApiBaseUrl = (value?: string | null) => {
+  if (!value?.trim()) {
+    return null;
+  }
+
+  try {
+    const url = new URL(value.trim());
+    if (url.protocol !== "http:" && url.protocol !== "https:") {
+      return null;
+    }
+
+    return url.toString().replace(/\/$/, "");
+  } catch {
+    return null;
+  }
+};
+
+export const resolveApiBaseUrl = (
+  override?: string | null,
+): {
+  apiUrl: string | null;
+  source: ApiBaseUrlSource;
+} => {
+  const overrideUrl = normalizeApiBaseUrl(override);
+  if (overrideUrl) {
+    return {
+      apiUrl: overrideUrl,
+      source: "cookie",
+    };
+  }
+
+  const envUrl = normalizeApiBaseUrl(process.env.NODERAX_API_URL);
+  if (envUrl) {
+    return {
+      apiUrl: envUrl,
+      source: "env",
+    };
+  }
+
+  const publicEnvUrl = normalizeApiBaseUrl(process.env.NEXT_PUBLIC_NODERAX_API_URL);
+  if (publicEnvUrl) {
+    return {
+      apiUrl: publicEnvUrl,
+      source: "env",
+    };
+  }
+
+  return {
+    apiUrl: null,
+    source: "missing",
+  };
+};
+
+export const getApiBaseUrl = (override?: string | null) =>
+  resolveApiBaseUrl(override).apiUrl ?? "";
 
 const normalizePathname = (value: string) =>
   `/${value.replace(/^\/+|\/+$/g, "")}`.replace(/\/{2,}/g, "/");
@@ -47,8 +103,8 @@ const resolveRestBaseUrl = (baseUrl: string) => {
   return url;
 };
 
-export const getApiRequestUrls = (path: string) => {
-  const baseUrl = getApiBaseUrl();
+export const getApiRequestUrls = (path: string, override?: string | null) => {
+  const baseUrl = getApiBaseUrl(override);
 
   if (!baseUrl) {
     return [];
@@ -57,8 +113,12 @@ export const getApiRequestUrls = (path: string) => {
   return [joinApiUrl(resolveRestBaseUrl(baseUrl).href, path)];
 };
 
-export const fetchApiWithFallback = async (path: string, init?: RequestInit) => {
-  const [candidate] = getApiRequestUrls(path);
+export const fetchApiWithFallback = async (
+  path: string,
+  init?: RequestInit,
+  override?: string | null,
+) => {
+  const [candidate] = getApiRequestUrls(path, override);
 
   if (!candidate) {
     throw new Error("Missing NODERAX_API_URL configuration.");

@@ -1,7 +1,9 @@
+import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import {
+  API_BASE_URL_COOKIE,
   AUTH_PERSIST_COOKIE,
   AUTH_SESSION_COOKIE,
   AUTH_TOKEN_COOKIE,
@@ -11,6 +13,7 @@ import {
   normalizeAuthSession,
   normalizeAuthToken,
 } from "@/lib/auth";
+import { fetchSetupApi } from "@/lib/setup";
 import type { LoginResponseDto } from "@/lib/types";
 
 const loginSchema = z.object({
@@ -38,6 +41,43 @@ const readErrorMessage = async (response: Response) => {
 
 export async function POST(request: Request) {
   try {
+    const cookieStore = await cookies();
+    const apiUrlOverride = cookieStore.get(API_BASE_URL_COOKIE)?.value;
+
+    try {
+      const setupStatusResponse = await fetchSetupApi(
+        "/setup/status",
+        {
+          cache: "no-store",
+        },
+        apiUrlOverride,
+      );
+
+      if (setupStatusResponse.ok) {
+        const setupStatus = (await setupStatusResponse.json()) as {
+          mode: "setup" | "restart_required" | "installed" | "legacy";
+        };
+
+        if (
+          setupStatus.mode === "setup" ||
+          setupStatus.mode === "restart_required"
+        ) {
+          return NextResponse.json(
+            { message: "Complete the initial setup before signing in." },
+            { status: 409 },
+          );
+        }
+      }
+    } catch {
+      return NextResponse.json(
+        {
+          message:
+            "API URL is not configured. Set NODERAX_API_URL on the web app or provide an API URL from the setup screen.",
+        },
+        { status: 500 },
+      );
+    }
+
     const payload = loginSchema.parse(await request.json());
     let response: Response;
 
@@ -52,17 +92,23 @@ export async function POST(request: Request) {
           password: payload.password,
         }),
         cache: "no-store",
-      });
+      }, apiUrlOverride);
     } catch {
       return NextResponse.json(
-        { message: "Missing NODERAX_API_URL configuration." },
+        {
+          message:
+            "API URL is not configured. Set NODERAX_API_URL on the web app or provide an API URL from the setup screen.",
+        },
         { status: 500 },
       );
     }
 
     if (!response) {
       return NextResponse.json(
-        { message: "Missing NODERAX_API_URL configuration." },
+        {
+          message:
+            "API URL is not configured. Set NODERAX_API_URL on the web app or provide an API URL from the setup screen.",
+        },
         { status: 500 },
       );
     }

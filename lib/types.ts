@@ -170,6 +170,79 @@ export interface LoginResponseDto {
   user?: UserDto;
 }
 
+export type SetupMode = "setup" | "restart_required" | "installed" | "legacy";
+export type SetupApiUrlSource = "cookie" | "env" | "missing";
+
+export interface SetupApiConfigResponse {
+  apiUrl: string | null;
+  source: SetupApiUrlSource;
+}
+
+export interface UpdateSetupApiConfigPayload {
+  apiUrl: string;
+}
+
+export interface SetupStateDirectoryStatus {
+  path: string;
+  configuredValue: string | null;
+  usingCustomPath: boolean;
+  writable: boolean;
+  error: string | null;
+}
+
+export interface SetupStatusResponse {
+  mode: SetupMode;
+  installed: boolean;
+  restartRequired: boolean;
+  stateDirectory: SetupStateDirectoryStatus;
+}
+
+export interface ValidatePostgresSetupPayload {
+  host: string;
+  port: number;
+  username: string;
+  password: string;
+  database: string;
+  ssl: boolean;
+}
+
+export interface ValidatePostgresSetupResponse {
+  success: true;
+  serverVersion: string;
+  databaseEmpty: boolean;
+}
+
+export interface ValidateRedisSetupPayload {
+  host: string;
+  port: number;
+  password?: string;
+  db: number;
+}
+
+export interface ValidateRedisSetupResponse {
+  success: true;
+}
+
+export interface SetupInstallPayload {
+  postgres: ValidatePostgresSetupPayload;
+  redis: ValidateRedisSetupPayload;
+  admin: {
+    name: string;
+    email: string;
+    password: string;
+  };
+  workspace: {
+    name: string;
+    slug: string;
+    defaultTimezone: string;
+  };
+}
+
+export interface SetupInstallResponse {
+  success: true;
+  restartRequired: true;
+}
+
 export interface MetricPoint {
   timestamp: string;
   cpu: number;

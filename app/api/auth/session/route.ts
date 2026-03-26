@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 
 import {
+  API_BASE_URL_COOKIE,
   AUTH_PERSIST_COOKIE,
   AUTH_SESSION_COOKIE,
   AUTH_TOKEN_COOKIE,
@@ -11,6 +12,7 @@ import {
   fetchApiWithFallback,
   normalizeAuthSession,
 } from "@/lib/auth";
+import { fetchSetupApi } from "@/lib/setup";
 import type { UserDto } from "@/lib/types";
 
 const clearAuthCookies = (response: NextResponse) => {
@@ -30,9 +32,48 @@ const clearAuthCookies = (response: NextResponse) => {
 
 export async function GET() {
   const cookieStore = await cookies();
+  const apiUrlOverride = cookieStore.get(API_BASE_URL_COOKIE)?.value;
   const token = cookieStore.get(AUTH_TOKEN_COOKIE)?.value;
   const cachedSession = decodeSession(cookieStore.get(AUTH_SESSION_COOKIE)?.value);
   const isPersistent = cookieStore.get(AUTH_PERSIST_COOKIE)?.value === "1";
+
+  try {
+    const setupStatusResponse = await fetchSetupApi(
+      "/setup/status",
+      {
+        cache: "no-store",
+      },
+      apiUrlOverride,
+    );
+
+    if (setupStatusResponse.ok) {
+      const setupStatus = (await setupStatusResponse.json()) as {
+        mode: "setup" | "restart_required" | "installed" | "legacy";
+      };
+
+      if (
+        setupStatus.mode === "setup" ||
+        setupStatus.mode === "restart_required"
+      ) {
+        const response = NextResponse.json(
+          { message: "Initial setup is not complete yet." },
+          { status: 409 },
+        );
+        clearAuthCookies(response);
+        return response;
+      }
+    }
+  } catch {
+    const response = NextResponse.json(
+      {
+        message:
+          "API URL is not configured. Set NODERAX_API_URL on the web app or provide an API URL from the setup screen.",
+      },
+      { status: 500 },
+    );
+    clearAuthCookies(response);
+    return response;
+  }
 
   if (!token) {
     const response = NextResponse.json({ message: "Unauthorized." }, { status: 401 });
@@ -48,10 +89,13 @@ export async function GET() {
         authorization: `Bearer ${token}`,
       },
       cache: "no-store",
-    });
+    }, apiUrlOverride);
   } catch {
     const response = NextResponse.json(
-      { message: "Missing NODERAX_API_URL configuration." },
+      {
+        message:
+          "API URL is not configured. Set NODERAX_API_URL on the web app or provide an API URL from the setup screen.",
+      },
       { status: 500 },
     );
     clearAuthCookies(response);
@@ -60,7 +104,10 @@ export async function GET() {
 
   if (!upstreamResponse) {
     const response = NextResponse.json(
-      { message: "Missing NODERAX_API_URL configuration." },
+      {
+        message:
+          "API URL is not configured. Set NODERAX_API_URL on the web app or provide an API URL from the setup screen.",
+      },
       { status: 500 },
     );
     clearAuthCookies(response);

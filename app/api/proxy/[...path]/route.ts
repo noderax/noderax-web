@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { AUTH_TOKEN_COOKIE, getApiRequestUrls } from "@/lib/auth";
+import {
+  API_BASE_URL_COOKIE,
+  AUTH_TOKEN_COOKIE,
+  getApiRequestUrls,
+} from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -9,11 +13,15 @@ async function forwardRequest(
   context: { params: Promise<{ path: string[] }> },
 ) {
   const { path } = await context.params;
-  const upstreamUrls = getApiRequestUrls(`/${path.join("/")}`);
+  const apiUrlOverride = request.cookies.get(API_BASE_URL_COOKIE)?.value;
+  const upstreamUrls = getApiRequestUrls(`/${path.join("/")}`, apiUrlOverride);
 
   if (!upstreamUrls.length) {
     return NextResponse.json(
-      { message: "Missing NODERAX_API_URL configuration." },
+      {
+        message:
+          "API URL is not configured. Set NODERAX_API_URL on the web app or provide an API URL from the setup screen.",
+      },
       { status: 500 },
     );
   }

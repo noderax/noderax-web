@@ -300,7 +300,9 @@ export const Topbar = () => {
                 <ChevronsUpDown className="size-3.5 text-muted-foreground" />
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-72">
-                <DropdownMenuLabel>Workspace</DropdownMenuLabel>
+                <DropdownMenuGroup>
+                  <DropdownMenuLabel>Workspace</DropdownMenuLabel>
+                </DropdownMenuGroup>
                 <DropdownMenuSeparator />
                 <DropdownMenuGroup>
                   {workspaces.map((item) => (
