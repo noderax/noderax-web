@@ -498,6 +498,72 @@ export interface UpdateUserPreferencesPayload {
   timezone: string;
 }
 
+export interface PlatformAppSettings {
+  corsOrigin: string;
+  swaggerEnabled: boolean;
+  swaggerPath: string;
+}
+
+export interface PlatformDatabaseSettings {
+  host: string;
+  port: number;
+  username: string;
+  password: string;
+  database: string;
+  synchronize: boolean;
+  logging: boolean;
+  ssl: boolean;
+}
+
+export interface PlatformRedisSettings {
+  enabled: boolean;
+  url: string;
+  host: string;
+  port: number;
+  password: string;
+  db: number;
+  keyPrefix: string;
+}
+
+export interface PlatformAuthSettings {
+  jwtSecret: string;
+  jwtExpiresIn: string;
+  bcryptSaltRounds: number;
+}
+
+export interface PlatformAgentSettings {
+  heartbeatTimeoutSeconds: number;
+  offlineCheckIntervalSeconds: number;
+  realtimePingTimeoutSeconds: number;
+  realtimePingCheckIntervalSeconds: number;
+  taskClaimLeaseSeconds: number;
+  staleTaskCheckIntervalSeconds: number;
+  staleQueuedTaskTimeoutSeconds: number;
+  staleRunningTaskTimeoutSeconds: number;
+  enableRealtimeTaskDispatch: boolean;
+  enrollmentToken: string;
+  highCpuThreshold: number;
+}
+
+export interface PlatformSettingsValues {
+  app: PlatformAppSettings;
+  database: PlatformDatabaseSettings;
+  redis: PlatformRedisSettings;
+  auth: PlatformAuthSettings;
+  agents: PlatformAgentSettings;
+}
+
+export type PlatformSettingsSource = "install_state" | "process_env";
+
+export interface PlatformSettingsResponse extends PlatformSettingsValues {
+  source: PlatformSettingsSource;
+  editable: boolean;
+  restartRequired: boolean;
+  message: string | null;
+}
+
+export type UpdatePlatformSettingsPayload = PlatformSettingsValues;
+
 export interface CancelTaskPayload {
   reason?: string;
 }

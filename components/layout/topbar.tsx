@@ -9,6 +9,7 @@ import {
   Menu,
   Search,
   Settings2,
+  Shield,
   SignalHigh,
   SignalLow,
   SignalZero,
@@ -136,6 +137,7 @@ export const Topbar = () => {
   const { workspace, workspaceId, workspaceSlug, data: workspaces = [] } =
     useWorkspaceContext();
   const { session } = authQuery;
+  const isPlatformAdmin = session?.user.role === "platform_admin";
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const realtimeStatus = useAppStore((state) => state.realtimeStatus);
   const searchQuery = useAppStore((state) => state.searchQuery);
@@ -362,7 +364,7 @@ export const Topbar = () => {
                 <DropdownMenuItem
                   onClick={() =>
                     startTransition(() => {
-                      router.push(buildWorkspacePath(workspace.slug, "workspace-settings"));
+                      router.push("/settings?tab=workspace");
                     })
                   }
                 >
@@ -373,6 +375,14 @@ export const Topbar = () => {
                 <Settings2 className="size-4" />
                 Settings
               </DropdownMenuItem>
+              {isPlatformAdmin ? (
+                <DropdownMenuItem
+                  onClick={() => router.push("/settings?tab=platform")}
+                >
+                  <Shield className="size-4" />
+                  Platform settings
+                </DropdownMenuItem>
+              ) : null}
               <DropdownMenuItem
                 onClick={() => router.push("/settings#token-management")}
               >

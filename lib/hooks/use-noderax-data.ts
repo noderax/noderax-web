@@ -26,6 +26,8 @@ import type {
   MetricFilters,
   NodeFilters,
   RemovePackagePayload,
+  PlatformSettingsResponse,
+  UpdatePlatformSettingsPayload,
   TeamMembershipDto,
   UpdateScheduledTaskPayload,
   UpdateTeamPayload,
@@ -63,6 +65,9 @@ export const queryKeys = {
   },
   users: {
     all: ["users", "list"] as const,
+  },
+  platformSettings: {
+    detail: ["platform-settings"] as const,
   },
   nodes: {
     all: (workspaceId: string, filters?: NodeFilters) =>
@@ -127,6 +132,14 @@ export const useUsers = (enabled = true) =>
   useQuery({
     queryKey: queryKeys.users.all,
     queryFn: apiClient.getUsers,
+    enabled,
+    staleTime: 15_000,
+  });
+
+export const usePlatformSettings = (enabled = true) =>
+  useQuery({
+    queryKey: queryKeys.platformSettings.detail,
+    queryFn: apiClient.getPlatformSettings,
     enabled,
     staleTime: 15_000,
   });
@@ -417,6 +430,33 @@ export const useUpdateCurrentUserPreferences = () => {
     },
     onError: (error) => {
       toast.error("Unable to update timezone", {
+        description: readMutationError(error),
+      });
+    },
+  });
+};
+
+export const useUpdatePlatformSettings = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (payload: UpdatePlatformSettingsPayload) =>
+      apiClient.updatePlatformSettings(payload),
+    onSuccess: async (settings: PlatformSettingsResponse) => {
+      toast.success("Platform settings saved", {
+        description:
+          settings.message ??
+          "Restart the API container to apply the updated platform configuration.",
+      });
+
+      queryClient.setQueryData(queryKeys.platformSettings.detail, settings);
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.platformSettings.detail,
+        refetchType: "active",
+      });
+    },
+    onError: (error) => {
+      toast.error("Unable to update platform settings", {
         description: readMutationError(error),
       });
     },

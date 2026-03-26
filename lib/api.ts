@@ -40,6 +40,8 @@ import type {
   NodeDto,
   NodeFilters,
   NodeSummary,
+  PlatformSettingsResponse,
+  UpdatePlatformSettingsPayload,
   PackageSearchResult,
   PackageTaskAcceptedResponse,
   PackageTaskMutationResponse,
@@ -746,6 +748,15 @@ export const apiClient = {
   },
   getUsers() {
     return request<UserDto[]>("/api/proxy/users");
+  },
+  getPlatformSettings() {
+    return request<PlatformSettingsResponse>("/api/proxy/platform-settings");
+  },
+  updatePlatformSettings(payload: UpdatePlatformSettingsPayload) {
+    return request<PlatformSettingsResponse>("/api/proxy/platform-settings", {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    });
   },
   updateCurrentUserPreferences(payload: UpdateUserPreferencesPayload) {
     return request<UserDto>("/api/proxy/users/me/preferences", {
