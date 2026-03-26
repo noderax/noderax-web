@@ -5,55 +5,32 @@
 <h1 align="center">Noderax Web</h1>
 
 <p align="center">
-  A Next.js-based control plane interface for Noderax.
-  It brings node inventory, task operations, event history, metrics visibility,
-  and role-based administration into a single workspace.
+  Workspace-aware Next.js control plane for Noderax.
+  It brings inventory, live telemetry, task operations, teams, members,
+  setup, and platform administration into a single UI.
 </p>
 
 ## Overview
 
-`noderax-web` is the frontend workspace for `noderax-api`.
-It authenticates users with JWT-backed sessions and provides a modern operations
-panel built with the Next.js App Router, React Query, Zustand, and Socket.IO
-realtime updates.
+`noderax-web` is the frontend for `noderax-api`. It uses the Next.js App Router, route-handler proxy endpoints, React Query, Zustand, and Socket.IO-based realtime state sync.
 
-The current product surface includes:
+Current product surface:
 
-- Dashboard snapshot views
-- Node list and detail pages
-- Task list, detail, and log streaming
-- Scheduled task management with timezone-aware recurring commands
-- Multi-node task dispatch from a single create-task workflow
-- Event history and filtering
-- Admin-only user management
-- Session, appearance, workspace, and timezone settings
-- **Node Action Menu:** Quick reboot and agent restart with confirmation dialogs
-- Realtime node status and telemetry updates
-
-## Features
-
-- JWT login with cookie-based session handling
-- Next.js proxy layer for `noderax-api` REST endpoints
-- Socket.IO connection to the `/realtime` namespace
-- Realtime online and offline node state updates
-- Centralized React Query cache for nodes, tasks, events, and metrics
-- Operator-level timezone preference with IANA timezone selection
-- Absolute timestamp rendering based on the signed-in operator's saved timezone
-- Unified task dialog with `On-demand`, `Scheduled`, and `Multi Tasking` flows
-- Batch task dispatch and batch schedule creation across multiple nodes
-- Admin actions:
-  - create node
-  - delete node
-  - create task
-  - create recurring schedules
-  - create batch tasks and schedules
-  - list users
-  - create user
-- Redesigned **Package Management** screens with full-width cards and structured metadata
-- Node-focused telemetry cards on the dashboard with integrated action menus
-- Operating-system-aware node icons
-- **Accessible Dashboards:** Resolved "Nest Interactive Elements" (Base UI #31) errors by using `useRouter` for card navigation
-- Standard CRM-style dashboard shell inspired by shadcn patterns
+- First-run setup screen for installer-managed deployments
+- Workspace selection and default-workspace fallback
+- Workspace-scoped dashboard, nodes, tasks, events, scheduled tasks, members, and teams
+- Unified settings surface with:
+  - `Account`
+  - `Workspace`
+  - `Platform` for platform admins
+- GitHub-style workspace settings with:
+  - workspace profile editing
+  - workspace timezone control
+  - default-workspace selection
+  - dangerous workspace deletion flow
+- Node detail with live telemetry, packages, running tasks, and event history
+- Task detail with live lifecycle and logs
+- Platform-admin workspaces page
 
 ## Tech Stack
 
@@ -63,7 +40,7 @@ The current product surface includes:
 - TanStack React Query
 - Zustand
 - Socket.IO Client
-- shadcn/ui-based primitives
+- Radix + Base UI primitives
 - Tailwind CSS 4
 - Zod
 - React Hook Form
@@ -71,114 +48,97 @@ The current product surface includes:
 
 ## Application Flow
 
-The web app does not send raw browser traffic directly to the backend with a
-manually managed JWT. Instead, Next.js route handlers act as the session and
-proxy layer.
-
-Flow summary:
+Browser traffic is session-based and proxied through Next.js.
 
 1. The user signs in on `/login`.
-2. `app/api/auth/login` calls upstream `POST /auth/login`.
-3. The JWT and normalized session are stored in cookies.
-4. Browser-side data requests go through `app/api/proxy/[...path]`.
-5. The proxy forwards the cookie token as `Authorization: Bearer <token>`.
-6. Realtime access uses `app/api/auth/realtime-token` and connects to the
-   Socket.IO `/realtime` namespace.
+2. `app/api/auth/login` authenticates against the API.
+3. JWT-backed session data is stored in cookies.
+4. Browser-side REST calls go through `app/api/proxy/[...path]`.
+5. The proxy forwards the access token upstream.
+6. Workspace selection is persisted via the `noderax_workspace` cookie.
+7. Realtime access uses `app/api/auth/realtime-token` and connects to `/realtime`.
 
-## API Surface Used by the Web App
+## Route Model
 
-This interface intentionally uses only the user-facing control plane endpoints.
-`/agent/*` routes are not used by the web app and remain reserved for the Go
-agent.
+The current primary UI uses workspace-scoped routes:
 
-Primary endpoints used:
+- `/workspaces`
+- `/w/[workspaceSlug]/dashboard`
+- `/w/[workspaceSlug]/nodes`
+- `/w/[workspaceSlug]/nodes/[id]`
+- `/w/[workspaceSlug]/nodes/[id]/packages`
+- `/w/[workspaceSlug]/tasks`
+- `/w/[workspaceSlug]/tasks/[id]`
+- `/w/[workspaceSlug]/scheduled-tasks`
+- `/w/[workspaceSlug]/events`
+- `/w/[workspaceSlug]/members`
+- `/w/[workspaceSlug]/teams`
+- `/w/[workspaceSlug]/workspace-settings`
 
-- `POST /auth/login`
-- `GET /users/me`
-- `PATCH /users/me/preferences`
-- `GET /users`
-- `POST /users`
-- `GET /nodes`
-- `GET /nodes/:id`
-- `POST /nodes`
-- `DELETE /nodes/:id`
-- `GET /tasks`
-- `GET /tasks/:id`
-- `GET /tasks/:id/logs`
-- `POST /tasks`
-- `POST /tasks/batch`
-- `GET /scheduled-tasks`
-- `POST /scheduled-tasks`
-- `POST /scheduled-tasks/batch`
-- `PATCH /scheduled-tasks/:id`
-- `DELETE /scheduled-tasks/:id`
-- `GET /events`
-- `GET /metrics`
+Additional top-level routes:
 
-## Pages
-
-- `/dashboard`
-  - snapshot summary cards
-  - node telemetry board
-  - recent events
-  - recent node activity
-- `/nodes`
-  - server-side `status`, `search`, `limit`, and `offset` filters
-  - admin-only create node action
-  - admin-only delete node action
-- `/nodes/[id]`
-  - node detail
-  - recent telemetry
-  - running tasks
-  - recent events
-- `/tasks`
-  - server-side `status`, `nodeId`, `limit`, and `offset` filters
-  - client-side text search
-  - admin-only create task action
-  - on-demand task queueing and multi-node batch dispatch from one dialog
-  - scheduled-origin task badges in run history
-- `/scheduled-tasks`
-  - admin-only recurring shell command management
-  - enable or disable schedules
-  - delete schedules
-  - timezone-aware next-run and last-run visibility
-- `/tasks/[id]`
-  - task detail
-  - execution metadata
-  - related events
-  - live log stream
-  - scheduled task origin badge and schedule metadata when applicable
-- `/events`
-  - server-side `severity`, `nodeId`, `type`, and `limit` controls
-  - client-side text search
-- `/users`
-  - admin-only user management
-  - user listing and create user dialog
-- `/settings`
-  - session, appearance, and preference surfaces
-  - saved timezone picker with browser-timezone helper
 - `/login`
-  - authentication screen
+- `/settings`
+- `/setup`
+- `/users`
 
-## Tasking Experience
+The top-level non-workspace pages continue to exist as convenience or fallback surfaces, but the workspace-scoped routes are the main operator path.
 
-Task operations are grouped into three operator-facing flows:
+## Features
 
-- `On-demand`: Queue a single task for one node immediately.
-- `Scheduled`: Create a recurring `shell.exec` command that follows the creator's saved timezone.
-- `Multi Tasking`: Target multiple nodes from one modal and either queue the same task now or create the same schedule across all selected nodes.
+- JWT login with cookie-based session handling
+- Next.js proxy layer over `noderax-api`
+- Workspace-aware navigation and workspace cookie persistence
+- Default workspace fallback when a prior workspace disappears
+- Platform-admin workspace creation and workspace inventory
+- Workspace member and team management
+- Unified settings page:
+  - account preferences
+  - workspace settings
+  - platform runtime settings
+- Task operations:
+  - on-demand task runs
+  - multi-node batch dispatch
+  - scheduled task creation
+  - cancel flow for active tasks
+- Package management through node detail
+- Live node telemetry and task lifecycle updates
 
-For admins, the sidebar nests these surfaces under `Tasks`:
+## Authorization Model
 
-- `Task Runs` for execution history and logs
-- `Scheduled Tasks` for recurring command definitions
+- `platform_admin`
+  - can create workspaces
+  - can access `/users`
+  - can access `Platform` settings
+  - can choose the platform default workspace
+- Workspace `owner` and `admin`
+  - can manage workspace settings
+  - can manage members and teams
+  - can delete the workspace if it is not the current default
+- Workspace `member` and `viewer`
+  - can use read surfaces allowed by the API
+
+The UI hides actions that the current session should not perform.
+
+## Settings UX
+
+The unified `/settings` page now contains:
+
+- `Account`
+  - profile/session/preferences
+  - timezone preferences used across task scheduling displays
+- `Workspace`
+  - workspace name and slug
+  - workspace timezone
+  - default-workspace status and selection
+  - danger zone with typed confirmation for deletion
+- `Platform`
+  - installer-managed runtime settings for app, auth, database, Redis, and agent behavior
+  - visible only to `platform_admin`
 
 ## Realtime Behavior
 
-The app connects to the Socket.IO `/realtime` namespace.
-Realtime connection state is surfaced in both the sidebar and the topbar.
-
-Primary events consumed by the interface:
+The app consumes these realtime events:
 
 - `node.status.updated`
 - `metrics.ingested`
@@ -186,14 +146,45 @@ Primary events consumed by the interface:
 - `task.updated`
 - `event.created`
 
-Visible nodes are automatically subscribed when they appear in active UI data.
-That keeps these surfaces updated without a page refresh:
+Important implementation notes:
 
-- node list
-- dashboard node telemetry board
-- dashboard recent node activity
+- Node subscriptions are derived from active queries only
+- Node detail cache writes are scoped to the matching `nodeId`
+- Task detail cache writes are scoped to the matching `taskId`
+- This prevents cross-node telemetry pollution when multiple nodes are visible in cache history
+
+Surfaces kept fresh by realtime:
+
+- workspace dashboard
+- workspace node list
 - node detail
-- task detail node metadata
+- task detail
+- recent event views
+
+## API Surface Used By The Web App
+
+Primary upstream routes:
+
+- `POST /auth/login`
+- `GET /users/me`
+- `PATCH /users/me/preferences`
+- `GET /workspaces`
+- `POST /workspaces`
+- `PATCH /workspaces/:workspaceId`
+- `DELETE /workspaces/:workspaceId`
+- `GET /workspaces/:workspaceId/members`
+- `GET /workspaces/:workspaceId/teams`
+- `GET /workspaces/:workspaceId/nodes`
+- `GET /workspaces/:workspaceId/tasks`
+- `GET /workspaces/:workspaceId/scheduled-tasks`
+- `GET /workspaces/:workspaceId/events`
+- `GET /workspaces/:workspaceId/metrics`
+- `GET /platform-settings`
+- `PATCH /platform-settings`
+- `GET /setup/status`
+- `POST /setup/validate/postgres`
+- `POST /setup/validate/redis`
+- `POST /setup/install`
 
 ## Environment Variables
 
@@ -203,39 +194,21 @@ Copy the example file:
 cp .env.example .env.local
 ```
 
-You can also use `.env` if that better matches your local setup.
-
 Current variables:
 
 ```bash
-# Required: backend REST base used by Next server routes.
-# The current Noderax backend serves browser REST traffic from /api/v1.
 NODERAX_API_URL=http://localhost:3000/api/v1
-
-# Optional: client-side REST base fallback. Use the same /api/v1 base.
 NEXT_PUBLIC_NODERAX_API_URL=http://localhost:3000/api/v1
-
-# Optional: Socket.IO namespace target. Examples:
-# http://localhost:3000
-# http://localhost:3000/realtime
-# The frontend always connects to the /realtime namespace and still uses
-# the default Socket.IO transport path /socket.io.
-# HTTP API prefixes such as /v1 or /api/v1 do not apply to realtime.
 NEXT_PUBLIC_NODERAX_WS_URL=http://localhost:3000/realtime
 ```
 
-Important notes:
+Notes:
 
 - `NODERAX_API_URL` is required.
-- If the backend serves browser REST traffic under `/v1`, the same base should
-  be used here.
-- Realtime connects to `/realtime` on the backend origin, not `/v1/realtime`.
-- If `NEXT_PUBLIC_NODERAX_WS_URL` is omitted, the frontend falls back to
-  `NEXT_PUBLIC_NODERAX_API_URL` or the current browser origin.
+- Realtime connects to `/realtime`, not `/api/v1/realtime`.
+- If `NEXT_PUBLIC_NODERAX_WS_URL` is omitted, the app falls back to the API origin or browser origin.
 
 ## Local Development
-
-This repository uses `pnpm` as its package manager.
 
 Install dependencies:
 
@@ -243,93 +216,13 @@ Install dependencies:
 pnpm install
 ```
 
-Start the development server:
+Start the dev server:
 
 ```bash
 pnpm dev
 ```
 
-By default:
-
-- web app: `http://localhost:3000`
-- backend target: whatever is configured in `NODERAX_API_URL`
-
-Note:
-`pnpm dev` uses port `3000` by default for the frontend. If your API runs as
-a separate local service, update `NODERAX_API_URL` to its real address. If you
-are using a reverse proxy on the same origin, the example values can remain as
-they are.
-
-## PNPM Scripts
-
-- `pnpm dev` - start the development server
-- `pnpm build` - create a production build
-- `pnpm start` - start the production server
-- `pnpm lint` - run ESLint
-- `pnpm typecheck` - run TypeScript checks
-
-## Directory Structure
-
-```text
-app/
-  (auth)/login/         Login route
-  api/                  Auth and upstream proxy routes
-  dashboard/            Dashboard page
-  nodes/                Node list and detail routes
-  tasks/                Task list and detail routes
-  scheduled-tasks/      Admin-only scheduled task management
-  events/               Events page
-  users/                Admin-only users page
-  settings/             Settings
-
-components/
-  brand/                Logo and brand components
-  dashboard/            Dashboard-specific components
-  layout/               Sidebar, topbar, shell
-  nodes/                Node screens and actions
-  tasks/                Task screens and actions
-  users/                User management components
-  ui/                   Shared UI primitives
-  magic/                Visual effect layer
-
-lib/
-  api.ts                Frontend API client
-  auth.ts               Session and auth helpers
-  hooks/                React Query and realtime hooks
-  websocket.ts          Socket.IO client
-  noderax.ts            DTO to view-model mappers
-
-store/
-  useAppStore.ts        UI state and session store
-```
-
-## Authorization Model
-
-- All authenticated users can access:
-  - dashboard
-  - nodes
-  - node detail
-  - tasks
-  - task detail
-  - events
-  - settings
-- Only `admin` users can access or perform:
-  - user management
-  - create and delete node actions
-  - create task actions
-
-The UI hides admin-only actions for non-admin users.
-
-## Current Limitations
-
-- The dashboard operates on snapshot windows rather than authoritative global totals.
-- Text search on tasks and events is currently client-side.
-- SSH or interactive terminal sessions are not implemented yet.
-- The web app does not use `/agent/*` endpoints.
-
-## Verification
-
-Recommended project checks:
+Useful checks:
 
 ```bash
 pnpm lint
@@ -337,18 +230,49 @@ pnpm typecheck
 pnpm build
 ```
 
-## Development Notes
+## Directory Structure
 
-- For new data integrations, the cleanest flow is usually:
-  `lib/api.ts` -> `lib/hooks` -> UI surface.
-- Realtime cache synchronization is centralized in
-  `lib/hooks/use-realtime.ts`.
-- Auth cookies and upstream token handling are centralized in
-  `app/api/auth/*` and `lib/auth.ts`.
-- New control-plane integrations should deliberately avoid `/agent/*`
-  unless the work is specifically for the Go agent.
+```text
+app/
+  (auth)/login/         Login route
+  api/                  Auth and proxy handlers
+  setup/                Installer UI
+  settings/             Unified settings
+  workspaces/           Platform workspace inventory
+  w/[workspaceSlug]/    Workspace-scoped app routes
 
-## License
+components/
+  dashboard/
+  layout/
+  nodes/
+  settings/
+  tasks/
+  users/
+  workspaces/
+  ui/
 
-If no formal license file is defined for this repository, treat it as an
-internal project used within the team.
+lib/
+  api.ts
+  auth.ts
+  hooks/
+  noderax.ts
+  websocket.ts
+  workspace.ts
+
+store/
+  useAppStore.ts
+```
+
+## Current Limitations
+
+- Dashboard totals are still operational snapshots, not a full analytics product.
+- Text search on some list views remains client-side.
+- Interactive terminal or SSH sessions are not implemented.
+- The UI assumes the API is the source of truth for role enforcement and workspace access.
+
+## Notes
+
+- Realtime cache synchronization is centralized in `lib/hooks/use-realtime.ts`.
+- Session and upstream token handling live in `app/api/auth/*` and `lib/auth.ts`.
+- New control-plane features should normally flow through:
+  `lib/api.ts` -> `lib/hooks` -> route/page -> UI component.
