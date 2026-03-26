@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   Clock3,
@@ -83,7 +83,22 @@ const parseNumberInput = (value: string, fallback: number) => {
   return Number.isFinite(nextValue) ? nextValue : fallback;
 };
 
-export function SettingsPageView({
+function SettingsPageFallback() {
+  return (
+    <AppShell>
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        {Array.from({ length: 3 }).map((_, index) => (
+          <div
+            key={index}
+            className="h-40 animate-pulse rounded-[22px] bg-muted"
+          />
+        ))}
+      </div>
+    </AppShell>
+  );
+}
+
+function SettingsPageContent({
   initialTab = "account",
   canonicalPath,
 }: {
@@ -1307,5 +1322,16 @@ export function SettingsPageView({
         </SectionPanel>
       </div>
     </AppShell>
+  );
+}
+
+export function SettingsPageView(props: {
+  initialTab?: SettingsTab;
+  canonicalPath?: string;
+}) {
+  return (
+    <Suspense fallback={<SettingsPageFallback />}>
+      <SettingsPageContent {...props} />
+    </Suspense>
   );
 }
