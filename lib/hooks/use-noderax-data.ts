@@ -33,6 +33,7 @@ import type {
   RemovePackagePayload,
   PlatformSettingsResponse,
   ResendUserInviteResponse,
+  ValidateSmtpPayload,
   UpdatePlatformSettingsPayload,
   TeamMembershipDto,
   UpdateScheduledTaskPayload,
@@ -309,6 +310,12 @@ export const usePlatformSettings = (enabled = true) =>
     queryFn: apiClient.getPlatformSettings,
     enabled,
     staleTime: 15_000,
+  });
+
+export const useValidatePlatformSmtp = () =>
+  useMutation({
+    mutationFn: (payload: ValidateSmtpPayload) =>
+      apiClient.validatePlatformSmtp(payload),
   });
 
 export const useWorkspaceAssignableUsers = (enabled = true) => {

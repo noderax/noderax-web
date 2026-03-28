@@ -53,6 +53,8 @@ import type {
   PackageTaskAcceptedResponse,
   PackageTaskMutationResponse,
   InstalledPackage,
+  ValidateSmtpPayload,
+  ValidateSmtpResponse,
   RemovePackagePayload,
   ScheduledTaskDto,
   ScheduledTaskSummary,
@@ -610,6 +612,12 @@ export const apiClient = {
       body: JSON.stringify(payload),
     });
   },
+  validateSetupSmtp(payload: ValidateSmtpPayload) {
+    return request<ValidateSmtpResponse>("/api/setup/validate/smtp", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  },
   installSetup(payload: SetupInstallPayload) {
     return request<SetupInstallResponse>("/api/setup/install", {
       method: "POST",
@@ -787,6 +795,15 @@ export const apiClient = {
       method: "PATCH",
       body: JSON.stringify(payload),
     });
+  },
+  validatePlatformSmtp(payload: ValidateSmtpPayload) {
+    return request<ValidateSmtpResponse>(
+      "/api/proxy/platform-settings/validate/smtp",
+      {
+        method: "POST",
+        body: JSON.stringify(payload),
+      },
+    );
   },
   updateCurrentUserPreferences(payload: UpdateUserPreferencesPayload) {
     return request<UserDto>("/api/proxy/users/me/preferences", {

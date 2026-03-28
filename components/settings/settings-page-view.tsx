@@ -48,6 +48,7 @@ import {
   usePlatformSettings,
   useUpdateCurrentUserPreferences,
   useUpdatePlatformSettings,
+  useValidatePlatformSmtp,
   useUpdateWorkspace,
 } from "@/lib/hooks/use-noderax-data";
 import { useWorkspaceContext, workspacesQueryKey } from "@/lib/hooks/use-workspace-context";
@@ -69,6 +70,10 @@ import { PASSWORD_MIN_LENGTH } from "@/lib/password";
 import { toast } from "sonner";
 
 type SettingsTab = "account" | "workspace" | "platform";
+type SmtpTestState = {
+  tone: "success" | "error";
+  message: string;
+};
 
 const SETTINGS_TABS: SettingsTab[] = ["account", "workspace", "platform"];
 
@@ -82,6 +87,7 @@ const extractPlatformSettingsValues = (
   database: { ...settings.database },
   redis: { ...settings.redis },
   auth: { ...settings.auth },
+  mail: { ...settings.mail },
   agents: { ...settings.agents },
 });
 
@@ -92,6 +98,7 @@ const clonePlatformSettingsValues = (
   database: { ...settings.database },
   redis: { ...settings.redis },
   auth: { ...settings.auth },
+  mail: { ...settings.mail },
   agents: { ...settings.agents },
 });
 
@@ -104,6 +111,11 @@ const parseNumberInput = (value: string, fallback: number) => {
   const nextValue = Number.parseFloat(value);
   return Number.isFinite(nextValue) ? nextValue : fallback;
 };
+
+const getSmtpStatusClassName = (tone: SmtpTestState["tone"]) =>
+  tone === "success"
+    ? "text-emerald-600 dark:text-emerald-400"
+    : "text-rose-600 dark:text-rose-400";
 
 const pickNextWorkspaceAfterDeletion = (workspaces: WorkspaceDto[]) =>
   pickDefaultWorkspace(workspaces) ?? workspaces[0] ?? null;
@@ -152,6 +164,7 @@ function SettingsPageContent({
   const deleteWorkspace = useDeleteWorkspace();
   const platformSettingsQuery = usePlatformSettings(isPlatformAdmin);
   const updatePlatformSettings = useUpdatePlatformSettings();
+  const validatePlatformSmtp = useValidatePlatformSmtp();
 
   const browserTimeZone = useMemo(() => getBrowserTimeZone(), []);
   const availableTabs = useMemo<SettingsTab[]>(
@@ -196,6 +209,8 @@ function SettingsPageContent({
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [platformDraft, setPlatformDraft] =
     useState<PlatformSettingsValues | null>(null);
+  const [platformMailTestStatus, setPlatformMailTestStatus] =
+    useState<SmtpTestState | null>(null);
 
   useEffect(() => {
     setActiveTab(resolvedTab);
@@ -230,6 +245,10 @@ function SettingsPageContent({
 
     setPlatformDraft(clonePlatformSettingsValues(platformBaseline));
   }, [platformBaseline]);
+
+  useEffect(() => {
+    setPlatformMailTestStatus(null);
+  }, [platformDraft?.mail]);
 
   useEffect(() => {
     setWorkspaceDeleteOpen(false);
@@ -453,6 +472,31 @@ function SettingsPageContent({
           } as PlatformSettingsValues)
         : current,
     );
+  };
+
+  const handleValidatePlatformSmtp = async () => {
+    if (!platformDraft) {
+      return;
+    }
+
+    setPlatformMailTestStatus(null);
+
+    try {
+      await validatePlatformSmtp.mutateAsync(platformDraft.mail);
+      setPlatformMailTestStatus({
+        tone: "success",
+        message: `SMTP connectivity verified for ${platformDraft.mail.smtpHost}:${platformDraft.mail.smtpPort}.`,
+      });
+      toast.success("SMTP connection verified.");
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "SMTP validation failed.";
+      setPlatformMailTestStatus({
+        tone: "error",
+        message,
+      });
+      toast.error(message);
+    }
   };
 
   const platformEditable = platformSettingsQuery.data?.editable ?? false;
@@ -1373,6 +1417,190 @@ function SettingsPageContent({
                                 )
                               }
                             />
+                          </div>
+                        </SectionPanel>
+
+                        <SectionPanel
+                          title="Mail"
+                          description="Installer-managed SMTP settings for invitations, password resets, and operational email delivery."
+                          eyebrow="SMTP"
+                          contentClassName="space-y-4"
+                        >
+                          <div className="rounded-[18px] border bg-muted/20 px-4 py-3 text-sm text-muted-foreground">
+                            Leave the SMTP host blank to keep email delivery disabled.
+                            Sender details and the public web app URL remain editable
+                            either way.
+                          </div>
+                          <div className="grid gap-4 sm:grid-cols-2">
+                            <div className="space-y-2">
+                              <Label htmlFor="platform-smtp-host">SMTP host</Label>
+                              <Input
+                                id="platform-smtp-host"
+                                value={platformDraft.mail.smtpHost}
+                                disabled={!platformEditable}
+                                onChange={(event) =>
+                                  updatePlatformField(
+                                    "mail",
+                                    "smtpHost",
+                                    event.target.value,
+                                  )
+                                }
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label htmlFor="platform-smtp-port">SMTP port</Label>
+                              <Input
+                                id="platform-smtp-port"
+                                type="number"
+                                min={1}
+                                value={String(platformDraft.mail.smtpPort)}
+                                disabled={!platformEditable}
+                                onChange={(event) =>
+                                  updatePlatformField(
+                                    "mail",
+                                    "smtpPort",
+                                    parseIntegerInput(
+                                      event.target.value,
+                                      platformDraft.mail.smtpPort,
+                                    ),
+                                  )
+                                }
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label htmlFor="platform-smtp-username">
+                                SMTP username
+                              </Label>
+                              <Input
+                                id="platform-smtp-username"
+                                value={platformDraft.mail.smtpUsername}
+                                disabled={!platformEditable}
+                                onChange={(event) =>
+                                  updatePlatformField(
+                                    "mail",
+                                    "smtpUsername",
+                                    event.target.value,
+                                  )
+                                }
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label htmlFor="platform-smtp-password">
+                                SMTP password
+                              </Label>
+                              <Input
+                                id="platform-smtp-password"
+                                type="password"
+                                value={platformDraft.mail.smtpPassword}
+                                disabled={!platformEditable}
+                                onChange={(event) =>
+                                  updatePlatformField(
+                                    "mail",
+                                    "smtpPassword",
+                                    event.target.value,
+                                  )
+                                }
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label htmlFor="platform-mail-from-email">
+                                From email
+                              </Label>
+                              <Input
+                                id="platform-mail-from-email"
+                                type="email"
+                                value={platformDraft.mail.fromEmail}
+                                disabled={!platformEditable}
+                                onChange={(event) =>
+                                  updatePlatformField(
+                                    "mail",
+                                    "fromEmail",
+                                    event.target.value,
+                                  )
+                                }
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label htmlFor="platform-mail-from-name">
+                                From name
+                              </Label>
+                              <Input
+                                id="platform-mail-from-name"
+                                value={platformDraft.mail.fromName}
+                                disabled={!platformEditable}
+                                onChange={(event) =>
+                                  updatePlatformField(
+                                    "mail",
+                                    "fromName",
+                                    event.target.value,
+                                  )
+                                }
+                              />
+                            </div>
+                            <div className="space-y-2 sm:col-span-2">
+                              <Label htmlFor="platform-mail-web-app-url">
+                                Public web app URL
+                              </Label>
+                              <Input
+                                id="platform-mail-web-app-url"
+                                value={platformDraft.mail.webAppUrl}
+                                disabled={!platformEditable}
+                                onChange={(event) =>
+                                  updatePlatformField(
+                                    "mail",
+                                    "webAppUrl",
+                                    event.target.value,
+                                  )
+                                }
+                              />
+                            </div>
+                          </div>
+                          <div className="surface-subtle flex items-center justify-between rounded-[16px] border px-4 py-3">
+                            <div>
+                              <p className="font-medium">Use implicit TLS</p>
+                              <p className="text-sm text-muted-foreground">
+                                Enable this for providers that expect secure SMTP
+                                from the initial connection, such as port 465.
+                              </p>
+                            </div>
+                            <Switch
+                              checked={platformDraft.mail.smtpSecure}
+                              disabled={!platformEditable}
+                              onCheckedChange={(checked) =>
+                                updatePlatformField("mail", "smtpSecure", checked)
+                              }
+                            />
+                          </div>
+                          <div className="flex items-center justify-between gap-3 rounded-[16px] border bg-background/70 px-4 py-3">
+                            <div className="min-w-0">
+                              <p className="font-medium">Connection test</p>
+                              <p className="text-sm text-muted-foreground">
+                                Uses the current draft values without saving them
+                                first.
+                              </p>
+                              {platformMailTestStatus ? (
+                                <p
+                                  className={cn(
+                                    "mt-2 text-sm",
+                                    getSmtpStatusClassName(
+                                      platformMailTestStatus.tone,
+                                    ),
+                                  )}
+                                >
+                                  {platformMailTestStatus.message}
+                                </p>
+                              ) : null}
+                            </div>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              onClick={() => void handleValidatePlatformSmtp()}
+                              disabled={validatePlatformSmtp.isPending}
+                            >
+                              {validatePlatformSmtp.isPending
+                                ? "Testing..."
+                                : "Test SMTP"}
+                            </Button>
                           </div>
                         </SectionPanel>
 

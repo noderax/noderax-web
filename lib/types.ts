@@ -228,6 +228,23 @@ export interface ValidateRedisSetupResponse {
   success: true;
 }
 
+export interface MailSettingsPayload {
+  smtpHost: string;
+  smtpPort: number;
+  smtpSecure: boolean;
+  smtpUsername: string;
+  smtpPassword: string;
+  fromEmail: string;
+  fromName: string;
+  webAppUrl: string;
+}
+
+export type ValidateSmtpPayload = MailSettingsPayload;
+
+export interface ValidateSmtpResponse {
+  success: true;
+}
+
 export interface SetupInstallPayload {
   postgres: ValidatePostgresSetupPayload;
   redis: ValidateRedisSetupPayload;
@@ -241,6 +258,7 @@ export interface SetupInstallPayload {
     slug: string;
     defaultTimezone: string;
   };
+  mail: MailSettingsPayload;
 }
 
 export interface SetupInstallResponse {
@@ -626,11 +644,14 @@ export interface PlatformAgentSettings {
   highCpuThreshold: number;
 }
 
+export interface PlatformMailSettings extends MailSettingsPayload {}
+
 export interface PlatformSettingsValues {
   app: PlatformAppSettings;
   database: PlatformDatabaseSettings;
   redis: PlatformRedisSettings;
   auth: PlatformAuthSettings;
+  mail: PlatformMailSettings;
   agents: PlatformAgentSettings;
 }
 

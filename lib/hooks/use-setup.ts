@@ -35,6 +35,11 @@ export const useValidateSetupRedis = () =>
     mutationFn: apiClient.validateSetupRedis,
   });
 
+export const useValidateSetupSmtp = () =>
+  useMutation({
+    mutationFn: apiClient.validateSetupSmtp,
+  });
+
 export const useInstallSetup = () => {
   const queryClient = useQueryClient();
 

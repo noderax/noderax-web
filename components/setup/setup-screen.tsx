@@ -11,6 +11,7 @@ import {
   Database,
   KeyRound,
   RefreshCcw,
+  Send,
   ServerCog,
   ShieldCheck,
   Sparkles,
@@ -41,6 +42,7 @@ import {
   useUpdateSetupApiConfig,
   useValidateSetupPostgres,
   useValidateSetupRedis,
+  useValidateSetupSmtp,
 } from "@/lib/hooks/use-setup";
 import type {
   SetupInstallPayload,
@@ -77,11 +79,21 @@ const steps = [
     icon: Waypoints,
   },
   {
+    key: "smtp",
+    label: "SMTP",
+    icon: Send,
+  },
+  {
     key: "review",
     label: "Install",
     icon: KeyRound,
   },
 ] as const;
+
+type SmtpTestState = {
+  tone: "success" | "error";
+  message: string;
+};
 
 const slugify = (value: string) =>
   value
@@ -89,6 +101,29 @@ const slugify = (value: string) =>
     .toLowerCase()
     .replace(/[^a-z0-9-]+/g, "-")
     .replace(/^-+|-+$/g, "");
+
+const DEFAULT_WEB_APP_URL = "http://localhost:3001";
+
+const isValidUrl = (value: string) => {
+  try {
+    new URL(value);
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+const isMailStepValid = (payload: SetupInstallPayload["mail"]) =>
+  Number.isFinite(payload.smtpPort) &&
+  payload.smtpPort > 0 &&
+  payload.fromEmail.includes("@") &&
+  payload.fromName.trim().length >= 1 &&
+  isValidUrl(payload.webAppUrl);
+
+const getSmtpStatusClassName = (tone: SmtpTestState["tone"]) =>
+  tone === "success"
+    ? "text-emerald-600 dark:text-emerald-400"
+    : "text-rose-600 dark:text-rose-400";
 
 const buildDefaultPayload = (): SetupInstallPayload => ({
   postgres: {
@@ -115,6 +150,16 @@ const buildDefaultPayload = (): SetupInstallPayload => ({
     slug: "",
     defaultTimezone: "UTC",
   },
+  mail: {
+    smtpHost: "",
+    smtpPort: 587,
+    smtpSecure: false,
+    smtpUsername: "",
+    smtpPassword: "",
+    fromEmail: "noreply@noderax.local",
+    fromName: "Noderax",
+    webAppUrl: DEFAULT_WEB_APP_URL,
+  },
 });
 
 export const SetupScreen = () => {
@@ -124,6 +169,7 @@ export const SetupScreen = () => {
   const updateApiConfigMutation = useUpdateSetupApiConfig();
   const validatePostgresMutation = useValidateSetupPostgres();
   const validateRedisMutation = useValidateSetupRedis();
+  const validateSmtpMutation = useValidateSetupSmtp();
   const installMutation = useInstallSetup();
   const [payload, setPayload] = useState<SetupInstallPayload>(buildDefaultPayload);
   const [setupApiUrlInput, setSetupApiUrlInput] = useState("");
@@ -132,6 +178,7 @@ export const SetupScreen = () => {
   const [postgresCheck, setPostgresCheck] =
     useState<ValidatePostgresSetupResponse | null>(null);
   const [redisValidated, setRedisValidated] = useState(false);
+  const [smtpCheck, setSmtpCheck] = useState<SmtpTestState | null>(null);
 
   useEffect(() => {
     const status = statusQuery.data;
@@ -147,6 +194,30 @@ export const SetupScreen = () => {
   useEffect(() => {
     setSetupApiUrlInput(apiConfigQuery.data?.apiUrl ?? "");
   }, [apiConfigQuery.data?.apiUrl]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const origin = window.location.origin;
+
+    setPayload((current) =>
+      current.mail.webAppUrl === DEFAULT_WEB_APP_URL
+        ? {
+            ...current,
+            mail: {
+              ...current.mail,
+              webAppUrl: origin,
+            },
+          }
+        : current,
+    );
+  }, []);
+
+  useEffect(() => {
+    setSmtpCheck(null);
+  }, [payload.mail]);
 
   const setupStatus = statusQuery.data;
   const setupStatusErrorMessage =
@@ -189,6 +260,8 @@ export const SetupScreen = () => {
             payload.workspace.slug.trim().length >= 2 &&
             payload.workspace.defaultTimezone.trim().length >= 1,
         );
+      case "smtp":
+        return isMailStepValid(payload.mail);
       case "review":
         return false;
       default:
@@ -244,6 +317,27 @@ export const SetupScreen = () => {
       toast.error(
         error instanceof ApiError ? error.message : "Redis validation failed.",
       );
+    }
+  };
+
+  const handleSmtpValidate = async () => {
+    setSmtpCheck(null);
+
+    try {
+      await validateSmtpMutation.mutateAsync(payload.mail);
+      setSmtpCheck({
+        tone: "success",
+        message: `SMTP connectivity verified for ${payload.mail.smtpHost}:${payload.mail.smtpPort}.`,
+      });
+      toast.success("SMTP connection verified.");
+    } catch (error) {
+      const message =
+        error instanceof ApiError ? error.message : "SMTP validation failed.";
+      setSmtpCheck({
+        tone: "error",
+        message,
+      });
+      toast.error(message);
     }
   };
 
@@ -411,7 +505,7 @@ export const SetupScreen = () => {
               </div>
             </CardHeader>
             <CardContent className="space-y-5">
-              <div className="grid gap-4 md:grid-cols-3">
+              <div className="grid gap-4 md:grid-cols-4">
                 <InstallerFact
                   title="PostgreSQL"
                   description={`${payload.postgres.host}:${payload.postgres.port} / ${payload.postgres.database}`}
@@ -423,6 +517,14 @@ export const SetupScreen = () => {
                 <InstallerFact
                   title="Workspace"
                   description={`${payload.workspace.name} (${payload.workspace.defaultTimezone})`}
+                />
+                <InstallerFact
+                  title="Mail"
+                  description={
+                    payload.mail.smtpHost.trim()
+                      ? `${payload.mail.smtpHost}:${payload.mail.smtpPort}`
+                      : "Email delivery disabled"
+                  }
                 />
               </div>
               <div className="rounded-2xl border border-dashed bg-muted/20 px-4 py-4 text-sm text-muted-foreground">
@@ -455,7 +557,10 @@ export const SetupScreen = () => {
                     </p>
                     <CardTitle className="text-xl">Control plane setup</CardTitle>
                     <CardDescription className="max-w-3xl">
-                      PostgreSQL, Redis, the first platform admin account, and the first workspace are provisioned in one flow. JWT and enrollment secrets are generated securely by the system.
+                      PostgreSQL, Redis, the first platform admin account, the first
+                      workspace, and optional SMTP delivery settings are provisioned
+                      in one flow. JWT and enrollment secrets are generated securely
+                      by the system.
                     </CardDescription>
                   </div>
                   <div className="flex min-w-[16rem] flex-col gap-3">
@@ -491,7 +596,7 @@ export const SetupScreen = () => {
                       error={stateDirectory.error}
                     />
                   ) : null}
-                  <div className="grid gap-2 sm:grid-cols-3 lg:grid-cols-6">
+                  <div className="grid gap-2 sm:grid-cols-3 lg:grid-cols-7">
                     {steps.map((step, index) => (
                       <button
                         key={step.key}
@@ -532,6 +637,7 @@ export const SetupScreen = () => {
                         <InstallerChecklist text="Redis connectivity is verified." />
                         <InstallerChecklist text="All core tables are created automatically." />
                         <InstallerChecklist text="The first platform admin and workspace are seeded." />
+                        <InstallerChecklist text="Optional SMTP settings can be verified before install and edited later from platform settings." />
                         <InstallerChecklist text="Runtime configuration is written to the local install-state file." />
                       </div>
                     </div>
@@ -853,6 +959,151 @@ export const SetupScreen = () => {
                 </div>
               ) : null}
 
+              {currentStep?.key === "smtp" ? (
+                <div className="grid gap-4 lg:grid-cols-2">
+                  <div className="lg:col-span-2 rounded-[24px] border bg-muted/20 p-5">
+                    <p className="text-sm font-medium">Optional email delivery</p>
+                    <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                      Leave the SMTP host blank to keep email delivery disabled for
+                      now. Sender details and the public web app URL are still
+                      stored so installer-managed deployments can refine them later.
+                    </p>
+                  </div>
+                  <SetupField
+                    label="SMTP host"
+                    value={payload.mail.smtpHost}
+                    onChange={(value) =>
+                      setPayload((current) => ({
+                        ...current,
+                        mail: { ...current.mail, smtpHost: value },
+                      }))
+                    }
+                    placeholder="smtp.resend.com"
+                  />
+                  <SetupField
+                    label="SMTP port"
+                    value={String(payload.mail.smtpPort)}
+                    onChange={(value) =>
+                      setPayload((current) => ({
+                        ...current,
+                        mail: {
+                          ...current.mail,
+                          smtpPort: Number(value || 587),
+                        },
+                      }))
+                    }
+                    placeholder="587"
+                    inputMode="numeric"
+                  />
+                  <SetupField
+                    label="SMTP username"
+                    value={payload.mail.smtpUsername}
+                    onChange={(value) =>
+                      setPayload((current) => ({
+                        ...current,
+                        mail: { ...current.mail, smtpUsername: value },
+                      }))
+                    }
+                    placeholder="resend"
+                  />
+                  <SetupField
+                    label="SMTP password"
+                    value={payload.mail.smtpPassword}
+                    onChange={(value) =>
+                      setPayload((current) => ({
+                        ...current,
+                        mail: { ...current.mail, smtpPassword: value },
+                      }))
+                    }
+                    placeholder="Optional"
+                    type="password"
+                  />
+                  <SetupField
+                    label="From email"
+                    value={payload.mail.fromEmail}
+                    onChange={(value) =>
+                      setPayload((current) => ({
+                        ...current,
+                        mail: { ...current.mail, fromEmail: value },
+                      }))
+                    }
+                    placeholder="noreply@noderax.local"
+                    type="email"
+                  />
+                  <SetupField
+                    label="From name"
+                    value={payload.mail.fromName}
+                    onChange={(value) =>
+                      setPayload((current) => ({
+                        ...current,
+                        mail: { ...current.mail, fromName: value },
+                      }))
+                    }
+                    placeholder="Noderax"
+                  />
+                  <div className="lg:col-span-2">
+                    <SetupField
+                      label="Public web app URL"
+                      value={payload.mail.webAppUrl}
+                      onChange={(value) =>
+                        setPayload((current) => ({
+                          ...current,
+                          mail: { ...current.mail, webAppUrl: value },
+                        }))
+                      }
+                      placeholder="https://app.noderax.net"
+                    />
+                  </div>
+                  <div className="lg:col-span-2 rounded-2xl border bg-muted/10 px-4 py-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <p className="font-medium">Use implicit TLS</p>
+                        <p className="text-sm text-muted-foreground">
+                          Enable this when your provider expects a secure SMTP
+                          connection immediately, such as port 465.
+                        </p>
+                      </div>
+                      <Switch
+                        checked={payload.mail.smtpSecure}
+                        onCheckedChange={(checked) =>
+                          setPayload((current) => ({
+                            ...current,
+                            mail: { ...current.mail, smtpSecure: checked },
+                          }))
+                        }
+                      />
+                    </div>
+                  </div>
+                  <div className="lg:col-span-2 flex items-center justify-between gap-3 rounded-2xl border bg-background/70 px-4 py-3">
+                    <div className="min-w-0">
+                      <p className="font-medium">Connection test</p>
+                      <p className="text-sm text-muted-foreground">
+                        Optional. Verify SMTP connectivity without blocking
+                        installation.
+                      </p>
+                      {smtpCheck ? (
+                        <p
+                          className={cn(
+                            "mt-2 text-sm",
+                            getSmtpStatusClassName(smtpCheck.tone),
+                          )}
+                        >
+                          {smtpCheck.message}
+                        </p>
+                      ) : null}
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => void handleSmtpValidate()}
+                      disabled={validateSmtpMutation.isPending}
+                    >
+                      {validateSmtpMutation.isPending ? "Testing..." : "Test SMTP"}
+                    </Button>
+                  </div>
+                </div>
+              ) : null}
+
               {currentStep?.key === "review" ? (
                 <div className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
                   <div className="space-y-4">
@@ -882,6 +1133,37 @@ export const SetupScreen = () => {
                         ["Slug", payload.workspace.slug],
                         ["Timezone", payload.workspace.defaultTimezone],
                       ]}
+                    />
+                    <ReviewPanel
+                      title="Email delivery"
+                      rows={
+                        payload.mail.smtpHost.trim()
+                          ? [
+                              ["Status", "Configured"],
+                              ["Host", payload.mail.smtpHost],
+                              ["Port", String(payload.mail.smtpPort)],
+                              ["Secure", payload.mail.smtpSecure ? "Enabled" : "Disabled"],
+                              [
+                                "Credentials",
+                                payload.mail.smtpUsername || payload.mail.smtpPassword
+                                  ? "Configured"
+                                  : "Not set",
+                              ],
+                              [
+                                "Sender",
+                                `${payload.mail.fromName} <${payload.mail.fromEmail}>`,
+                              ],
+                              ["Web app URL", payload.mail.webAppUrl],
+                            ]
+                          : [
+                              ["Status", "Email delivery disabled"],
+                              [
+                                "Sender",
+                                `${payload.mail.fromName} <${payload.mail.fromEmail}>`,
+                              ],
+                              ["Web app URL", payload.mail.webAppUrl],
+                            ]
+                      }
                     />
                     {stateDirectory ? (
                       <ReviewPanel
