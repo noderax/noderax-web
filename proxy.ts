@@ -2,6 +2,12 @@ import { NextResponse, type NextRequest } from "next/server";
 
 const AUTH_TOKEN_COOKIE = "noderax_token";
 const API_BASE_URL_COOKIE = "noderax_api_url";
+const PUBLIC_AUTH_ROUTES = ["/login", "/forgot-password"] as const;
+const PUBLIC_AUTH_ROUTE_PREFIXES = ["/reset-password/", "/invite/"] as const;
+
+const isPublicAuthRoute = (pathname: string) =>
+  PUBLIC_AUTH_ROUTES.includes(pathname as (typeof PUBLIC_AUTH_ROUTES)[number]) ||
+  PUBLIC_AUTH_ROUTE_PREFIXES.some((prefix) => pathname.startsWith(prefix));
 
 const readSetupStatus = async (apiUrlOverride?: string) => {
   const baseUrl =
@@ -45,6 +51,7 @@ export async function proxy(request: NextRequest) {
   const apiUrlOverride = request.cookies.get(API_BASE_URL_COOKIE)?.value;
   const pathname = request.nextUrl.pathname;
   const isLoginRoute = pathname === "/login";
+  const isPublicRoute = isPublicAuthRoute(pathname);
   const isSetupRoute = pathname === "/setup" || pathname.startsWith("/setup/");
 
   try {
@@ -69,7 +76,7 @@ export async function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
-  if (!token && !isLoginRoute && !isSetupRoute) {
+  if (!token && !isPublicRoute && !isSetupRoute) {
     const loginUrl = new URL("/login", request.url);
     loginUrl.searchParams.set("next", pathname);
     return NextResponse.redirect(loginUrl);
