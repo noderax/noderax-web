@@ -874,10 +874,11 @@ function SettingsPageContent({
                         </p>
                       </div>
                     </div>
-                    <div className="flex flex-wrap items-center gap-2">
+                    <div className="grid w-full gap-2 sm:w-auto sm:grid-cols-2 lg:min-w-[360px]">
                       <Button
                         type="button"
                         variant={workspace.isArchived ? "default" : "outline"}
+                        className="w-full"
                         disabled={
                           updateWorkspace.isPending ||
                           (!workspace.isArchived && workspace.isDefault)
@@ -888,6 +889,7 @@ function SettingsPageContent({
                       </Button>
                       <Button
                         type="button"
+                        className="w-full"
                         disabled={
                           workspace.isArchived ||
                           !hasWorkspaceChanges ||
