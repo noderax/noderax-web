@@ -1,6 +1,6 @@
 "use client";
 
-import { startTransition, useDeferredValue, useEffect, useMemo, useState } from "react";
+import { Suspense, startTransition, useDeferredValue, useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   AlertTriangle,
@@ -131,7 +131,7 @@ const realtimeConfig = {
   },
 };
 
-export const Topbar = () => {
+const TopbarContent = () => {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -519,3 +519,15 @@ export const Topbar = () => {
     </header>
   );
 };
+
+const TopbarFallback = () => (
+  <header className="sticky top-0 z-20 border-b border-border/70 bg-background/90 backdrop-blur-xl">
+    <div className="mx-auto flex h-16 w-full max-w-[1600px] items-center justify-between gap-4 px-4 sm:px-6 lg:px-8" />
+  </header>
+);
+
+export const Topbar = () => (
+  <Suspense fallback={<TopbarFallback />}>
+    <TopbarContent />
+  </Suspense>
+);
