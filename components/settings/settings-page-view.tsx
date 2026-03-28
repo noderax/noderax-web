@@ -34,6 +34,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PasswordFeedback } from "@/components/ui/password-feedback";
 import { SectionPanel } from "@/components/ui/section-panel";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
@@ -64,6 +65,7 @@ import {
 } from "@/lib/workspace";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/store/useAppStore";
+import { PASSWORD_MIN_LENGTH } from "@/lib/password";
 import { toast } from "sonner";
 
 type SettingsTab = "account" | "workspace" | "platform";
@@ -254,6 +256,16 @@ function SettingsPageContent({
       (session?.user.criticalEventEmailsEnabled ?? true) ||
     notificationPreferences.enrollmentEmailsEnabled !==
       (session?.user.enrollmentEmailsEnabled ?? true);
+  const isNextPasswordLongEnough =
+    passwordForm.nextPassword.length >= PASSWORD_MIN_LENGTH;
+  const doNewPasswordsMatch =
+    passwordForm.nextPassword === passwordForm.confirmPassword &&
+    passwordForm.confirmPassword.length > 0;
+  const canSubmitPasswordChange =
+    Boolean(passwordForm.currentPassword) &&
+    isNextPasswordLongEnough &&
+    doNewPasswordsMatch &&
+    !changePassword.isPending;
 
   const hasWorkspaceChanges = Boolean(
     workspace &&
@@ -392,12 +404,14 @@ function SettingsPageContent({
   const handlePasswordChange = async () => {
     setPasswordError(null);
 
-    if (passwordForm.nextPassword.length < 8) {
-      setPasswordError("New password must be at least 8 characters.");
+    if (!isNextPasswordLongEnough) {
+      setPasswordError(
+        `New password must be at least ${PASSWORD_MIN_LENGTH} characters.`,
+      );
       return;
     }
 
-    if (passwordForm.nextPassword !== passwordForm.confirmPassword) {
+    if (!doNewPasswordsMatch) {
       setPasswordError("New password and confirmation must match.");
       return;
     }
@@ -748,10 +762,13 @@ function SettingsPageContent({
                             autoComplete="current-password"
                             value={passwordForm.currentPassword}
                             onChange={(event) =>
-                              setPasswordForm((current) => ({
-                                ...current,
-                                currentPassword: event.target.value,
-                              }))
+                              {
+                                setPasswordForm((current) => ({
+                                  ...current,
+                                  currentPassword: event.target.value,
+                                }));
+                                setPasswordError(null);
+                              }
                             }
                           />
                         </div>
@@ -763,10 +780,13 @@ function SettingsPageContent({
                             autoComplete="new-password"
                             value={passwordForm.nextPassword}
                             onChange={(event) =>
-                              setPasswordForm((current) => ({
-                                ...current,
-                                nextPassword: event.target.value,
-                              }))
+                              {
+                                setPasswordForm((current) => ({
+                                  ...current,
+                                  nextPassword: event.target.value,
+                                }));
+                                setPasswordError(null);
+                              }
                             }
                           />
                         </div>
@@ -778,25 +798,27 @@ function SettingsPageContent({
                             autoComplete="new-password"
                             value={passwordForm.confirmPassword}
                             onChange={(event) =>
-                              setPasswordForm((current) => ({
-                                ...current,
-                                confirmPassword: event.target.value,
-                              }))
+                              {
+                                setPasswordForm((current) => ({
+                                  ...current,
+                                  confirmPassword: event.target.value,
+                                }));
+                                setPasswordError(null);
+                              }
                             }
                           />
                         </div>
+                        <PasswordFeedback
+                          password={passwordForm.nextPassword}
+                          confirmPassword={passwordForm.confirmPassword}
+                        />
                         {passwordError ? (
                           <p className="text-sm text-tone-danger">{passwordError}</p>
                         ) : null}
                         <div className="flex justify-end">
                           <Button
                             type="button"
-                            disabled={
-                              changePassword.isPending ||
-                              !passwordForm.currentPassword ||
-                              !passwordForm.nextPassword ||
-                              !passwordForm.confirmPassword
-                            }
+                            disabled={!canSubmitPasswordChange}
                             onClick={() => void handlePasswordChange()}
                           >
                             {changePassword.isPending ? "Updating..." : "Update password"}

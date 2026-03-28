@@ -7,8 +7,10 @@ import { PublicAuthShell } from "@/components/auth/public-auth-shell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PasswordFeedback } from "@/components/ui/password-feedback";
 import { TimeDisplay } from "@/components/ui/time-display";
 import { ApiError, apiClient } from "@/lib/api";
+import { PASSWORD_MIN_LENGTH } from "@/lib/password";
 import type { InvitationPreviewDto } from "@/lib/types";
 
 export const InvitationAcceptScreen = ({ token }: { token: string }) => {
@@ -19,6 +21,9 @@ export const InvitationAcceptScreen = ({ token }: { token: string }) => {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const isPasswordLongEnough = password.length >= PASSWORD_MIN_LENGTH;
+  const doPasswordsMatch = password === confirmPassword && confirmPassword.length > 0;
+  const canSubmit = isPasswordLongEnough && doPasswordsMatch && !isSubmitting;
 
   useEffect(() => {
     let isCancelled = false;
@@ -57,12 +62,12 @@ export const InvitationAcceptScreen = ({ token }: { token: string }) => {
   const handleAccept = async () => {
     setErrorMessage(null);
 
-    if (password.length < 8) {
-      setErrorMessage("Password must be at least 8 characters.");
+    if (!isPasswordLongEnough) {
+      setErrorMessage(`Password must be at least ${PASSWORD_MIN_LENGTH} characters.`);
       return;
     }
 
-    if (password !== confirmPassword) {
+    if (!doPasswordsMatch) {
       setErrorMessage("Password confirmation must match.");
       return;
     }
@@ -118,7 +123,10 @@ export const InvitationAcceptScreen = ({ token }: { token: string }) => {
               type="password"
               autoComplete="new-password"
               value={password}
-              onChange={(event) => setPassword(event.target.value)}
+              onChange={(event) => {
+                setPassword(event.target.value);
+                setErrorMessage(null);
+              }}
             />
           </div>
 
@@ -129,9 +137,17 @@ export const InvitationAcceptScreen = ({ token }: { token: string }) => {
               type="password"
               autoComplete="new-password"
               value={confirmPassword}
-              onChange={(event) => setConfirmPassword(event.target.value)}
+              onChange={(event) => {
+                setConfirmPassword(event.target.value);
+                setErrorMessage(null);
+              }}
             />
           </div>
+
+          <PasswordFeedback
+            password={password}
+            confirmPassword={confirmPassword}
+          />
 
           {errorMessage ? (
             <div className="tone-danger rounded-[18px] border px-4 py-3 text-sm leading-6">
@@ -143,7 +159,7 @@ export const InvitationAcceptScreen = ({ token }: { token: string }) => {
             type="button"
             size="lg"
             className="w-full"
-            disabled={isSubmitting}
+            disabled={!canSubmit}
             onClick={() => void handleAccept()}
           >
             {isSubmitting ? "Activating..." : "Activate account"}
