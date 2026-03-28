@@ -376,6 +376,7 @@ export interface WorkspaceMembershipDto {
   role: WorkspaceMembershipRole;
   userName?: string | null;
   userEmail?: string | null;
+  userIsActive?: boolean | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -395,6 +396,7 @@ export interface TeamMembershipDto {
   userId: string;
   userName?: string | null;
   userEmail?: string | null;
+  userIsActive?: boolean | null;
   createdAt: string;
 }
 
@@ -409,6 +411,18 @@ export interface CreateUserPayload {
   name: string;
   password: string;
   role?: UserRole;
+}
+
+export interface UpdateUserPayload {
+  email?: string;
+  name?: string;
+  role?: UserRole;
+  isActive?: boolean;
+}
+
+export interface DeleteUserResponse {
+  deleted: true;
+  id: string;
 }
 
 export interface CreateWorkspacePayload {
@@ -428,9 +442,7 @@ export interface UpdateWorkspacePayload {
 }
 
 export interface CreateWorkspaceMemberPayload {
-  email: string;
-  name?: string;
-  password?: string;
+  userId: string;
   role: WorkspaceMembershipRole;
 }
 
@@ -450,6 +462,12 @@ export interface UpdateTeamPayload {
 
 export interface AddTeamMemberPayload {
   userId: string;
+}
+
+export interface AssignableUserDto {
+  id: string;
+  name: string;
+  email: string;
 }
 
 export interface CreateNodePayload {

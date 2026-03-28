@@ -11,6 +11,7 @@ import {
 } from "@/lib/noderax";
 import type {
   AddTeamMemberPayload,
+  AssignableUserDto,
   AuthSession,
   CancelTaskPayload,
   CancelTaskResponse,
@@ -23,6 +24,7 @@ import type {
   CreateUserPayload,
   CreateWorkspaceMemberPayload,
   CreateWorkspacePayload,
+  DeleteUserResponse,
   DashboardOverview,
   DeleteWorkspaceResponse,
   DeleteScheduledTaskResponse,
@@ -63,6 +65,7 @@ import type {
   TaskLogFilters,
   TaskFlowDiagnostics,
   TaskSummary,
+  UpdateUserPayload,
   UpdateUserPreferencesPayload,
   UpdateSetupApiConfigPayload,
   UpdateTeamPayload,
@@ -666,6 +669,11 @@ export const apiClient = {
       buildWorkspaceApiPath(workspaceId, "/members"),
     );
   },
+  getWorkspaceAssignableUsers(workspaceId: string) {
+    return request<AssignableUserDto[]>(
+      buildWorkspaceApiPath(workspaceId, "/assignable-users"),
+    );
+  },
   createWorkspaceMember(
     workspaceId: string,
     payload: CreateWorkspaceMemberPayload,
@@ -774,6 +782,17 @@ export const apiClient = {
     return request<UserDto>("/api/proxy/users", {
       method: "POST",
       body: JSON.stringify(payload),
+    });
+  },
+  updateUser(userId: string, payload: UpdateUserPayload) {
+    return request<UserDto>(`/api/proxy/users/${userId}`, {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    });
+  },
+  deleteUser(userId: string) {
+    return request<DeleteUserResponse>(`/api/proxy/users/${userId}`, {
+      method: "DELETE",
     });
   },
   getNodes(filters?: NodeFilters, workspaceId?: string) {

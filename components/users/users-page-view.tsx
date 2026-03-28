@@ -3,6 +3,7 @@
 import { ShieldAlert, Users } from "lucide-react";
 
 import { CreateUserDialog } from "@/components/users/create-user-dialog";
+import { UserRowActions } from "@/components/users/user-row-actions";
 import { EmptyState } from "@/components/empty-state";
 import { AppShell } from "@/components/layout/app-shell";
 import { Badge } from "@/components/ui/badge";
@@ -58,7 +59,7 @@ export const UsersPageView = () => {
         <SectionPanel
           eyebrow="Platform"
           title="Users"
-          description="Manage operator accounts and platform roles."
+          description="Manage operator accounts, lifecycle state, and platform roles."
           action={<CreateUserDialog />}
           contentClassName="p-0"
         >
@@ -77,23 +78,46 @@ export const UsersPageView = () => {
                   <TableHead>Role</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Created</TableHead>
+                  <TableHead className="w-[72px] text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {usersQuery.data.map((user) => (
                   <TableRow key={user.id}>
-                    <TableCell className="font-medium">{user.name}</TableCell>
+                    <TableCell className="font-medium">
+                      <div className="flex items-center gap-2">
+                        <span>{user.name}</span>
+                        {authQuery.session?.user.id === user.id ? (
+                          <Badge variant="secondary" className="rounded-full px-2.5 py-1">
+                            You
+                          </Badge>
+                        ) : null}
+                      </div>
+                    </TableCell>
                     <TableCell className="text-muted-foreground">{user.email}</TableCell>
                     <TableCell>
                       <Badge variant="outline" className="rounded-full px-3 py-1 capitalize">
                         {user.role}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {user.isActive ? "Active" : "Inactive"}
+                    <TableCell>
+                      <Badge
+                        variant={user.isActive ? "secondary" : "destructive"}
+                        className="rounded-full px-3 py-1"
+                      >
+                        {user.isActive ? "Active" : "Inactive"}
+                      </Badge>
                     </TableCell>
                     <TableCell className="text-muted-foreground">
                       <TimeDisplay value={user.createdAt} mode="datetime" />
+                    </TableCell>
+                    <TableCell className="w-[72px]">
+                      <div className="flex justify-end">
+                        <UserRowActions
+                          user={user}
+                          isCurrentUser={authQuery.session?.user.id === user.id}
+                        />
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}

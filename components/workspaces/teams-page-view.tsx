@@ -5,6 +5,7 @@ import { Plus, Users2 } from "lucide-react";
 
 import { AppShell } from "@/components/layout/app-shell";
 import { EmptyState } from "@/components/empty-state";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -171,7 +172,9 @@ const TeamCard = ({
 
   const selectableMembers = useMemo(() => {
     const memberIds = new Set((teamMembersQuery.data ?? []).map((member) => member.userId));
-    return (members ?? []).filter((member) => !memberIds.has(member.userId));
+    return (members ?? []).filter(
+      (member) => !memberIds.has(member.userId) && member.userIsActive !== false,
+    );
   }, [members, teamMembersQuery.data]);
 
   return (
@@ -221,6 +224,12 @@ const TeamCard = ({
         </div>
       ) : null}
 
+      {canManage && !selectableMembers.length ? (
+        <p className="mt-3 text-sm text-muted-foreground">
+          No active workspace members are currently available to add.
+        </p>
+      ) : null}
+
       <div className="mt-4 space-y-2">
         {(teamMembersQuery.data ?? []).length ? (
           (teamMembersQuery.data ?? []).map((member) => (
@@ -229,9 +238,16 @@ const TeamCard = ({
               className="flex items-center justify-between rounded-2xl border px-4 py-3"
             >
               <div>
-                <p className="font-medium">
-                  {member.userName ?? member.userEmail ?? member.userId}
-                </p>
+                <div className="flex items-center gap-2">
+                  <p className="font-medium">
+                    {member.userName ?? member.userEmail ?? member.userId}
+                  </p>
+                  {member.userIsActive === false ? (
+                    <Badge variant="destructive" className="rounded-full px-3 py-1">
+                      Inactive
+                    </Badge>
+                  ) : null}
+                </div>
                 <p className="text-sm text-muted-foreground">
                   {member.userEmail ?? "Workspace member"}
                 </p>

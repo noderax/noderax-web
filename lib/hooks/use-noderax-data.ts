@@ -4,9 +4,11 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 import { ApiError, apiClient } from "@/lib/api";
+import { sessionQueryKey } from "@/lib/hooks/use-auth-session";
 import { useWorkspaceContext, workspacesQueryKey } from "@/lib/hooks/use-workspace-context";
 import type {
   AddTeamMemberPayload,
+  AssignableUserDto,
   AuthSession,
   CancelTaskPayload,
   CancelTaskResponse,
@@ -19,6 +21,7 @@ import type {
   CreateUserPayload,
   CreateWorkspaceMemberPayload,
   CreateWorkspacePayload,
+  DeleteUserResponse,
   DeleteWorkspaceResponse,
   EventFilters,
   FinalizeEnrollmentPayload,
@@ -37,6 +40,7 @@ import type {
   UpdateWorkspacePayload,
   TaskFilters,
   TaskStatus,
+  UpdateUserPayload,
   WorkspaceMembershipDto,
 } from "@/lib/types";
 import { useAppStore } from "@/store/useAppStore";
@@ -57,6 +61,8 @@ export const queryKeys = {
     all: workspacesQueryKey,
     detail: (workspaceId: string) => ["workspaces", "detail", workspaceId] as const,
     members: (workspaceId: string) => ["workspaces", workspaceId, "members"] as const,
+    assignableUsers: (workspaceId: string) =>
+      ["workspaces", workspaceId, "assignable-users"] as const,
     teams: (workspaceId: string) => ["workspaces", workspaceId, "teams"] as const,
     teamMembers: (workspaceId: string, teamId: string) =>
       ["workspaces", workspaceId, "teams", teamId, "members"] as const,
@@ -105,6 +111,47 @@ export const queryKeys = {
   },
 };
 
+const invalidateAllWorkspaceUserQueries = (
+  queryClient: ReturnType<typeof useQueryClient>,
+) =>
+  queryClient.invalidateQueries({
+    predicate: (query) => {
+      const key = query.queryKey;
+
+      return (
+        key[0] === "workspaces" &&
+        (key[2] === "members" ||
+          key[2] === "assignable-users" ||
+          (key[2] === "teams" && key[4] === "members"))
+      );
+    },
+    refetchType: "active",
+  });
+
+const invalidateWorkspaceUserQueries = async (
+  queryClient: ReturnType<typeof useQueryClient>,
+  workspaceId: string,
+) => {
+  await Promise.all([
+    queryClient.invalidateQueries({
+      queryKey: queryKeys.workspaces.members(workspaceId),
+      refetchType: "active",
+    }),
+    queryClient.invalidateQueries({
+      queryKey: queryKeys.workspaces.assignableUsers(workspaceId),
+      refetchType: "active",
+    }),
+    queryClient.invalidateQueries({
+      predicate: (query) =>
+        query.queryKey[0] === "workspaces" &&
+        query.queryKey[1] === workspaceId &&
+        query.queryKey[2] === "teams" &&
+        query.queryKey[4] === "members",
+      refetchType: "active",
+    }),
+  ]);
+};
+
 export const useDashboardOverview = () => {
   const { workspaceId } = useWorkspaceContext();
 
@@ -137,6 +184,74 @@ export const useUsers = (enabled = true) =>
     staleTime: 15_000,
   });
 
+export const useUpdateUser = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (input: { userId: string; payload: UpdateUserPayload }) =>
+      apiClient.updateUser(input.userId, input.payload),
+    onSuccess: async (user) => {
+      const currentSession = queryClient.getQueryData<AuthSession>(sessionQueryKey);
+
+      if (currentSession?.user.id === user.id) {
+        const nextSession: AuthSession = {
+          ...currentSession,
+          user: {
+            ...currentSession.user,
+            ...user,
+          },
+        };
+
+        queryClient.setQueryData(sessionQueryKey, nextSession);
+        useAppStore.getState().setSession(nextSession);
+      }
+
+      toast.success("User updated", {
+        description: `${user.name} was updated successfully.`,
+      });
+
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.users.all,
+          refetchType: "active",
+        }),
+        invalidateAllWorkspaceUserQueries(queryClient),
+      ]);
+    },
+    onError: (error) => {
+      toast.error("Unable to update user", {
+        description: readMutationError(error),
+      });
+    },
+  });
+};
+
+export const useDeleteUser = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (userId: string) => apiClient.deleteUser(userId),
+    onSuccess: async (result: DeleteUserResponse) => {
+      toast.success("User deleted", {
+        description: result.id,
+      });
+
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.users.all,
+          refetchType: "active",
+        }),
+        invalidateAllWorkspaceUserQueries(queryClient),
+      ]);
+    },
+    onError: (error) => {
+      toast.error("Unable to delete user", {
+        description: readMutationError(error),
+      });
+    },
+  });
+};
+
 export const usePlatformSettings = (enabled = true) =>
   useQuery({
     queryKey: queryKeys.platformSettings.detail,
@@ -144,6 +259,20 @@ export const usePlatformSettings = (enabled = true) =>
     enabled,
     staleTime: 15_000,
   });
+
+export const useWorkspaceAssignableUsers = (enabled = true) => {
+  const { workspaceId } = useWorkspaceContext();
+
+  return useQuery<AssignableUserDto[]>({
+    queryKey:
+      workspaceId
+        ? queryKeys.workspaces.assignableUsers(workspaceId)
+        : ["workspaces", "assignable-users", "idle"],
+    queryFn: () => apiClient.getWorkspaceAssignableUsers(workspaceId!),
+    enabled: enabled && Boolean(workspaceId),
+    staleTime: 15_000,
+  });
+};
 
 export const useNodes = (filters?: NodeFilters) => {
   const { workspaceId } = useWorkspaceContext();
@@ -369,7 +498,7 @@ export const useCreateUser = () => {
     mutationFn: (payload: CreateUserPayload) => apiClient.createUser(payload),
     onSuccess: async (user) => {
       toast.success("User created", {
-        description: `${user.name} can now access the workspace.`,
+        description: `${user.name} can now be assigned to workspaces.`,
       });
       await queryClient.invalidateQueries({
         queryKey: queryKeys.users.all,
@@ -1096,10 +1225,10 @@ export const useCreateWorkspaceMember = () => {
       toast.success("Member added", {
         description: membership.userEmail ?? membership.userName ?? "Workspace member added.",
       });
-      await queryClient.invalidateQueries({
-        queryKey: queryKeys.workspaces.members(requireWorkspaceId(workspaceId)),
-        refetchType: "active",
-      });
+      await invalidateWorkspaceUserQueries(
+        queryClient,
+        requireWorkspaceId(workspaceId),
+      );
     },
     onError: (error) => {
       toast.error("Unable to add member", {
@@ -1141,10 +1270,10 @@ export const useDeleteWorkspaceMember = () => {
       ),
     onSuccess: async () => {
       toast.success("Member removed");
-      await queryClient.invalidateQueries({
-        queryKey: queryKeys.workspaces.members(requireWorkspaceId(workspaceId)),
-        refetchType: "active",
-      });
+      await invalidateWorkspaceUserQueries(
+        queryClient,
+        requireWorkspaceId(workspaceId),
+      );
     },
   });
 };
@@ -1217,13 +1346,10 @@ export const useAddWorkspaceTeamMember = (teamId: string) => {
         payload,
       ),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({
-        queryKey: queryKeys.workspaces.teamMembers(
-          requireWorkspaceId(workspaceId),
-          teamId,
-        ),
-        refetchType: "active",
-      });
+      await invalidateWorkspaceUserQueries(
+        queryClient,
+        requireWorkspaceId(workspaceId),
+      );
     },
   });
 };
@@ -1240,13 +1366,10 @@ export const useDeleteWorkspaceTeamMember = (teamId: string) => {
         userId,
       ),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({
-        queryKey: queryKeys.workspaces.teamMembers(
-          requireWorkspaceId(workspaceId),
-          teamId,
-        ),
-        refetchType: "active",
-      });
+      await invalidateWorkspaceUserQueries(
+        queryClient,
+        requireWorkspaceId(workspaceId),
+      );
     },
   });
 };
