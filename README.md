@@ -16,14 +16,21 @@
 
 Current product surface:
 
-- First-run setup screen for installer-managed deployments
+- First-run setup screen for installer-managed deployments with PostgreSQL, Redis, and optional SMTP validation
 - Workspace selection and default-workspace fallback
 - Workspace-scoped dashboard, nodes, tasks, events, scheduled tasks, members, and teams
 - Platform-admin global user directory with invite-first create, edit, resend invite, activate, deactivate, and guarded delete flows
 - Public auth lifecycle routes for:
+  - password login
+  - OIDC login buttons for enabled providers
+  - MFA challenge / recovery verification
   - invitation acceptance
   - forgot password
   - reset password
+- Account security controls with QR-based TOTP MFA enrollment and recovery codes
+- Platform identity controls for SSO provider management and provider testing
+- Platform-admin audit view plus workspace audit history
+- Workspace task templates and team-targeted task execution flows
 - Unified settings surface with:
   - `Account`
   - `Workspace`
@@ -40,11 +47,13 @@ Current product surface:
   - `Users` is the only account creation surface
   - workspace members are assigned from existing accepted active users
   - teams can only add active members already attached to the workspace
+  - teams can own nodes and be used as run/schedule targets
 - Workspace archive UX:
   - archived banner inside workspace routes
   - archive / restore actions
   - read-only operator controls while archived
 - Workspace-scoped topbar search with grouped suggestions for nodes, tasks, schedules, events, members, and teams
+- Fleet inventory page for agent version, platform telemetry, team ownership, and maintenance visibility
 
 ## Tech Stack
 
@@ -85,6 +94,7 @@ The current primary UI uses workspace-scoped routes:
 - `/w/[workspaceSlug]/tasks/[id]`
 - `/w/[workspaceSlug]/scheduled-tasks`
 - `/w/[workspaceSlug]/events`
+- `/w/[workspaceSlug]/audit`
 - `/w/[workspaceSlug]/members`
 - `/w/[workspaceSlug]/teams`
 - `/w/[workspaceSlug]/workspace-settings`
@@ -98,12 +108,16 @@ Additional top-level routes:
 - `/settings`
 - `/setup`
 - `/users`
+- `/audit`
+- `/fleet`
 
 The top-level non-workspace pages continue to exist as convenience or fallback surfaces, but the workspace-scoped routes are the main operator path.
 
 ## Features
 
 - JWT login with cookie-based session handling
+- OIDC login start/callback through public auth handlers
+- MFA challenge and recovery-code flows during login
 - Invite acceptance and password reset flows through public auth handlers
 - Next.js proxy layer over `noderax-api`
 - Workspace-aware navigation and workspace cookie persistence
@@ -111,16 +125,22 @@ The top-level non-workspace pages continue to exist as convenience or fallback s
 - Platform-admin workspace creation and workspace inventory
 - Workspace archive / restore controls with read-only UI states
 - Workspace member and team management built on top of the global user directory
+- Task templates with prefill/save UX in task creation flows
+- Team-targeted task runs and schedule targeting
+- Node maintenance UX and fleet telemetry visibility
+- Platform and workspace audit surfaces
 - Workspace-scoped topbar search with grouped suggestions and `?q=` route handoff
 - Unified settings page:
   - account preferences
   - change password
+  - token management and MFA enrollment
   - workspace settings
-  - platform runtime settings
+  - platform runtime settings, SMTP testing, and identity provider management
 - Platform-admin user lifecycle management with self-protection and last-admin guardrails
 - Task operations:
   - on-demand task runs
   - multi-node batch dispatch
+  - team-targeted runs
   - scheduled task creation
   - cancel flow for active tasks
 - Package management through node detail
@@ -149,7 +169,7 @@ The UI hides actions that the current session should not perform.
 - `Users` is the platform-wide identity directory and the only place where new accounts are created.
 - New users are invited first. They activate themselves from the invite link before they can sign in or be assigned anywhere.
 - `Members` does not create users inline. It assigns an existing accepted active user to the current workspace with a workspace role.
-- `Teams` only offer workspace-local grouping. The add-member list is limited to active workspace members who are not already in the selected team.
+- `Teams` are workspace-local groups built from active members, and they also act as operational owners for nodes and team-targeted task/schedule flows.
 - Inactive users remain visible in historical membership lists, but they cannot sign in and they cannot be added to new workspaces or teams.
 - Removing a workspace membership also removes that user from every team in the same workspace.
 
@@ -162,6 +182,8 @@ The unified `/settings` page now contains:
   - timezone preferences used across task scheduling displays
   - persisted notification email preferences
   - authenticated password change with forced re-login
+  - token management
+  - QR-based MFA enrollment, recovery-code regeneration, and disable flow
 - `Workspace`
   - workspace name and slug
   - workspace timezone
@@ -169,7 +191,9 @@ The unified `/settings` page now contains:
   - default-workspace status and selection
   - danger zone with typed confirmation for deletion
 - `Platform`
-  - installer-managed runtime settings for app, auth, database, Redis, and agent behavior
+  - installer-managed runtime settings for app, auth, database, Redis, mail, and agent behavior
+  - SMTP draft validation
+  - OIDC provider configuration and discovery testing
   - visible only to `platform_admin`
 
 ## Realtime Behavior
@@ -202,6 +226,15 @@ Surfaces kept fresh by realtime:
 Primary upstream routes:
 
 - `POST /auth/login`
+- `GET /auth/providers`
+- `GET /auth/oidc/:provider/start`
+- `GET /auth/oidc/:provider/callback`
+- `POST /auth/mfa/setup/initiate`
+- `POST /auth/mfa/setup/confirm`
+- `POST /auth/mfa/challenge/verify`
+- `POST /auth/mfa/recovery/verify`
+- `POST /auth/mfa/recovery/regenerate`
+- `DELETE /auth/mfa`
 - `GET /auth/invitations/:token`
 - `POST /auth/invitations/:token/accept`
 - `POST /auth/password/forgot`
@@ -224,16 +257,29 @@ Primary upstream routes:
 - `GET /workspaces/:workspaceId/search`
 - `GET /workspaces/:workspaceId/teams`
 - `GET /workspaces/:workspaceId/teams/:teamId/members`
+- `GET /workspaces/:workspaceId/task-templates`
+- `POST /workspaces/:workspaceId/task-templates`
+- `PATCH /workspaces/:workspaceId/task-templates/:id`
+- `DELETE /workspaces/:workspaceId/task-templates/:id`
 - `GET /workspaces/:workspaceId/nodes`
+- `POST /workspaces/:workspaceId/nodes/:id/team`
+- `POST /workspaces/:workspaceId/nodes/:id/maintenance/enable`
+- `POST /workspaces/:workspaceId/nodes/:id/maintenance/disable`
 - `GET /workspaces/:workspaceId/tasks`
+- `POST /workspaces/:workspaceId/tasks/teams/:teamId`
 - `GET /workspaces/:workspaceId/scheduled-tasks`
 - `GET /workspaces/:workspaceId/events`
 - `GET /workspaces/:workspaceId/metrics`
+- `GET /workspaces/:workspaceId/audit-logs`
+- `GET /audit-logs`
+- `GET /fleet/nodes`
 - `GET /platform-settings`
 - `PATCH /platform-settings`
+- `POST /platform-settings/validate/smtp`
 - `GET /setup/status`
 - `POST /setup/validate/postgres`
 - `POST /setup/validate/redis`
+- `POST /setup/validate/smtp`
 - `POST /setup/install`
 
 ## Environment Variables
@@ -257,6 +303,7 @@ Notes:
 - `NODERAX_API_URL` is required.
 - Realtime connects to `/realtime`, not `/api/v1/realtime`.
 - If `NEXT_PUBLIC_NODERAX_WS_URL` is omitted, the app falls back to the API origin or browser origin.
+- The runtime can also be overridden by the `noderax_api_url` cookie during setup/onboarding flows.
 
 ## Local Development
 
@@ -318,8 +365,7 @@ store/
 - Dashboard totals are still operational snapshots, not a full analytics product.
 - Text search on some list views remains client-side.
 - Interactive terminal or SSH sessions are not implemented.
-- Password reset and admin-driven password rotation are not implemented yet.
-- Teams are currently organizational only; they are not yet used for task targeting, filtering, or authorization decisions.
+- Fleet is intentionally an inventory/telemetry view right now; agent release rollout orchestration is not part of the current web surface.
 - The UI assumes the API is the source of truth for role enforcement and workspace access.
 
 ## Notes

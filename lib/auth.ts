@@ -4,6 +4,7 @@ import { buildAuthSession } from "@/lib/noderax";
 export const AUTH_TOKEN_COOKIE = "noderax_token";
 export const AUTH_SESSION_COOKIE = "noderax_session";
 export const AUTH_PERSIST_COOKIE = "noderax_persist";
+export const AUTH_FLASH_ERROR_COOKIE = "noderax_auth_flash_error";
 export const API_BASE_URL_COOKIE = "noderax_api_url";
 const API_PREFIX = "/api/v1";
 
@@ -79,9 +80,12 @@ const joinApiUrl = (baseUrl: string, path: string) => {
   const url = new URL(baseUrl);
   const normalizedBasePath =
     url.pathname && url.pathname !== "/" ? normalizePathname(url.pathname) : "";
-  const normalizedPath = normalizePathname(path);
+  const pathUrl = new URL(path, "http://noderax.local");
+  const normalizedPath = normalizePathname(pathUrl.pathname);
 
   url.pathname = `${normalizedBasePath}${normalizedPath}` || "/";
+  url.search = pathUrl.search;
+  url.hash = pathUrl.hash;
   return url;
 };
 

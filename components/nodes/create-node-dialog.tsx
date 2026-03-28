@@ -20,8 +20,19 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { useFinalizeEnrollment } from "@/lib/hooks/use-noderax-data";
+import {
+  useFinalizeEnrollment,
+  useUpdateNodeTeam,
+  useWorkspaceTeams,
+} from "@/lib/hooks/use-noderax-data";
 import { useWorkspaceContext } from "@/lib/hooks/use-workspace-context";
 
 const verifyEnrollmentSchema = z.object({
@@ -52,8 +63,11 @@ export const CreateNodeDialog = () => {
   const { buildWorkspaceHref } = useWorkspaceContext();
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState<"verify" | "details">("verify");
+  const [teamId, setTeamId] = useState<"none" | string>("none");
   const [completionError, setCompletionError] = useState<string | null>(null);
   const finalizeEnrollmentMutation = useFinalizeEnrollment();
+  const updateNodeTeamMutation = useUpdateNodeTeam();
+  const teamsQuery = useWorkspaceTeams();
   const verifyForm = useForm<VerifyEnrollmentValues>({
     resolver: zodResolver(verifyEnrollmentSchema),
     defaultValues: verifyDefaultValues,
@@ -78,6 +92,7 @@ export const CreateNodeDialog = () => {
     completeForm.reset(completeDefaultValues);
     setStep("verify");
     setCompletionError(null);
+    setTeamId("none");
   };
 
   const handleVerify = verifyForm.handleSubmit(async () => {
@@ -98,6 +113,13 @@ export const CreateNodeDialog = () => {
           description: values.description.trim() || undefined,
         },
       });
+
+      if (teamId !== "none") {
+        await updateNodeTeamMutation.mutateAsync({
+          nodeId: enrollment.nodeId,
+          payload: { teamId },
+        });
+      }
 
       setOpen(false);
       resetDialog();
@@ -244,6 +266,27 @@ export const CreateNodeDialog = () => {
               />
             </div>
 
+            <div className="space-y-2">
+              <Label htmlFor="node-team">Team ownership</Label>
+              <Select value={teamId} onValueChange={(value) => setTeamId(value ?? "none")}>
+                <SelectTrigger id="node-team" className="w-full">
+                  <SelectValue placeholder="Select a team" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">No team</SelectItem>
+                  {(teamsQuery.data ?? []).map((team) => (
+                    <SelectItem key={team.id} value={team.id}>
+                      {team.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Team-owned nodes are eligible for team-targeted tasks and
+                schedules as soon as enrollment finishes.
+              </p>
+            </div>
+
             {completionError ? (
               <p className="text-sm text-tone-danger">{completionError}</p>
             ) : null}
@@ -256,7 +299,10 @@ export const CreateNodeDialog = () => {
                   setCompletionError(null);
                   setStep("verify");
                 }}
-                disabled={finalizeEnrollmentMutation.isPending}
+                disabled={
+                  finalizeEnrollmentMutation.isPending ||
+                  updateNodeTeamMutation.isPending
+                }
               >
                 <ArrowLeft className="size-4" />
                 Back
@@ -268,9 +314,13 @@ export const CreateNodeDialog = () => {
                 <Button
                   type="button"
                   onClick={() => void handleComplete()}
-                  disabled={finalizeEnrollmentMutation.isPending}
+                  disabled={
+                    finalizeEnrollmentMutation.isPending ||
+                    updateNodeTeamMutation.isPending
+                  }
                 >
-                  {finalizeEnrollmentMutation.isPending
+                  {finalizeEnrollmentMutation.isPending ||
+                  updateNodeTeamMutation.isPending
                     ? "Saving..."
                     : "Save node"}
                 </Button>

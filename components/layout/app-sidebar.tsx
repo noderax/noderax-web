@@ -8,7 +8,9 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
+  ClipboardList,
   Home,
+  Rocket,
   Settings,
   Siren,
   Users,
@@ -81,6 +83,7 @@ const SidebarContent = ({
   const eventsHref = buildWorkspaceHref("events") ?? "/workspaces";
   const membersHref = buildWorkspaceHref("members") ?? "/workspaces";
   const teamsHref = buildWorkspaceHref("teams") ?? "/workspaces";
+  const workspaceAuditHref = buildWorkspaceHref("audit") ?? "/workspaces";
   const settingsHref = "/settings";
   const platformSettingsHref = "/settings?tab=platform";
   const tasksSectionActive =
@@ -122,6 +125,9 @@ const SidebarContent = ({
           ? [
               { href: membersHref, label: "Members", icon: Users },
               { href: teamsHref, label: "Teams", icon: Users },
+              ...(isWorkspaceAdmin
+                ? [{ href: workspaceAuditHref, label: "Audit", icon: ClipboardList }]
+                : []),
             ]
           : []),
         { href: settingsHref, label: "Settings", icon: Settings },
@@ -134,6 +140,8 @@ const SidebarContent = ({
           ? [
               { href: "/workspaces", label: "Workspaces", icon: Workflow },
               { href: "/users", label: "Users", icon: Users },
+              { href: "/fleet", label: "Fleet", icon: Rocket },
+              { href: "/audit", label: "Platform Audit", icon: ClipboardList },
               {
                 href: platformSettingsHref,
                 label: "Platform Settings",

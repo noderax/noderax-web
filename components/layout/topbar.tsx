@@ -47,6 +47,8 @@ const sectionNames: Record<string, string> = {
   "/tasks": "Tasks",
   "/scheduled-tasks": "Scheduled Tasks",
   "/events": "Events",
+  "/audit": "Audit",
+  "/fleet": "Fleet",
   "/members": "Members",
   "/teams": "Teams",
   "/workspace-settings": "Workspace Settings",
@@ -62,6 +64,8 @@ const sectionDescriptions: Record<string, string> = {
   "/scheduled-tasks":
     "Manage recurring shell commands and schedule timing across nodes.",
   "/events": "Review alerts, warnings, and platform event history.",
+  "/audit": "Inspect append-only admin and security activity across the platform or current workspace.",
+  "/fleet": "Track agent versions, platform telemetry, and maintenance visibility across the fleet.",
   "/members": "Manage who can access this workspace and which role they hold.",
   "/teams": "Organize workspace members into teams for collaboration.",
   "/workspace-settings":

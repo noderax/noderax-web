@@ -176,6 +176,12 @@ export const ScheduledTasksPanel = ({
                       {schedule.isLegacy ? (
                         <Badge variant="outline">Legacy UTC</Badge>
                       ) : null}
+                      {schedule.targetTeamName ? (
+                        <Badge variant="secondary">{schedule.targetTeamName}</Badge>
+                      ) : null}
+                      {schedule.templateName ? (
+                        <Badge variant="outline">{schedule.templateName}</Badge>
+                      ) : null}
                     </div>
                     <p className="mt-1 line-clamp-2 font-mono text-xs text-muted-foreground">
                       {schedule.command}
@@ -194,7 +200,14 @@ export const ScheduledTasksPanel = ({
                   </div>
                 </TableCell>
                 <TableCell className="text-muted-foreground">
-                  {schedule.nodeName}
+                  <div>
+                    <p>{schedule.nodeName}</p>
+                    {schedule.targetTeamName ? (
+                      <p className="text-xs text-muted-foreground">
+                        Broadcast target
+                      </p>
+                    ) : null}
+                  </div>
                 </TableCell>
                 <TableCell className="text-muted-foreground">
                   <div>

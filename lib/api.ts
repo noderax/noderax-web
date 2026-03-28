@@ -12,6 +12,9 @@ import {
 import type {
   AcceptInvitationPayload,
   AddTeamMemberPayload,
+  AuditLogDto,
+  AuditLogFilters,
+  AuthProviderOption,
   AssignableUserDto,
   AuthSession,
   CancelTaskPayload,
@@ -21,31 +24,41 @@ import type {
   CreateBatchTaskPayload,
   CreateScheduledTaskPayload,
   CreateNodePayload,
+  CreateOidcProviderPayload,
   CreateTeamPayload,
+  CreateTeamTaskPayload,
   CreateTaskPayload,
+  CreateTaskTemplatePayload,
   CreateUserPayload,
   CreateWorkspaceMemberPayload,
   CreateWorkspacePayload,
+  DeleteNodeResponse,
   DeleteUserResponse,
   DashboardOverview,
   DeleteWorkspaceResponse,
   DeleteScheduledTaskResponse,
-  DeleteNodeResponse,
+  DeleteMfaPayload,
   EnrollmentStatusResponse,
   EventDto,
   EventFilters,
   EventRecord,
+  FleetNodeDto,
   FinalizeEnrollmentPayload,
   FinalizeEnrollmentResponse,
   ForgotPasswordPayload,
   InvitationPreviewDto,
   InstallPackagesPayload,
   LoginPayload,
+  LoginResponseDto,
+  MfaSetupResponse,
+  MfaStatusResponse,
   MetricDto,
   MetricFilters,
   NodeDetail,
   NodeDto,
   NodeFilters,
+  NodeStatus,
+  OidcProviderDto,
   NodeSummary,
   PlatformSettingsResponse,
   UpdatePlatformSettingsPayload,
@@ -80,14 +93,24 @@ import type {
   UserDto,
   ResendUserInviteResponse,
   ResetPasswordPayload,
+  RegenerateMfaRecoveryCodesPayload,
   ValidatePostgresSetupPayload,
   ValidatePostgresSetupResponse,
   ValidateRedisSetupPayload,
   ValidateRedisSetupResponse,
   PasswordResetPreviewDto,
+  TaskTemplateDto,
+  TestOidcProviderPayload,
+  TestOidcProviderResponse,
+  UpdateNodeTeamPayload,
+  UpdateOidcProviderPayload,
+  UpdateTaskTemplatePayload,
+  VerifyMfaChallengePayload,
+  VerifyMfaRecoveryPayload,
   WorkspaceDto,
   WorkspaceMembershipDto,
   WorkspaceSearchResponseDto,
+  EnableNodeMaintenancePayload,
 } from "@/lib/types";
 
 class ApiError extends Error {
@@ -569,7 +592,7 @@ const filterEventsByQuery = (events: EventRecord[], query?: string) => {
 
 export const apiClient = {
   login(payload: LoginPayload) {
-    return request<AuthSession>("/api/auth/login", {
+    return request<AuthSession | LoginResponseDto>("/api/auth/login", {
       method: "POST",
       body: JSON.stringify(payload),
     });
@@ -584,6 +607,21 @@ export const apiClient = {
   },
   getRealtimeToken() {
     return request<{ token: string }>("/api/auth/realtime-token");
+  },
+  getAuthProviders() {
+    return request<AuthProviderOption[]>("/api/auth/providers");
+  },
+  verifyMfaChallenge(payload: VerifyMfaChallengePayload) {
+    return request<AuthSession>("/api/auth/mfa/challenge/verify", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  },
+  verifyMfaRecovery(payload: VerifyMfaRecoveryPayload) {
+    return request<AuthSession>("/api/auth/mfa/recovery/verify", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
   },
   getSetupStatus() {
     return request<SetupStatusResponse>("/api/setup/status");
@@ -811,6 +849,32 @@ export const apiClient = {
       body: JSON.stringify(payload),
     });
   },
+  initiateMfaSetup() {
+    return request<MfaSetupResponse>("/api/proxy/auth/mfa/setup/initiate", {
+      method: "POST",
+    });
+  },
+  confirmMfaSetup(token: string) {
+    return request<MfaStatusResponse>("/api/proxy/auth/mfa/setup/confirm", {
+      method: "POST",
+      body: JSON.stringify({ token }),
+    });
+  },
+  regenerateMfaRecoveryCodes(payload: RegenerateMfaRecoveryCodesPayload) {
+    return request<MfaStatusResponse>(
+      "/api/proxy/auth/mfa/recovery/regenerate",
+      {
+        method: "POST",
+        body: JSON.stringify(payload),
+      },
+    );
+  },
+  disableMfa(payload: DeleteMfaPayload) {
+    return request<{ success: true }>("/api/proxy/auth/mfa", {
+      method: "DELETE",
+      body: JSON.stringify(payload),
+    });
+  },
   createUser(payload: CreateUserPayload) {
     return request<UserDto>("/api/proxy/users", {
       method: "POST",
@@ -838,6 +902,35 @@ export const apiClient = {
   },
   changeCurrentUserPassword(payload: ChangePasswordPayload) {
     return request<{ success: true }>("/api/proxy/users/me/password", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  },
+  getOidcProviders() {
+    return request<OidcProviderDto[]>("/api/proxy/auth/providers/admin");
+  },
+  createOidcProvider(payload: CreateOidcProviderPayload) {
+    return request<OidcProviderDto>("/api/proxy/auth/providers", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  },
+  updateOidcProvider(providerId: string, payload: UpdateOidcProviderPayload) {
+    return request<OidcProviderDto>(`/api/proxy/auth/providers/${providerId}`, {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    });
+  },
+  deleteOidcProvider(providerId: string) {
+    return request<{ deleted: true; id: string }>(
+      `/api/proxy/auth/providers/${providerId}`,
+      {
+        method: "DELETE",
+      },
+    );
+  },
+  testOidcProvider(payload: TestOidcProviderPayload) {
+    return request<TestOidcProviderResponse>("/api/proxy/auth/providers/test", {
       method: "POST",
       body: JSON.stringify(payload),
     });
@@ -881,6 +974,11 @@ export const apiClient = {
       `${workspaceId ? buildWorkspaceApiPath(workspaceId, "/nodes") : "/api/proxy/nodes"}${buildQueryString({
         status: filters?.status,
         search: filters?.search,
+        teamId: filters?.teamId,
+        maintenanceMode:
+          typeof filters?.maintenanceMode === "boolean"
+            ? String(filters.maintenanceMode)
+            : undefined,
         limit: filters?.limit,
         offset: filters?.offset,
       })}`,
@@ -892,6 +990,46 @@ export const apiClient = {
       {
       method: "POST",
       body: JSON.stringify(payload),
+      },
+    );
+  },
+  updateNodeTeam(
+    nodeId: string,
+    payload: UpdateNodeTeamPayload,
+    workspaceId?: string,
+  ) {
+    return request<NodeDto>(
+      workspaceId
+        ? buildWorkspaceApiPath(workspaceId, `/nodes/${nodeId}/team`)
+        : `/api/proxy/nodes/${nodeId}/team`,
+      {
+        method: "POST",
+        body: JSON.stringify(payload),
+      },
+    );
+  },
+  enableNodeMaintenance(
+    nodeId: string,
+    payload: EnableNodeMaintenancePayload,
+    workspaceId?: string,
+  ) {
+    return request<NodeDto>(
+      workspaceId
+        ? buildWorkspaceApiPath(workspaceId, `/nodes/${nodeId}/maintenance/enable`)
+        : `/api/proxy/nodes/${nodeId}/maintenance/enable`,
+      {
+        method: "POST",
+        body: JSON.stringify(payload),
+      },
+    );
+  },
+  disableNodeMaintenance(nodeId: string, workspaceId?: string) {
+    return request<NodeDto>(
+      workspaceId
+        ? buildWorkspaceApiPath(workspaceId, `/nodes/${nodeId}/maintenance/disable`)
+        : `/api/proxy/nodes/${nodeId}/maintenance/disable`,
+      {
+        method: "POST",
       },
     );
   },
@@ -1076,6 +1214,7 @@ export const apiClient = {
     return request<TaskDto[]>(
       `${workspaceId ? buildWorkspaceApiPath(workspaceId, "/tasks") : "/api/proxy/tasks"}${buildQueryString({
         nodeId: filters?.nodeId,
+        teamId: filters?.teamId,
         status: filters?.status,
         limit: filters?.limit,
         offset: filters?.offset,
@@ -1091,6 +1230,15 @@ export const apiClient = {
       },
     );
   },
+  createTeamTask(teamId: string, payload: CreateTeamTaskPayload, workspaceId: string) {
+    return request<TaskDto[]>(
+      buildWorkspaceApiPath(workspaceId, `/tasks/teams/${teamId}`),
+      {
+        method: "POST",
+        body: JSON.stringify(payload),
+      },
+    );
+  },
   createBatchTasks(payload: CreateBatchTaskPayload, workspaceId?: string) {
     return request<TaskDto[]>(
       workspaceId
@@ -1100,6 +1248,83 @@ export const apiClient = {
       method: "POST",
       body: JSON.stringify(payload),
       },
+    );
+  },
+  getTaskTemplates(workspaceId: string) {
+    return request<TaskTemplateDto[]>(
+      buildWorkspaceApiPath(workspaceId, "/task-templates"),
+    );
+  },
+  createTaskTemplate(workspaceId: string, payload: CreateTaskTemplatePayload) {
+    return request<TaskTemplateDto>(
+      buildWorkspaceApiPath(workspaceId, "/task-templates"),
+      {
+        method: "POST",
+        body: JSON.stringify(payload),
+      },
+    );
+  },
+  updateTaskTemplate(
+    workspaceId: string,
+    templateId: string,
+    payload: UpdateTaskTemplatePayload,
+  ) {
+    return request<TaskTemplateDto>(
+      buildWorkspaceApiPath(workspaceId, `/task-templates/${templateId}`),
+      {
+        method: "PATCH",
+        body: JSON.stringify(payload),
+      },
+    );
+  },
+  deleteTaskTemplate(workspaceId: string, templateId: string) {
+    return request<{ deleted: true; id: string }>(
+      buildWorkspaceApiPath(workspaceId, `/task-templates/${templateId}`),
+      {
+        method: "DELETE",
+      },
+    );
+  },
+  getWorkspaceAuditLogs(workspaceId: string, filters?: AuditLogFilters) {
+    return request<AuditLogDto[]>(
+      `${buildWorkspaceApiPath(workspaceId, "/audit-logs")}${buildQueryString({
+        actor: filters?.actor,
+        action: filters?.action,
+        targetType: filters?.targetType,
+        from: filters?.from,
+        to: filters?.to,
+        limit: filters?.limit,
+      })}`,
+    );
+  },
+  getPlatformAuditLogs(filters?: AuditLogFilters) {
+    return request<AuditLogDto[]>(
+      `/api/proxy/audit-logs${buildQueryString({
+        actor: filters?.actor,
+        action: filters?.action,
+        targetType: filters?.targetType,
+        from: filters?.from,
+        to: filters?.to,
+        limit: filters?.limit,
+      })}`,
+    );
+  },
+  getFleetNodes(filters?: {
+    workspaceId?: string;
+    teamId?: string;
+    status?: NodeStatus;
+    maintenanceMode?: boolean;
+  }) {
+    return request<FleetNodeDto[]>(
+      `/api/proxy/fleet/nodes${buildQueryString({
+        workspaceId: filters?.workspaceId,
+        teamId: filters?.teamId,
+        status: filters?.status,
+        maintenanceMode:
+          typeof filters?.maintenanceMode === "boolean"
+            ? String(filters.maintenanceMode)
+            : undefined,
+      })}`,
     );
   },
   async cancelTask(

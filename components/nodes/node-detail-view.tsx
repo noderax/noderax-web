@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Network, Timer } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Network, Timer, Wrench } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 import { DeleteNodeDialog } from "@/components/nodes/delete-node-dialog";
@@ -13,10 +14,27 @@ import { AppShell } from "@/components/layout/app-shell";
 import { NodePackagesScreen } from "@/components/packages/node-packages-screen";
 import { SeverityBadge } from "@/components/severity-badge";
 import { TaskStatusBadge } from "@/components/tasks/task-status-badge";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { SectionPanel } from "@/components/ui/section-panel";
 import { StatStrip } from "@/components/ui/stat-strip";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useNode } from "@/lib/hooks/use-noderax-data";
+import {
+  useDisableNodeMaintenance,
+  useEnableNodeMaintenance,
+  useNode,
+  useUpdateNodeTeam,
+  useWorkspaceTeams,
+} from "@/lib/hooks/use-noderax-data";
 import { useNodeRealtimeSubscription } from "@/lib/hooks/use-realtime";
 import { useWorkspaceContext } from "@/lib/hooks/use-workspace-context";
 
@@ -86,12 +104,27 @@ const formatNetworkSummary = (stats: Record<string, unknown> | null) => {
 export const NodeDetailView = ({ id }: { id: string }) => {
   const router = useRouter();
   const { buildWorkspaceHref, isWorkspaceAdmin } = useWorkspaceContext();
+  const [selectedTeamId, setSelectedTeamId] = useState<"none" | string>("none");
+  const [maintenanceReason, setMaintenanceReason] = useState("");
 
   useNodeRealtimeSubscription(id);
 
   const nodeQuery = useNode(id);
+  const teamsQuery = useWorkspaceTeams();
+  const updateNodeTeam = useUpdateNodeTeam();
+  const enableMaintenance = useEnableNodeMaintenance();
+  const disableMaintenance = useDisableNodeMaintenance();
   const node = nodeQuery.data;
   const isAdmin = isWorkspaceAdmin;
+
+  useEffect(() => {
+    if (!node) {
+      return;
+    }
+
+    setSelectedTeamId(node.teamId ?? "none");
+    setMaintenanceReason(node.maintenanceReason ?? "");
+  }, [node]);
 
   if (nodeQuery.isError || (!nodeQuery.isPending && !node)) {
     return (
@@ -152,6 +185,45 @@ export const NodeDetailView = ({ id }: { id: string }) => {
         ) : null}
       </div>
 
+      <div className="flex flex-wrap gap-2">
+        <Badge variant="outline" className="rounded-full px-3 py-1">
+          {node.status}
+        </Badge>
+        <Badge variant="outline" className="rounded-full px-3 py-1">
+          Team: {node.teamName ?? "Unassigned"}
+        </Badge>
+        {node.agentVersion ? (
+          <Badge variant="outline" className="rounded-full px-3 py-1">
+            Agent {node.agentVersion}
+          </Badge>
+        ) : null}
+        {node.maintenanceMode ? (
+          <Badge className="rounded-full px-3 py-1">Maintenance mode</Badge>
+        ) : null}
+      </div>
+
+      {node.maintenanceMode ? (
+        <div className="rounded-[20px] border border-tone-warning/30 bg-tone-warning/10 px-5 py-4">
+          <div className="flex items-start gap-3">
+            <div className="tone-warning flex size-10 items-center justify-center rounded-full border">
+              <Wrench className="size-4.5" />
+            </div>
+            <div>
+              <p className="font-medium">Node is in maintenance mode</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                New work is blocked for this node until maintenance is cleared.
+                Running tasks continue normally.
+              </p>
+              {node.maintenanceReason ? (
+                <p className="mt-2 text-sm">
+                  Reason: <span className="font-medium">{node.maintenanceReason}</span>
+                </p>
+              ) : null}
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       <StatStrip
         className={cn(
           "xl:grid-cols-5",
@@ -195,6 +267,128 @@ export const NodeDetailView = ({ id }: { id: string }) => {
           },
         ]}
       />
+
+      <SectionPanel
+        eyebrow="Operations"
+        title="Ownership and availability"
+        description="Assign the node to a team and control whether it can receive new work."
+        contentClassName="space-y-4"
+      >
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+          <div className="space-y-3 rounded-[20px] border p-4">
+            <div className="space-y-1">
+              <p className="font-medium">Team ownership</p>
+              <p className="text-sm text-muted-foreground">
+                Team-targeted tasks and schedules resolve against nodes assigned
+                to that team.
+              </p>
+            </div>
+            <Select
+              value={selectedTeamId}
+              onValueChange={(value) => setSelectedTeamId(value ?? "none")}
+              disabled={!isAdmin}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Select a team" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">No team</SelectItem>
+                {(teamsQuery.data ?? []).map((team) => (
+                  <SelectItem key={team.id} value={team.id}>
+                    {team.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Button
+              type="button"
+              disabled={
+                !isAdmin ||
+                updateNodeTeam.isPending ||
+                selectedTeamId === (node.teamId ?? "none")
+              }
+              onClick={() =>
+                updateNodeTeam.mutate({
+                  nodeId: node.id,
+                  payload: {
+                    teamId: selectedTeamId === "none" ? undefined : selectedTeamId,
+                  },
+                })
+              }
+            >
+              {updateNodeTeam.isPending ? "Saving..." : "Save team ownership"}
+            </Button>
+          </div>
+
+          <div className="space-y-3 rounded-[20px] border p-4">
+            <div className="space-y-1">
+              <p className="font-medium">Maintenance mode</p>
+              <p className="text-sm text-muted-foreground">
+                Maintenance blocks new tasks, team broadcasts, scheduled runs,
+                and claim flow for this node.
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="node-maintenance-reason">Reason</Label>
+              <Input
+                id="node-maintenance-reason"
+                value={maintenanceReason}
+                disabled={!isAdmin}
+                onChange={(event) => setMaintenanceReason(event.target.value)}
+                placeholder="Kernel upgrade, package maintenance, host reboot..."
+              />
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {node.maintenanceMode ? (
+                <Button
+                  type="button"
+                  disabled={!isAdmin || disableMaintenance.isPending}
+                  onClick={() => disableMaintenance.mutate(node.id)}
+                >
+                  {disableMaintenance.isPending
+                    ? "Clearing..."
+                    : "Clear maintenance"}
+                </Button>
+              ) : (
+                <Button
+                  type="button"
+                  disabled={!isAdmin || enableMaintenance.isPending}
+                  onClick={() =>
+                    enableMaintenance.mutate({
+                      nodeId: node.id,
+                      payload: { reason: maintenanceReason.trim() || undefined },
+                    })
+                  }
+                >
+                  {enableMaintenance.isPending
+                    ? "Applying..."
+                    : "Enter maintenance"}
+                </Button>
+              )}
+            </div>
+          </div>
+        </div>
+        <div className="grid gap-4 lg:grid-cols-3">
+          <div className="rounded-[18px] border bg-muted/15 px-4 py-3">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+              Agent version
+            </p>
+            <p className="mt-2 font-medium">{node.agentVersion ?? "Unknown"}</p>
+          </div>
+          <div className="rounded-[18px] border bg-muted/15 px-4 py-3">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+              Platform version
+            </p>
+            <p className="mt-2 font-medium">{node.platformVersion ?? "Unknown"}</p>
+          </div>
+          <div className="rounded-[18px] border bg-muted/15 px-4 py-3">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+              Kernel version
+            </p>
+            <p className="mt-2 font-medium">{node.kernelVersion ?? "Unknown"}</p>
+          </div>
+        </div>
+      </SectionPanel>
 
       <Tabs defaultValue="metrics" className="space-y-4">
         <TabsList

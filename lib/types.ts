@@ -60,6 +60,16 @@ export interface NodeDto {
   os: string;
   arch: string;
   status: NodeStatus;
+  teamId?: string | null;
+  teamName?: string | null;
+  maintenanceMode?: boolean;
+  maintenanceReason?: string | null;
+  maintenanceStartedAt?: string | null;
+  maintenanceByUserId?: string | null;
+  agentVersion?: string | null;
+  platformVersion?: string | null;
+  kernelVersion?: string | null;
+  lastVersionReportedAt?: string | null;
   lastSeenAt: string | null;
   createdAt: string;
   updatedAt: string;
@@ -72,6 +82,10 @@ export interface TaskDto {
   type: string;
   payload: Record<string, unknown>;
   status: TaskStatus;
+  targetTeamId?: string | null;
+  targetTeamName?: string | null;
+  templateId?: string | null;
+  templateName?: string | null;
   result: Record<string, unknown> | null;
   output: string | null;
   startedAt: string | null;
@@ -83,7 +97,11 @@ export interface TaskDto {
 export interface ScheduledTaskDto {
   id: string;
   workspaceId: string;
-  nodeId: string;
+  nodeId: string | null;
+  targetTeamId?: string | null;
+  targetTeamName?: string | null;
+  templateId?: string | null;
+  templateName?: string | null;
   ownerUserId: string | null;
   ownerName: string | null;
   isLegacy: boolean;
@@ -163,6 +181,7 @@ export interface UserDto {
   activatedAt: string | null;
   criticalEventEmailsEnabled: boolean;
   enrollmentEmailsEnabled: boolean;
+  mfaEnabled: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -173,6 +192,9 @@ export interface LoginResponseDto {
   expiresIn?: string;
   expiresAt?: string;
   user?: UserDto;
+  requiresMfa?: boolean;
+  mfaChallengeToken?: string;
+  redirectPath?: string | null;
 }
 
 export type SetupMode = "setup" | "restart_required" | "installed" | "legacy";
@@ -279,6 +301,14 @@ export interface NodeSummary {
   name: string;
   hostname: string;
   status: NodeStatus;
+  teamId?: string | null;
+  teamName?: string | null;
+  maintenanceMode?: boolean;
+  maintenanceReason?: string | null;
+  agentVersion?: string | null;
+  platformVersion?: string | null;
+  kernelVersion?: string | null;
+  lastVersionReportedAt?: string | null;
   lastSeenAt: string | null;
   os: string;
   arch: string;
@@ -300,6 +330,10 @@ export interface TaskSummary {
   type: string;
   status: TaskStatus;
   nodeId: string;
+  targetTeamId?: string | null;
+  targetTeamName?: string | null;
+  templateId?: string | null;
+  templateName?: string | null;
   nodeName: string;
   command: string | null;
   scheduleId: string | null;
@@ -373,6 +407,7 @@ export interface AuthUser {
   activatedAt: string | null;
   criticalEventEmailsEnabled: boolean;
   enrollmentEmailsEnabled: boolean;
+  mfaEnabled: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -432,6 +467,88 @@ export interface LoginPayload {
   email: string;
   password: string;
   remember: boolean;
+}
+
+export interface VerifyMfaChallengePayload {
+  challengeToken: string;
+  token: string;
+  remember?: boolean;
+}
+
+export interface VerifyMfaRecoveryPayload {
+  challengeToken: string;
+  recoveryCode: string;
+  remember?: boolean;
+}
+
+export interface MfaSetupResponse {
+  secret: string;
+  otpauthUrl: string;
+}
+
+export interface MfaStatusResponse {
+  mfaEnabled: boolean;
+  recoveryCodes?: string[] | null;
+}
+
+export interface DeleteMfaPayload {
+  token: string;
+}
+
+export interface RegenerateMfaRecoveryCodesPayload {
+  token: string;
+}
+
+export interface AuthProviderOption {
+  slug: string;
+  name: string;
+  preset: string | null;
+}
+
+export interface OidcProviderDto {
+  id: string;
+  slug: string;
+  name: string;
+  preset: string | null;
+  issuer: string;
+  clientId: string;
+  discoveryUrl: string;
+  scopes: string[];
+  enabled: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateOidcProviderPayload {
+  slug: string;
+  name: string;
+  preset?: "google" | "microsoft";
+  issuer: string;
+  clientId: string;
+  clientSecret?: string;
+  discoveryUrl: string;
+  scopes?: string[];
+  enabled?: boolean;
+}
+
+export type UpdateOidcProviderPayload = Partial<CreateOidcProviderPayload>;
+
+export interface TestOidcProviderPayload {
+  preset?: "google" | "microsoft";
+  issuer: string;
+  clientId: string;
+  clientSecret?: string;
+  discoveryUrl: string;
+  scopes?: string[];
+  enabled?: boolean;
+}
+
+export interface TestOidcProviderResponse {
+  success: true;
+  issuer: string;
+  authorizationEndpoint: string;
+  tokenEndpoint: string;
+  userinfoEndpoint: string | null;
 }
 
 export interface CreateUserPayload {
@@ -523,22 +640,62 @@ export interface CreateNodePayload {
   hostname: string;
   os: string;
   arch: string;
+  teamId?: string;
 }
 
 export interface CreateTaskPayload {
-  nodeId: string;
+  nodeId?: string;
   type: string;
   payload?: Record<string, unknown>;
+  templateId?: string;
 }
 
 export interface CreateBatchTaskPayload {
   nodeIds: string[];
   type: string;
   payload?: Record<string, unknown>;
+  templateId?: string;
+}
+
+export interface CreateTeamTaskPayload {
+  type: string;
+  payload?: Record<string, unknown>;
+  templateId?: string;
+}
+
+export interface TaskTemplateDto {
+  id: string;
+  workspaceId: string;
+  name: string;
+  description: string | null;
+  taskType: string;
+  payloadTemplate: Record<string, unknown>;
+  createdByUserId: string | null;
+  updatedByUserId: string | null;
+  archivedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateTaskTemplatePayload {
+  name: string;
+  description?: string;
+  taskType: string;
+  payloadTemplate?: Record<string, unknown>;
+}
+
+export interface UpdateTaskTemplatePayload {
+  name?: string;
+  description?: string;
+  taskType?: string;
+  payloadTemplate?: Record<string, unknown>;
+  archivedAt?: string | null;
 }
 
 export interface CreateScheduledTaskPayload {
-  nodeId: string;
+  nodeId?: string;
+  teamId?: string;
+  templateId?: string;
   name: string;
   command: string;
   cadence: ScheduledTaskCadence;
@@ -550,6 +707,7 @@ export interface CreateScheduledTaskPayload {
 
 export interface CreateBatchScheduledTaskPayload {
   nodeIds: string[];
+  templateId?: string;
   name: string;
   command: string;
   cadence: ScheduledTaskCadence;
@@ -572,6 +730,14 @@ export interface UpdateUserPreferencesPayload {
 export interface ChangePasswordPayload {
   currentPassword: string;
   newPassword: string;
+}
+
+export interface EnableNodeMaintenancePayload {
+  reason?: string;
+}
+
+export interface UpdateNodeTeamPayload {
+  teamId?: string;
 }
 
 export interface InvitationPreviewDto {
@@ -737,6 +903,52 @@ export interface DeleteScheduledTaskResponse {
   id: string;
 }
 
+export interface AuditLogDto {
+  id: string;
+  scope: "platform" | "workspace";
+  workspaceId: string | null;
+  actorType: "user" | "system";
+  actorUserId: string | null;
+  actorEmailSnapshot: string | null;
+  action: string;
+  targetType: string;
+  targetId: string | null;
+  targetLabel: string | null;
+  ipAddress: string | null;
+  userAgent: string | null;
+  changes: Record<string, unknown> | null;
+  metadata: Record<string, unknown> | null;
+  createdAt: string;
+}
+
+export interface AuditLogFilters {
+  actor?: string;
+  action?: string;
+  targetType?: string;
+  from?: string;
+  to?: string;
+  limit?: number;
+}
+
+export interface FleetNodeDto {
+  id: string;
+  workspaceId: string;
+  name: string;
+  hostname: string;
+  os: string;
+  arch: string;
+  status: NodeStatus;
+  teamId: string | null;
+  teamName: string | null;
+  maintenanceMode: boolean;
+  maintenanceReason: string | null;
+  agentVersion: string | null;
+  platformVersion: string | null;
+  kernelVersion: string | null;
+  lastVersionReportedAt: string | null;
+  platformFamily: "linux" | "darwin";
+}
+
 export interface DashboardOverview {
   totals: {
     totalNodes: number;
@@ -753,12 +965,15 @@ export interface DashboardOverview {
 export interface NodeFilters {
   status?: NodeStatus;
   search?: string;
+  teamId?: string;
+  maintenanceMode?: boolean;
   limit?: number;
   offset?: number;
 }
 
 export interface TaskFilters {
   nodeId?: string;
+  teamId?: string;
   status?: TaskStatus;
   limit?: number;
   offset?: number;

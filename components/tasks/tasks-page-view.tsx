@@ -12,7 +12,7 @@ import { AppShell } from "@/components/layout/app-shell";
 import { CreateTaskDialog } from "@/components/tasks/create-task-dialog";
 import { TasksTable } from "@/components/tasks/tasks-table";
 import { StatStrip } from "@/components/ui/stat-strip";
-import { useNodes, useTasks } from "@/lib/hooks/use-noderax-data";
+import { useNodes, useTasks, useWorkspaceTeams } from "@/lib/hooks/use-noderax-data";
 import { useWorkspaceContext } from "@/lib/hooks/use-workspace-context";
 import type { NodeSummary, TaskSummary } from "@/lib/types";
 import { useAppStore } from "@/store/useAppStore";
@@ -35,15 +35,18 @@ export const TasksPageView = () => {
     "all" | "queued" | "running" | "success" | "failed" | "cancelled"
   >("all");
   const [nodeFilter, setNodeFilter] = useState<"all" | string>("all");
-  const pageScope = `${statusFilter}:${nodeFilter}`;
+  const [teamFilter, setTeamFilter] = useState<"all" | string>("all");
+  const pageScope = `${statusFilter}:${nodeFilter}:${teamFilter}`;
   const page = pageState.scope === pageScope ? pageState.index : 0;
   const tasksQuery = useTasks({
     status: statusFilter === "all" ? undefined : statusFilter,
     nodeId: nodeFilter === "all" ? undefined : nodeFilter,
+    teamId: teamFilter === "all" ? undefined : teamFilter,
     limit: PAGE_SIZE,
     offset: page * PAGE_SIZE,
   });
   const nodesQuery = useNodes({ limit: 100 });
+  const teamsQuery = useWorkspaceTeams();
   const tasks = tasksQuery.data ?? EMPTY_TASKS;
   const nodes = nodesQuery.data ?? EMPTY_NODES;
   const isAdmin = isWorkspaceAdmin && !workspace?.isArchived;
@@ -117,6 +120,11 @@ export const TasksPageView = () => {
           nodeFilter={nodeFilter}
           onNodeFilterChange={(value) => {
             setNodeFilter(value);
+          }}
+          teams={teamsQuery.data ?? []}
+          teamFilter={teamFilter}
+          onTeamFilterChange={(value) => {
+            setTeamFilter(value);
           }}
           page={page}
           onPreviousPage={() =>

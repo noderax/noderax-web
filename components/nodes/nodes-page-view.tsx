@@ -7,7 +7,7 @@ import { CreateNodeDialog } from "@/components/nodes/create-node-dialog";
 import { AppShell } from "@/components/layout/app-shell";
 import { NodesTable } from "@/components/nodes/nodes-table";
 import { StatStrip } from "@/components/ui/stat-strip";
-import { useNodes } from "@/lib/hooks/use-noderax-data";
+import { useNodes, useWorkspaceTeams } from "@/lib/hooks/use-noderax-data";
 import { useWorkspaceContext } from "@/lib/hooks/use-workspace-context";
 import type { NodeSummary } from "@/lib/types";
 import { useAppStore } from "@/store/useAppStore";
@@ -24,10 +24,20 @@ export const NodesPageView = () => {
     scope: "all:",
   });
   const [statusFilter, setStatusFilter] = useState<"all" | "online" | "offline">("all");
-  const pageScope = `${statusFilter}:${deferredSearchQuery}`;
+  const [teamFilter, setTeamFilter] = useState<"all" | string>("all");
+  const [maintenanceFilter, setMaintenanceFilter] = useState<
+    "all" | "maintenance" | "active"
+  >("all");
+  const pageScope = `${statusFilter}:${teamFilter}:${maintenanceFilter}:${deferredSearchQuery}`;
   const page = pageState.scope === pageScope ? pageState.index : 0;
+  const teamsQuery = useWorkspaceTeams();
   const nodesQuery = useNodes({
     status: statusFilter === "all" ? undefined : statusFilter,
+    teamId: teamFilter === "all" ? undefined : teamFilter,
+    maintenanceMode:
+      maintenanceFilter === "all"
+        ? undefined
+        : maintenanceFilter === "maintenance",
     search: deferredSearchQuery || undefined,
     limit: PAGE_SIZE,
     offset: page * PAGE_SIZE,
@@ -91,6 +101,15 @@ export const NodesPageView = () => {
           statusFilter={statusFilter}
           onStatusFilterChange={(value) => {
             setStatusFilter(value);
+          }}
+          teams={teamsQuery.data ?? []}
+          teamFilter={teamFilter}
+          onTeamFilterChange={(value) => {
+            setTeamFilter(value);
+          }}
+          maintenanceFilter={maintenanceFilter}
+          onMaintenanceFilterChange={(value) => {
+            setMaintenanceFilter(value);
           }}
           page={page}
           onPreviousPage={() =>

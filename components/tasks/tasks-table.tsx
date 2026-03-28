@@ -27,7 +27,7 @@ import {
 } from "@/components/ui/table";
 import { TimeDisplay } from "@/components/ui/time-display";
 import { useWorkspaceContext } from "@/lib/hooks/use-workspace-context";
-import type { NodeSummary, TaskSummary } from "@/lib/types";
+import type { NodeSummary, TaskSummary, TeamDto } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 export const TasksTable = ({
@@ -41,6 +41,9 @@ export const TasksTable = ({
   onStatusFilterChange,
   nodeFilter,
   onNodeFilterChange,
+  teams,
+  teamFilter,
+  onTeamFilterChange,
   page,
   onPreviousPage,
   onNextPage,
@@ -66,6 +69,9 @@ export const TasksTable = ({
   ) => void;
   nodeFilter: "all" | string;
   onNodeFilterChange: (value: "all" | string) => void;
+  teams: TeamDto[];
+  teamFilter: "all" | string;
+  onTeamFilterChange: (value: "all" | string) => void;
   page: number;
   onPreviousPage: () => void;
   onNextPage: () => void;
@@ -75,6 +81,7 @@ export const TasksTable = ({
 }) => {
   const { buildWorkspaceHref } = useWorkspaceContext();
   const selectedNode = nodes.find((node) => node.id === nodeFilter);
+  const selectedTeam = teams.find((team) => team.id === teamFilter);
 
   const statusControl = (
     <Select
@@ -118,6 +125,27 @@ export const TasksTable = ({
     </Select>
   );
 
+  const teamControl = (
+    <Select
+      value={teamFilter}
+      onValueChange={(value) => onTeamFilterChange(value ?? "all")}
+    >
+      <SelectTrigger className="min-w-52">
+        <SelectValue placeholder="Filter team">
+          {teamFilter === "all" ? "All teams" : selectedTeam?.name}
+        </SelectValue>
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value="all">All teams</SelectItem>
+        {teams.map((team) => (
+          <SelectItem key={team.id} value={team.id}>
+            {team.name}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+
   const pager = (
     <div className="flex items-center gap-2">
       <Button
@@ -152,6 +180,7 @@ export const TasksTable = ({
           <>
             {statusControl}
             {nodeControl}
+            {teamControl}
             {pager}
             {createAction}
           </>
@@ -175,6 +204,7 @@ export const TasksTable = ({
           <>
             {statusControl}
             {nodeControl}
+            {teamControl}
             {pager}
             {createAction}
           </>
@@ -201,6 +231,7 @@ export const TasksTable = ({
           <>
             {statusControl}
             {nodeControl}
+            {teamControl}
             {pager}
             {createAction}
           </>
@@ -232,6 +263,7 @@ export const TasksTable = ({
         <>
           {statusControl}
           {nodeControl}
+          {teamControl}
           {pager}
           {createAction}
         </>
@@ -262,6 +294,12 @@ export const TasksTable = ({
                     {task.scheduleId ? (
                       <Badge variant="outline">Scheduled</Badge>
                     ) : null}
+                    {task.targetTeamName ? (
+                      <Badge variant="secondary">{task.targetTeamName}</Badge>
+                    ) : null}
+                    {task.templateName ? (
+                      <Badge variant="outline">{task.templateName}</Badge>
+                    ) : null}
                   </div>
                   <p className="text-xs text-muted-foreground">
                     {task.scheduleName
@@ -271,7 +309,14 @@ export const TasksTable = ({
                 </div>
               </TableCell>
               <TableCell className="text-muted-foreground">
-                {task.nodeName}
+                <div>
+                  <p>{task.nodeName}</p>
+                  {task.targetTeamName ? (
+                    <p className="text-xs text-muted-foreground">
+                      Broadcast via {task.targetTeamName}
+                    </p>
+                  ) : null}
+                </div>
               </TableCell>
               <TableCell className="text-muted-foreground">
                 <TimeDisplay value={task.createdAt} mode="relative" />

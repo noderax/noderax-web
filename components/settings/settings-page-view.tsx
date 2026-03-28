@@ -19,6 +19,8 @@ import {
 import { TaskFlowDiagnostics } from "@/components/diagnostics/task-flow-diagnostics";
 import { EmptyState } from "@/components/empty-state";
 import { AppShell } from "@/components/layout/app-shell";
+import { AccountSecurityPanel } from "@/components/settings/account-security-panel";
+import { PlatformIdentityPanel } from "@/components/settings/platform-identity-panel";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -532,8 +534,8 @@ function SettingsPageContent({
               <div className="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
                 <SectionPanel
                   eyebrow="Account"
-                  title="Appearance and session"
-                  description="Local UI preferences, timezone presentation, and secure session metadata in one place."
+                  title="Appearance, session, and security"
+                  description="Local UI preferences, timezone presentation, secure session metadata, and MFA controls in one place."
                   contentClassName="space-y-6"
                 >
                   <div className="flex items-start gap-3">
@@ -665,6 +667,13 @@ function SettingsPageContent({
                       ))}
                     </div>
                   </div>
+
+                  <Separator />
+
+                  <AccountSecurityPanel
+                    mfaEnabled={session?.user.mfaEnabled ?? false}
+                    embedded
+                  />
                 </SectionPanel>
 
                 <SectionPanel
@@ -870,6 +879,7 @@ function SettingsPageContent({
                         </div>
                       </div>
                     </div>
+
                   </div>
                 </SectionPanel>
               </div>
@@ -1874,6 +1884,8 @@ function SettingsPageContent({
                           </div>
                         </SectionPanel>
                       </div>
+
+                      <PlatformIdentityPanel />
 
                       <SectionPanel
                         eyebrow="Agents"

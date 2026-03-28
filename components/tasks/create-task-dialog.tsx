@@ -34,6 +34,10 @@ import {
   useCreateBatchTasks,
   useCreateScheduledTask,
   useCreateTask,
+  useCreateTaskTemplate,
+  useCreateTeamTask,
+  useTaskTemplates,
+  useWorkspaceTeams,
 } from "@/lib/hooks/use-noderax-data";
 import { useWorkspaceContext } from "@/lib/hooks/use-workspace-context";
 import { DEFAULT_TIMEZONE } from "@/lib/timezone";
@@ -272,7 +276,7 @@ const buildOnDemandPayload = (values: CommandTaskValues) =>
 
 const createTaskSchema = z
   .object({
-    nodeId: z.string().min(1, "Select a node."),
+    nodeId: z.string(),
     type: z.string(),
     command: z.string(),
     payloadText: z.string(),
@@ -283,7 +287,7 @@ const createTaskSchema = z
 
 const scheduledTaskSchema = z
   .object({
-    nodeId: z.string().min(1, "Select a node."),
+    nodeId: z.string(),
     name: z.string(),
     command: z.string(),
     cadence: z.enum(scheduledCadenceOptions),
@@ -381,6 +385,16 @@ export const CreateTaskDialog = ({
   const { workspace } = useWorkspaceContext();
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState<DialogTab>(defaultTab);
+  const [onDemandTargetMode, setOnDemandTargetMode] = useState<"node" | "team">("node");
+  const [scheduledTargetMode, setScheduledTargetMode] = useState<"node" | "team">("node");
+  const [onDemandTeamId, setOnDemandTeamId] = useState<"none" | string>("none");
+  const [scheduledTeamId, setScheduledTeamId] = useState<"none" | string>("none");
+  const [onDemandTemplateId, setOnDemandTemplateId] = useState<"none" | string>("none");
+  const [scheduledTemplateId, setScheduledTemplateId] = useState<"none" | string>("none");
+  const [onDemandTemplateName, setOnDemandTemplateName] = useState("");
+  const [scheduledTemplateName, setScheduledTemplateName] = useState("");
+  const [onDemandTemplateDescription, setOnDemandTemplateDescription] = useState("");
+  const [scheduledTemplateDescription, setScheduledTemplateDescription] = useState("");
   const [taskSubmissionError, setTaskSubmissionError] = useState<string | null>(
     null,
   );
@@ -394,6 +408,10 @@ export const CreateTaskDialog = ({
   const createScheduledTaskMutation = useCreateScheduledTask();
   const createBatchTaskMutation = useCreateBatchTasks();
   const createBatchScheduledTaskMutation = useCreateBatchScheduledTasks();
+  const createTeamTaskMutation = useCreateTeamTask();
+  const createTaskTemplateMutation = useCreateTaskTemplate();
+  const teamsQuery = useWorkspaceTeams();
+  const taskTemplatesQuery = useTaskTemplates();
   const timezone = workspace?.defaultTimezone ?? DEFAULT_TIMEZONE;
 
   const taskForm = useForm<CreateTaskValues>({
@@ -451,9 +469,16 @@ export const CreateTaskDialog = ({
   });
 
   const selectedTaskNode = nodes.find((node) => node.id === taskNodeIdValue);
+  const selectedTaskTeam = (teamsQuery.data ?? []).find(
+    (team) => team.id === onDemandTeamId,
+  );
   const selectedScheduleNode = nodes.find(
     (node) => node.id === scheduleNodeIdValue,
   );
+  const selectedScheduleTeam = (teamsQuery.data ?? []).find(
+    (team) => team.id === scheduledTeamId,
+  );
+  const taskTemplates = taskTemplatesQuery.data ?? [];
   const selectedMultiNodes = useMemo(
     () =>
       nodes.filter((node) => (multiNodeIdsValue ?? []).includes(node.id)),
@@ -468,15 +493,91 @@ export const CreateTaskDialog = ({
     multiModeValue === "scheduled"
       ? createBatchScheduledTaskMutation.isPending
       : createBatchTaskMutation.isPending;
+  const isOnDemandSubmitting =
+    createTaskMutation.isPending ||
+    createTeamTaskMutation.isPending ||
+    createTaskTemplateMutation.isPending;
+  const isScheduledSubmitting =
+    createScheduledTaskMutation.isPending || createTaskTemplateMutation.isPending;
 
   const resetDialogState = () => {
     taskForm.reset(defaultTaskValues);
     scheduledForm.reset(defaultScheduledValues);
     multiForm.reset(defaultMultiValues);
+    setOnDemandTargetMode("node");
+    setScheduledTargetMode("node");
+    setOnDemandTeamId("none");
+    setScheduledTeamId("none");
+    setOnDemandTemplateId("none");
+    setScheduledTemplateId("none");
+    setOnDemandTemplateName("");
+    setScheduledTemplateName("");
+    setOnDemandTemplateDescription("");
+    setScheduledTemplateDescription("");
     setTaskSubmissionError(null);
     setScheduleSubmissionError(null);
     setMultiSubmissionError(null);
     setTab(defaultTab);
+  };
+
+  const applyTemplateToOnDemand = (templateId: string) => {
+    setOnDemandTemplateId(templateId);
+
+    const template = taskTemplates.find((candidate) => candidate.id === templateId);
+    if (!template) {
+      return;
+    }
+
+    taskForm.setValue("type", template.taskType, {
+      shouldDirty: true,
+      shouldValidate: true,
+    });
+
+    if (template.taskType === SHELL_EXEC_TASK_TYPE) {
+      taskForm.setValue(
+        "command",
+        String(template.payloadTemplate.command ?? ""),
+        {
+          shouldDirty: true,
+          shouldValidate: true,
+        },
+      );
+      taskForm.setValue("payloadText", "{}", {
+        shouldDirty: true,
+        shouldValidate: true,
+      });
+    } else {
+      taskForm.setValue(
+        "payloadText",
+        JSON.stringify(template.payloadTemplate, null, 2),
+        {
+          shouldDirty: true,
+          shouldValidate: true,
+        },
+      );
+    }
+  };
+
+  const applyTemplateToScheduled = (templateId: string) => {
+    setScheduledTemplateId(templateId);
+
+    const template = taskTemplates.find((candidate) => candidate.id === templateId);
+    if (!template) {
+      return;
+    }
+
+    scheduledForm.setValue("name", template.name, {
+      shouldDirty: true,
+      shouldValidate: true,
+    });
+    scheduledForm.setValue(
+      "command",
+      String(template.payloadTemplate.command ?? ""),
+      {
+        shouldDirty: true,
+        shouldValidate: true,
+      },
+    );
   };
 
   const setMultiNodeIds = (nodeIds: string[]) => {
@@ -497,17 +598,67 @@ export const CreateTaskDialog = ({
     setMultiNodeIds([...currentNodeIds, nodeId]);
   };
 
+  const saveTemplateIfRequested = async (input: {
+    name: string;
+    description: string;
+    taskType: string;
+    payloadTemplate: Record<string, unknown>;
+  }) => {
+    if (!input.name.trim()) {
+      return null;
+    }
+
+    return createTaskTemplateMutation.mutateAsync({
+      name: input.name.trim(),
+      description: input.description.trim() || undefined,
+      taskType: input.taskType,
+      payloadTemplate: input.payloadTemplate,
+    });
+  };
+
   const onSubmitTask = taskForm.handleSubmit(async (values) => {
     setTaskSubmissionError(null);
 
     try {
       const normalizedType = values.type.trim();
+      let templateId =
+        onDemandTemplateId !== "none" ? onDemandTemplateId : undefined;
 
-      await createTaskMutation.mutateAsync({
-        nodeId: values.nodeId,
-        type: normalizedType,
-        payload: buildOnDemandPayload(values),
+      if (onDemandTargetMode === "node" && !values.nodeId) {
+        setTaskSubmissionError("Select a node for this task.");
+        return;
+      }
+
+      if (onDemandTargetMode === "team" && onDemandTeamId === "none") {
+        setTaskSubmissionError("Select a team for this task.");
+        return;
+      }
+
+      const savedTemplate = await saveTemplateIfRequested({
+        name: onDemandTemplateName,
+        description: onDemandTemplateDescription,
+        taskType: normalizedType,
+        payloadTemplate: buildOnDemandPayload(values),
       });
+      templateId = savedTemplate?.id ?? templateId;
+
+      if (onDemandTargetMode === "team") {
+        await createTeamTaskMutation.mutateAsync({
+          teamId: onDemandTeamId,
+          payload: {
+            type: normalizedType,
+            payload: buildOnDemandPayload(values),
+            templateId,
+          },
+        });
+      } else {
+        await createTaskMutation.mutateAsync({
+          nodeId: values.nodeId,
+          type: normalizedType,
+          payload: buildOnDemandPayload(values),
+          templateId,
+        });
+      }
       resetDialogState();
       setOpen(false);
     } catch (error) {
@@ -521,8 +672,32 @@ export const CreateTaskDialog = ({
     setScheduleSubmissionError(null);
 
     try {
+      let templateId =
+        scheduledTemplateId !== "none" ? scheduledTemplateId : undefined;
+
+      if (scheduledTargetMode === "node" && !values.nodeId) {
+        setScheduleSubmissionError("Select a node for this schedule.");
+        return;
+      }
+
+      if (scheduledTargetMode === "team" && scheduledTeamId === "none") {
+        setScheduleSubmissionError("Select a team for this schedule.");
+        return;
+      }
+
+      const savedTemplate = await saveTemplateIfRequested({
+        name: scheduledTemplateName,
+        description: scheduledTemplateDescription,
+        taskType: SHELL_EXEC_TASK_TYPE,
+        payloadTemplate: { command: values.command.trim() },
+      });
+      templateId = savedTemplate?.id ?? templateId;
+
       await createScheduledTaskMutation.mutateAsync({
-        nodeId: values.nodeId,
+        ...(scheduledTargetMode === "node"
+          ? { nodeId: values.nodeId }
+          : { teamId: scheduledTeamId }),
+        templateId,
         ...buildScheduledMutationPayload(values),
       });
       resetDialogState();
@@ -622,38 +797,106 @@ export const CreateTaskDialog = ({
           <TabsContent value="on-demand" className="mt-0 flex min-h-0 flex-1 flex-col overflow-hidden">
             <form className="flex min-h-0 flex-1 flex-col" onSubmit={onSubmitTask}>
               <div className="flex-1 space-y-4 overflow-y-auto pr-1">
-                <div className="space-y-2">
-                  <Label htmlFor="task-node">Node</Label>
-                  <Select
-                    value={taskNodeIdValue}
-                    onValueChange={(value) =>
-                      taskForm.setValue("nodeId", value ?? "", {
-                        shouldDirty: true,
-                        shouldValidate: true,
-                      })
-                    }
-                  >
-                    <SelectTrigger id="task-node" className="w-full">
-                      <SelectValue placeholder="Select a node">
-                        {selectedTaskNode
-                          ? `${selectedTaskNode.name} (${selectedTaskNode.hostname})`
-                          : undefined}
-                      </SelectValue>
-                    </SelectTrigger>
-                    <SelectContent>
-                      {nodes.map((node) => (
-                        <SelectItem key={node.id} value={node.id}>
-                          {node.name} ({node.hostname})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {taskForm.formState.errors.nodeId ? (
-                    <p className="text-sm text-tone-danger">
-                      {taskForm.formState.errors.nodeId.message}
-                    </p>
-                  ) : null}
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="task-target-mode">Target mode</Label>
+                    <Select
+                      value={onDemandTargetMode}
+                      onValueChange={(value) =>
+                        setOnDemandTargetMode((value ?? "node") as "node" | "team")
+                      }
+                    >
+                      <SelectTrigger id="task-target-mode" className="w-full">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="node">Single node</SelectItem>
+                        <SelectItem value="team">Broadcast to team</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="task-template">Task template</Label>
+                    <Select
+                      value={onDemandTemplateId}
+                      onValueChange={(value) => {
+                        const nextValue = value ?? "none";
+                        if (nextValue === "none") {
+                          setOnDemandTemplateId("none");
+                          return;
+                        }
+                        applyTemplateToOnDemand(nextValue);
+                      }}
+                    >
+                      <SelectTrigger id="task-template" className="w-full">
+                        <SelectValue placeholder="No template" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">No template</SelectItem>
+                        {taskTemplates.map((template) => (
+                          <SelectItem key={template.id} value={template.id}>
+                            {template.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
+
+                {onDemandTargetMode === "node" ? (
+                  <div className="space-y-2">
+                    <Label htmlFor="task-node">Node</Label>
+                    <Select
+                      value={taskNodeIdValue}
+                      onValueChange={(value) =>
+                        taskForm.setValue("nodeId", value ?? "", {
+                          shouldDirty: true,
+                          shouldValidate: true,
+                        })
+                      }
+                    >
+                      <SelectTrigger id="task-node" className="w-full">
+                        <SelectValue placeholder="Select a node">
+                          {selectedTaskNode
+                            ? `${selectedTaskNode.name} (${selectedTaskNode.hostname})`
+                            : undefined}
+                        </SelectValue>
+                      </SelectTrigger>
+                      <SelectContent>
+                        {nodes.map((node) => (
+                          <SelectItem key={node.id} value={node.id}>
+                            {node.name} ({node.hostname})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <Label htmlFor="task-team">Team</Label>
+                    <Select
+                      value={onDemandTeamId}
+                      onValueChange={(value) => setOnDemandTeamId(value ?? "none")}
+                    >
+                      <SelectTrigger id="task-team" className="w-full">
+                        <SelectValue placeholder="Select a team">
+                          {selectedTaskTeam?.name}
+                        </SelectValue>
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">Select a team</SelectItem>
+                        {(teamsQuery.data ?? []).map((team) => (
+                          <SelectItem key={team.id} value={team.id}>
+                            {team.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">
+                      One submission creates a task on every eligible node assigned to that team.
+                    </p>
+                  </div>
+                )}
 
                 <div className="space-y-2">
                   <Label htmlFor="task-type">Task type</Label>
@@ -710,14 +953,45 @@ export const CreateTaskDialog = ({
                 {taskSubmissionError ? (
                   <p className="text-sm text-tone-danger">{taskSubmissionError}</p>
                 ) : null}
+
+                <div className="rounded-[18px] border p-4">
+                  <div className="space-y-1">
+                    <p className="font-medium">Save as reusable template</p>
+                    <p className="text-sm text-muted-foreground">
+                      Optional. If you fill in a name, this task definition is saved as a workspace template before queueing.
+                    </p>
+                  </div>
+                  <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="task-template-name">Template name</Label>
+                      <Input
+                        id="task-template-name"
+                        value={onDemandTemplateName}
+                        onChange={(event) => setOnDemandTemplateName(event.target.value)}
+                        placeholder="Disk cleanup"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="task-template-description">Description</Label>
+                      <Input
+                        id="task-template-description"
+                        value={onDemandTemplateDescription}
+                        onChange={(event) =>
+                          setOnDemandTemplateDescription(event.target.value)
+                        }
+                        placeholder="Runs cleanup and package cache prune"
+                      />
+                    </div>
+                  </div>
+                </div>
               </div>
 
               <DialogFooter className="shrink-0 bg-[var(--surface-dialog)] pt-3">
                 <DialogClose render={<Button variant="outline" type="button" />}>
                   Cancel
                 </DialogClose>
-                <Button type="submit" disabled={createTaskMutation.isPending}>
-                  {createTaskMutation.isPending ? "Creating..." : "Queue task"}
+                <Button type="submit" disabled={isOnDemandSubmitting}>
+                  {isOnDemandSubmitting ? "Creating..." : "Queue task"}
                 </Button>
               </DialogFooter>
             </form>
@@ -726,38 +1000,106 @@ export const CreateTaskDialog = ({
           <TabsContent value="scheduled" className="mt-0 flex min-h-0 flex-1 flex-col overflow-hidden">
             <form className="flex min-h-0 flex-1 flex-col" onSubmit={onSubmitScheduledTask}>
               <div className="flex-1 space-y-4 overflow-y-auto pr-1">
-                <div className="space-y-2">
-                  <Label htmlFor="schedule-node">Node</Label>
-                  <Select
-                    value={scheduleNodeIdValue}
-                    onValueChange={(value) =>
-                      scheduledForm.setValue("nodeId", value ?? "", {
-                        shouldDirty: true,
-                        shouldValidate: true,
-                      })
-                    }
-                  >
-                    <SelectTrigger id="schedule-node" className="w-full">
-                      <SelectValue placeholder="Select a node">
-                        {selectedScheduleNode
-                          ? `${selectedScheduleNode.name} (${selectedScheduleNode.hostname})`
-                          : undefined}
-                      </SelectValue>
-                    </SelectTrigger>
-                    <SelectContent>
-                      {nodes.map((node) => (
-                        <SelectItem key={node.id} value={node.id}>
-                          {node.name} ({node.hostname})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {scheduledForm.formState.errors.nodeId ? (
-                    <p className="text-sm text-tone-danger">
-                      {scheduledForm.formState.errors.nodeId.message}
-                    </p>
-                  ) : null}
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="schedule-target-mode">Target mode</Label>
+                    <Select
+                      value={scheduledTargetMode}
+                      onValueChange={(value) =>
+                        setScheduledTargetMode((value ?? "node") as "node" | "team")
+                      }
+                    >
+                      <SelectTrigger id="schedule-target-mode" className="w-full">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="node">Single node</SelectItem>
+                        <SelectItem value="team">Broadcast to team</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="schedule-template">Task template</Label>
+                    <Select
+                      value={scheduledTemplateId}
+                      onValueChange={(value) => {
+                        const nextValue = value ?? "none";
+                        if (nextValue === "none") {
+                          setScheduledTemplateId("none");
+                          return;
+                        }
+                        applyTemplateToScheduled(nextValue);
+                      }}
+                    >
+                      <SelectTrigger id="schedule-template" className="w-full">
+                        <SelectValue placeholder="No template" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">No template</SelectItem>
+                        {taskTemplates.map((template) => (
+                          <SelectItem key={template.id} value={template.id}>
+                            {template.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
+
+                {scheduledTargetMode === "node" ? (
+                  <div className="space-y-2">
+                    <Label htmlFor="schedule-node">Node</Label>
+                    <Select
+                      value={scheduleNodeIdValue}
+                      onValueChange={(value) =>
+                        scheduledForm.setValue("nodeId", value ?? "", {
+                          shouldDirty: true,
+                          shouldValidate: true,
+                        })
+                      }
+                    >
+                      <SelectTrigger id="schedule-node" className="w-full">
+                        <SelectValue placeholder="Select a node">
+                          {selectedScheduleNode
+                            ? `${selectedScheduleNode.name} (${selectedScheduleNode.hostname})`
+                            : undefined}
+                        </SelectValue>
+                      </SelectTrigger>
+                      <SelectContent>
+                        {nodes.map((node) => (
+                          <SelectItem key={node.id} value={node.id}>
+                            {node.name} ({node.hostname})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <Label htmlFor="schedule-team">Team</Label>
+                    <Select
+                      value={scheduledTeamId}
+                      onValueChange={(value) => setScheduledTeamId(value ?? "none")}
+                    >
+                      <SelectTrigger id="schedule-team" className="w-full">
+                        <SelectValue placeholder="Select a team">
+                          {selectedScheduleTeam?.name}
+                        </SelectValue>
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">Select a team</SelectItem>
+                        {(teamsQuery.data ?? []).map((team) => (
+                          <SelectItem key={team.id} value={team.id}>
+                            {team.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">
+                      Team schedules resolve the current set of eligible team-owned nodes at execution time.
+                    </p>
+                  </div>
+                )}
 
                 <div className="space-y-2">
                   <Label htmlFor="schedule-name">Schedule name</Label>
@@ -929,14 +1271,47 @@ export const CreateTaskDialog = ({
                 {scheduleSubmissionError ? (
                   <p className="text-sm text-tone-danger">{scheduleSubmissionError}</p>
                 ) : null}
+
+                <div className="rounded-[18px] border p-4">
+                  <div className="space-y-1">
+                    <p className="font-medium">Save as reusable template</p>
+                    <p className="text-sm text-muted-foreground">
+                      Optional. Save this shell command as a workspace template before creating the schedule.
+                    </p>
+                  </div>
+                  <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="schedule-template-name">Template name</Label>
+                      <Input
+                        id="schedule-template-name"
+                        value={scheduledTemplateName}
+                        onChange={(event) =>
+                          setScheduledTemplateName(event.target.value)
+                        }
+                        placeholder="Hostname health check"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="schedule-template-description">Description</Label>
+                      <Input
+                        id="schedule-template-description"
+                        value={scheduledTemplateDescription}
+                        onChange={(event) =>
+                          setScheduledTemplateDescription(event.target.value)
+                        }
+                        placeholder="Reusable shell.exec template for periodic checks"
+                      />
+                    </div>
+                  </div>
+                </div>
               </div>
 
               <DialogFooter className="shrink-0 bg-[var(--surface-dialog)] pt-3">
                 <DialogClose render={<Button variant="outline" type="button" />}>
                   Cancel
                 </DialogClose>
-                <Button type="submit" disabled={createScheduledTaskMutation.isPending}>
-                  {createScheduledTaskMutation.isPending
+                <Button type="submit" disabled={isScheduledSubmitting}>
+                  {isScheduledSubmitting
                     ? "Creating..."
                     : "Create schedule"}
                 </Button>

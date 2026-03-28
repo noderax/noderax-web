@@ -99,6 +99,7 @@ export const toAuthUser = (user: UserDto): AuthUser => ({
   activatedAt: user.activatedAt,
   criticalEventEmailsEnabled: user.criticalEventEmailsEnabled,
   enrollmentEmailsEnabled: user.enrollmentEmailsEnabled,
+  mfaEnabled: user.mfaEnabled,
   createdAt: user.createdAt,
   updatedAt: user.updatedAt,
 });
@@ -216,6 +217,14 @@ export const mapNodeSummary = (
     name: node.name,
     hostname: node.hostname,
     status: node.status,
+    teamId: node.teamId ?? null,
+    teamName: node.teamName ?? null,
+    maintenanceMode: node.maintenanceMode ?? false,
+    maintenanceReason: node.maintenanceReason ?? null,
+    agentVersion: node.agentVersion ?? null,
+    platformVersion: node.platformVersion ?? null,
+    kernelVersion: node.kernelVersion ?? null,
+    lastVersionReportedAt: node.lastVersionReportedAt ?? null,
     lastSeenAt: node.lastSeenAt,
     os: node.os,
     arch: node.arch,
@@ -237,7 +246,11 @@ export const mapTaskSummary = (
     type: task.type,
     status: task.status,
     nodeId: task.nodeId,
-    nodeName: node?.name ?? node?.hostname ?? "Unknown node",
+    targetTeamId: task.targetTeamId ?? null,
+    targetTeamName: task.targetTeamName ?? null,
+    templateId: task.templateId ?? null,
+    templateName: task.templateName ?? null,
+    nodeName: node?.name ?? node?.hostname ?? task.targetTeamName ?? "Unknown node",
     command: getTaskCommand(task.payload),
     scheduleId: getTaskScheduleId(task.payload),
     scheduleName: getTaskScheduleName(task.payload),
@@ -290,11 +303,11 @@ export const mapScheduledTaskSummary = (
   task: ScheduledTaskDto,
   nodeLookup: Map<string, NodeDto | NodeSummary>,
 ): ScheduledTaskSummary => {
-  const node = nodeLookup.get(task.nodeId);
+  const node = task.nodeId ? nodeLookup.get(task.nodeId) : null;
 
   return {
     ...task,
-    nodeName: node?.name ?? node?.hostname ?? "Unknown node",
+    nodeName: task.targetTeamName ?? node?.name ?? node?.hostname ?? "Broadcast target",
     frequencyLabel: formatScheduledTaskFrequency(task),
   };
 };

@@ -10,6 +10,7 @@ import { DeleteNodeDialog } from "@/components/nodes/delete-node-dialog";
 import { NodeOsIcon } from "@/components/nodes/node-os-icon";
 import { EmptyState } from "@/components/empty-state";
 import { NodeStatusBadge } from "@/components/nodes/node-status-badge";
+import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
   Dialog,
@@ -32,7 +33,7 @@ import {
 } from "@/components/ui/table";
 import { TimeDisplay } from "@/components/ui/time-display";
 import { useWorkspaceContext } from "@/lib/hooks/use-workspace-context";
-import type { NodeSummary } from "@/lib/types";
+import type { NodeSummary, TeamDto } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 const getCpuColor = (cpu: number) => {
@@ -54,6 +55,11 @@ export const NodesTable = ({
   onRetry,
   statusFilter,
   onStatusFilterChange,
+  teams,
+  teamFilter,
+  onTeamFilterChange,
+  maintenanceFilter,
+  onMaintenanceFilterChange,
   page,
   onPreviousPage,
   onNextPage,
@@ -67,6 +73,11 @@ export const NodesTable = ({
   onRetry?: () => void;
   statusFilter: "all" | "online" | "offline";
   onStatusFilterChange: (value: "all" | "online" | "offline") => void;
+  teams: TeamDto[];
+  teamFilter: "all" | string;
+  onTeamFilterChange: (value: "all" | string) => void;
+  maintenanceFilter: "all" | "maintenance" | "active";
+  onMaintenanceFilterChange: (value: "all" | "maintenance" | "active") => void;
   page: number;
   onPreviousPage: () => void;
   onNextPage: () => void;
@@ -76,21 +87,57 @@ export const NodesTable = ({
 }) => {
   const [selectedNode, setSelectedNode] = useState<NodeSummary | null>(null);
   const { buildWorkspaceHref } = useWorkspaceContext();
+  const selectedTeam = teams.find((team) => team.id === teamFilter);
 
   const filterControl = (
-    <Select
-      value={statusFilter}
-      onValueChange={(value) => onStatusFilterChange((value ?? "all") as typeof statusFilter)}
-    >
-      <SelectTrigger id="node-status-filter" className="min-w-40">
-        <SelectValue placeholder="Filter status" />
-      </SelectTrigger>
-      <SelectContent>
-        <SelectItem value="all">All statuses</SelectItem>
-        <SelectItem value="online">Online only</SelectItem>
-        <SelectItem value="offline">Offline only</SelectItem>
-      </SelectContent>
-    </Select>
+    <>
+      <Select
+        value={statusFilter}
+        onValueChange={(value) => onStatusFilterChange((value ?? "all") as typeof statusFilter)}
+      >
+        <SelectTrigger id="node-status-filter" className="min-w-40">
+          <SelectValue placeholder="Filter status" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">All statuses</SelectItem>
+          <SelectItem value="online">Online only</SelectItem>
+          <SelectItem value="offline">Offline only</SelectItem>
+        </SelectContent>
+      </Select>
+      <Select
+        value={teamFilter}
+        onValueChange={(value) => onTeamFilterChange(value ?? "all")}
+      >
+        <SelectTrigger id="node-team-filter" className="min-w-44">
+          <SelectValue placeholder="Filter team">
+            {teamFilter === "all" ? "All teams" : selectedTeam?.name}
+          </SelectValue>
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">All teams</SelectItem>
+          {teams.map((team) => (
+            <SelectItem key={team.id} value={team.id}>
+              {team.name}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      <Select
+        value={maintenanceFilter}
+        onValueChange={(value) =>
+          onMaintenanceFilterChange((value ?? "all") as typeof maintenanceFilter)
+        }
+      >
+        <SelectTrigger id="node-maintenance-filter" className="min-w-44">
+          <SelectValue placeholder="Filter maintenance" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">All availability</SelectItem>
+          <SelectItem value="active">Accepting work</SelectItem>
+          <SelectItem value="maintenance">Maintenance only</SelectItem>
+        </SelectContent>
+      </Select>
+    </>
   );
 
   const pager = (
@@ -196,8 +243,10 @@ export const NodesTable = ({
           <TableRow className="hover:bg-transparent">
             <TableHead>Name</TableHead>
             <TableHead>Status</TableHead>
+            <TableHead>Team</TableHead>
             <TableHead>Last seen</TableHead>
             <TableHead>OS / Arch</TableHead>
+            <TableHead>Agent</TableHead>
             <TableHead>Latest CPU</TableHead>
             <TableHead>Latest Temp</TableHead>
             <TableHead className="text-right">Actions</TableHead>
@@ -213,7 +262,17 @@ export const NodesTable = ({
                 </div>
               </TableCell>
               <TableCell>
-                <NodeStatusBadge status={node.status} />
+                <div className="flex flex-wrap gap-2">
+                  <NodeStatusBadge status={node.status} />
+                  {node.maintenanceMode ? (
+                    <Badge className="rounded-full px-2.5 py-1">
+                      Maintenance
+                    </Badge>
+                  ) : null}
+                </div>
+              </TableCell>
+              <TableCell className="text-muted-foreground">
+                {node.teamName ?? "Unassigned"}
               </TableCell>
               <TableCell className="text-muted-foreground">
                 <TimeDisplay value={node.lastSeenAt} mode="relative" emptyLabel="Never" />
@@ -225,6 +284,9 @@ export const NodesTable = ({
                     {node.os} / {node.arch}
                   </span>
                 </div>
+              </TableCell>
+              <TableCell className="text-muted-foreground">
+                {node.agentVersion ?? "Unknown"}
               </TableCell>
               <TableCell className={node.latestMetric ? getCpuColor(node.latestMetric.cpu) : ""}>
                 {node.latestMetric ? `${node.latestMetric.cpu}%` : "N/A"}
@@ -266,6 +328,19 @@ export const NodesTable = ({
                             <p className="text-sm font-medium">{node.os}</p>
                           </div>
                           <p className="text-sm text-muted-foreground">{node.arch}</p>
+                        </div>
+                        <div className="surface-subtle rounded-[16px] border p-4">
+                          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                            Ownership
+                          </p>
+                          <p className="mt-2 text-sm font-medium">
+                            {node.teamName ?? "Unassigned"}
+                          </p>
+                          <p className="text-sm text-muted-foreground">
+                            {node.maintenanceMode
+                              ? node.maintenanceReason ?? "In maintenance mode"
+                              : "Accepting new work"}
+                          </p>
                         </div>
                         <div className="surface-subtle rounded-[16px] border p-4">
                           <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">

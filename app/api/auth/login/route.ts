@@ -4,17 +4,11 @@ import { z } from "zod";
 
 import {
   API_BASE_URL_COOKIE,
-  AUTH_PERSIST_COOKIE,
-  AUTH_SESSION_COOKIE,
-  AUTH_TOKEN_COOKIE,
-  buildAuthCookieOptions,
-  encodeSession,
   fetchApiWithFallback,
-  normalizeAuthSession,
-  normalizeAuthToken,
 } from "@/lib/auth";
 import { fetchSetupApi } from "@/lib/setup";
 import type { LoginResponseDto } from "@/lib/types";
+import { createSessionResponse } from "@/app/api/auth/_shared";
 
 const loginSchema = z.object({
   email: z.string().email(),
@@ -121,40 +115,13 @@ export async function POST(request: Request) {
     }
 
     const upstreamPayload = (await response.json()) as LoginResponseDto;
-    const token = normalizeAuthToken(upstreamPayload);
-
-    if (!token || !upstreamPayload.user) {
-      return NextResponse.json(
-        { message: "Login response is missing authentication data." },
-        { status: 502 },
-      );
+    if (upstreamPayload.requiresMfa && upstreamPayload.mfaChallengeToken) {
+      return NextResponse.json(upstreamPayload, { status: 200 });
     }
 
-    const session = normalizeAuthSession({
-      token,
-      user: upstreamPayload.user,
-      expiresIn: upstreamPayload.expiresIn,
-      expiresAt: upstreamPayload.expiresAt,
-    });
-
-    const nextResponse = NextResponse.json(session);
-    const cookieOptions = buildAuthCookieOptions({
-      expiresAt: session.expiresAt,
+    return createSessionResponse(upstreamPayload, {
       persistent: payload.remember,
     });
-
-    nextResponse.cookies.set(AUTH_TOKEN_COOKIE, token, cookieOptions);
-    nextResponse.cookies.set(
-      AUTH_SESSION_COOKIE,
-      encodeSession(session),
-      cookieOptions,
-    );
-    nextResponse.cookies.set(AUTH_PERSIST_COOKIE, payload.remember ? "1" : "0", {
-      ...cookieOptions,
-      httpOnly: true,
-    });
-
-    return nextResponse;
   } catch (error) {
     return NextResponse.json(
       {
