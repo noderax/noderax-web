@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Plus, ShieldAlert, Waypoints } from "lucide-react";
+import { Archive, RotateCcw, Plus, ShieldAlert, Waypoints } from "lucide-react";
 
 import { AppShell } from "@/components/layout/app-shell";
 import { EmptyState } from "@/components/empty-state";
@@ -24,8 +24,16 @@ import { SectionPanel } from "@/components/ui/section-panel";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TimezonePicker } from "@/components/ui/timezone-picker";
 import { useAuthSession } from "@/lib/hooks/use-auth-session";
-import { useCreateWorkspace, useWorkspaces } from "@/lib/hooks/use-noderax-data";
-import { buildWorkspacePath, isPlatformAdmin } from "@/lib/workspace";
+import {
+  useCreateWorkspace,
+  useUpdateWorkspaceRecord,
+  useWorkspaces,
+} from "@/lib/hooks/use-noderax-data";
+import {
+  buildWorkspacePath,
+  isPlatformAdmin,
+  isWorkspaceAdminRole,
+} from "@/lib/workspace";
 import { cn } from "@/lib/utils";
 import { buttonVariants } from "@/components/ui/button";
 
@@ -40,6 +48,7 @@ export const WorkspacesPageView = () => {
   const { session } = useAuthSession();
   const workspacesQuery = useWorkspaces(Boolean(session));
   const createWorkspaceMutation = useCreateWorkspace();
+  const updateWorkspaceMutation = useUpdateWorkspaceRecord();
   const [createOpen, setCreateOpen] = useState(false);
   const [formState, setFormState] = useState(defaultFormState);
 
@@ -204,6 +213,11 @@ export const WorkspacesPageView = () => {
                           Default
                         </Badge>
                       ) : null}
+                      {workspace.isArchived ? (
+                        <Badge variant="secondary" className="rounded-full px-2.5 py-0.5">
+                          Archived
+                        </Badge>
+                      ) : null}
                     </div>
                     <h3 className="text-lg font-semibold tracking-tight">
                       {workspace.name}
@@ -231,6 +245,44 @@ export const WorkspacesPageView = () => {
                       Members
                     </Link>
                   </div>
+                  {canCreateWorkspace || isWorkspaceAdminRole(workspace.currentUserRole) ? (
+                    <div className="flex items-center gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={
+                          updateWorkspaceMutation.isPending ||
+                          (workspace.isArchived ? false : workspace.isDefault)
+                        }
+                        onClick={() =>
+                          void updateWorkspaceMutation.mutateAsync({
+                            workspaceId: workspace.id,
+                            payload: {
+                              isArchived: !workspace.isArchived,
+                            },
+                          })
+                        }
+                      >
+                        {workspace.isArchived ? (
+                          <>
+                            <RotateCcw className="size-4" />
+                            Restore
+                          </>
+                        ) : (
+                          <>
+                            <Archive className="size-4" />
+                            Archive
+                          </>
+                        )}
+                      </Button>
+                      {!workspace.isArchived && workspace.isDefault ? (
+                        <p className="text-xs text-muted-foreground">
+                          Select another default workspace before archiving.
+                        </p>
+                      ) : null}
+                    </div>
+                  ) : null}
                 </div>
               </article>
             ))}

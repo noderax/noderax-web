@@ -94,6 +94,11 @@ export const toAuthUser = (user: UserDto): AuthUser => ({
   role: user.role,
   isActive: user.isActive,
   timezone: user.timezone,
+  inviteStatus: user.inviteStatus,
+  lastInvitedAt: user.lastInvitedAt,
+  activatedAt: user.activatedAt,
+  criticalEventEmailsEnabled: user.criticalEventEmailsEnabled,
+  enrollmentEmailsEnabled: user.enrollmentEmailsEnabled,
   createdAt: user.createdAt,
   updatedAt: user.updatedAt,
 });

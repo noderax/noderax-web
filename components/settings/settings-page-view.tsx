@@ -42,6 +42,7 @@ import { TimeDisplay } from "@/components/ui/time-display";
 import { TimezonePicker } from "@/components/ui/timezone-picker";
 import { useAuthSession } from "@/lib/hooks/use-auth-session";
 import {
+  useChangeCurrentUserPassword,
   useDeleteWorkspace,
   usePlatformSettings,
   useUpdateCurrentUserPreferences,
@@ -63,6 +64,7 @@ import {
 } from "@/lib/workspace";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/store/useAppStore";
+import { toast } from "sonner";
 
 type SettingsTab = "account" | "workspace" | "platform";
 
@@ -140,8 +142,10 @@ function SettingsPageContent({
   const setActiveWorkspaceSlug = useAppStore(
     (state) => state.setActiveWorkspaceSlug,
   );
+  const clearSession = useAppStore((state) => state.clearSession);
 
   const updatePreferences = useUpdateCurrentUserPreferences();
+  const changePassword = useChangeCurrentUserPassword();
   const updateWorkspace = useUpdateWorkspace();
   const deleteWorkspace = useDeleteWorkspace();
   const platformSettingsQuery = usePlatformSettings(isPlatformAdmin);
@@ -178,6 +182,16 @@ function SettingsPageContent({
   const [workspaceDeleteError, setWorkspaceDeleteError] = useState<string | null>(
     null,
   );
+  const [notificationPreferences, setNotificationPreferences] = useState({
+    criticalEventEmailsEnabled: session?.user.criticalEventEmailsEnabled ?? true,
+    enrollmentEmailsEnabled: session?.user.enrollmentEmailsEnabled ?? true,
+  });
+  const [passwordForm, setPasswordForm] = useState({
+    currentPassword: "",
+    nextPassword: "",
+    confirmPassword: "",
+  });
+  const [passwordError, setPasswordError] = useState<string | null>(null);
   const [platformDraft, setPlatformDraft] =
     useState<PlatformSettingsValues | null>(null);
 
@@ -221,9 +235,25 @@ function SettingsPageContent({
     setWorkspaceDeleteError(null);
   }, [workspace?.id]);
 
+  useEffect(() => {
+    setNotificationPreferences({
+      criticalEventEmailsEnabled:
+        session?.user.criticalEventEmailsEnabled ?? true,
+      enrollmentEmailsEnabled: session?.user.enrollmentEmailsEnabled ?? true,
+    });
+  }, [
+    session?.user.criticalEventEmailsEnabled,
+    session?.user.enrollmentEmailsEnabled,
+  ]);
+
   const savedTimeZone = session?.user.timezone ?? DEFAULT_TIMEZONE;
   const selectedTimeZone = draftTimeZone ?? savedTimeZone;
   const hasTimeZoneChanges = selectedTimeZone !== savedTimeZone;
+  const hasNotificationPreferenceChanges =
+    notificationPreferences.criticalEventEmailsEnabled !==
+      (session?.user.criticalEventEmailsEnabled ?? true) ||
+    notificationPreferences.enrollmentEmailsEnabled !==
+      (session?.user.enrollmentEmailsEnabled ?? true);
 
   const hasWorkspaceChanges = Boolean(
     workspace &&
@@ -234,10 +264,15 @@ function SettingsPageContent({
 
   const canManageDefaultWorkspace = isPlatformAdmin;
   const canSetWorkspaceAsDefault = Boolean(
-    workspace && canManageDefaultWorkspace && !workspace.isDefault,
+    workspace &&
+      canManageDefaultWorkspace &&
+      !workspace.isDefault &&
+      !workspace.isArchived,
   );
   const workspaceDeleteBlockedReason = !workspace
     ? "Workspace is still loading."
+    : workspace.isArchived
+      ? "Archived workspaces are read-only. Restore the workspace before deleting it."
     : workspace.isDefault
       ? "Default workspace cannot be deleted. Select another default workspace first."
       : null;
@@ -266,7 +301,7 @@ function SettingsPageContent({
   };
 
   const handleWorkspaceSave = () => {
-    if (!workspace) {
+    if (!workspace || workspace.isArchived) {
       return;
     }
 
@@ -292,11 +327,21 @@ function SettingsPageContent({
   };
 
   const handleSetDefaultWorkspace = () => {
-    if (!workspace || !canSetWorkspaceAsDefault) {
+    if (!workspace || !canSetWorkspaceAsDefault || workspace.isArchived) {
       return;
     }
 
     updateWorkspace.mutate({ isDefault: true });
+  };
+
+  const handleWorkspaceArchiveToggle = () => {
+    if (!workspace) {
+      return;
+    }
+
+    updateWorkspace.mutate({
+      isArchived: !workspace.isArchived,
+    });
   };
 
   const handleDeleteWorkspace = async () => {
@@ -332,6 +377,48 @@ function SettingsPageContent({
         error instanceof Error
           ? error.message
           : "Workspace could not be deleted right now.",
+      );
+    }
+  };
+
+  const handleSaveNotificationPreferences = () => {
+    updatePreferences.mutate({
+      criticalEventEmailsEnabled:
+        notificationPreferences.criticalEventEmailsEnabled,
+      enrollmentEmailsEnabled: notificationPreferences.enrollmentEmailsEnabled,
+    });
+  };
+
+  const handlePasswordChange = async () => {
+    setPasswordError(null);
+
+    if (passwordForm.nextPassword.length < 8) {
+      setPasswordError("New password must be at least 8 characters.");
+      return;
+    }
+
+    if (passwordForm.nextPassword !== passwordForm.confirmPassword) {
+      setPasswordError("New password and confirmation must match.");
+      return;
+    }
+
+    try {
+      await changePassword.mutateAsync({
+        currentPassword: passwordForm.currentPassword,
+        newPassword: passwordForm.nextPassword,
+      });
+      await apiClient.logout();
+      clearSession();
+      queryClient.clear();
+      toast.success("Password updated", {
+        description: "Sign in again with your new password.",
+      });
+      router.replace("/login?message=password-updated");
+    } catch (error) {
+      setPasswordError(
+        error instanceof Error
+          ? error.message
+          : "Password could not be changed right now.",
       );
     }
   };
@@ -585,24 +672,137 @@ function SettingsPageContent({
                         </p>
                       </div>
                     </div>
-                    <div className="surface-subtle flex items-center justify-between rounded-[18px] border px-4 py-4">
-                      <div>
-                        <p className="font-medium">Critical toast notifications</p>
-                        <p className="text-sm text-muted-foreground">
-                          Enabled by the realtime event bridge for critical alerts.
-                        </p>
+                    <div className="space-y-3 rounded-[18px] border p-4">
+                      <div className="surface-subtle flex items-center justify-between rounded-[18px] border px-4 py-4">
+                        <div>
+                          <p className="font-medium">Critical event emails</p>
+                          <p className="text-sm text-muted-foreground">
+                            Send operational emails for critical workspace events.
+                          </p>
+                        </div>
+                        <Switch
+                          checked={notificationPreferences.criticalEventEmailsEnabled}
+                          disabled={updatePreferences.isPending}
+                          onCheckedChange={(checked) =>
+                            setNotificationPreferences((current) => ({
+                              ...current,
+                              criticalEventEmailsEnabled: Boolean(checked),
+                            }))
+                          }
+                        />
                       </div>
-                      <Switch checked disabled />
+                      <div className="surface-subtle flex items-center justify-between rounded-[18px] border px-4 py-4">
+                        <div>
+                          <p className="font-medium">Enrollment request emails</p>
+                          <p className="text-sm text-muted-foreground">
+                            Send approval emails when node enrollments need operator action.
+                          </p>
+                        </div>
+                        <Switch
+                          checked={notificationPreferences.enrollmentEmailsEnabled}
+                          disabled={updatePreferences.isPending}
+                          onCheckedChange={(checked) =>
+                            setNotificationPreferences((current) => ({
+                              ...current,
+                              enrollmentEmailsEnabled: Boolean(checked),
+                            }))
+                          }
+                        />
+                      </div>
+                      <div className="flex justify-end">
+                        <Button
+                          type="button"
+                          disabled={
+                            !hasNotificationPreferenceChanges ||
+                            updatePreferences.isPending
+                          }
+                          onClick={handleSaveNotificationPreferences}
+                        >
+                          {updatePreferences.isPending ? "Saving..." : "Save preferences"}
+                        </Button>
+                      </div>
                     </div>
-                    <div className="surface-subtle flex items-center justify-between rounded-[18px] border px-4 py-4">
-                      <div>
-                        <p className="font-medium">Live query reconciliation</p>
-                        <p className="text-sm text-muted-foreground">
-                          Keeps React Query snapshots consistent after realtime
-                          mutations.
-                        </p>
+
+                    <Separator />
+
+                    <div className="space-y-4">
+                      <div className="flex items-start gap-3">
+                        <div className="tone-brand flex size-11 items-center justify-center rounded-full border">
+                          <KeyRound className="size-4.5" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="font-medium">Change password</p>
+                          <p className="mt-1 text-sm text-muted-foreground">
+                            Updating your password invalidates the current session
+                            version and signs this browser out.
+                          </p>
+                        </div>
                       </div>
-                      <Switch checked disabled />
+
+                      <div className="space-y-3 rounded-[18px] border p-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="settings-current-password">Current password</Label>
+                          <Input
+                            id="settings-current-password"
+                            type="password"
+                            autoComplete="current-password"
+                            value={passwordForm.currentPassword}
+                            onChange={(event) =>
+                              setPasswordForm((current) => ({
+                                ...current,
+                                currentPassword: event.target.value,
+                              }))
+                            }
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="settings-next-password">New password</Label>
+                          <Input
+                            id="settings-next-password"
+                            type="password"
+                            autoComplete="new-password"
+                            value={passwordForm.nextPassword}
+                            onChange={(event) =>
+                              setPasswordForm((current) => ({
+                                ...current,
+                                nextPassword: event.target.value,
+                              }))
+                            }
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="settings-confirm-password">Confirm new password</Label>
+                          <Input
+                            id="settings-confirm-password"
+                            type="password"
+                            autoComplete="new-password"
+                            value={passwordForm.confirmPassword}
+                            onChange={(event) =>
+                              setPasswordForm((current) => ({
+                                ...current,
+                                confirmPassword: event.target.value,
+                              }))
+                            }
+                          />
+                        </div>
+                        {passwordError ? (
+                          <p className="text-sm text-tone-danger">{passwordError}</p>
+                        ) : null}
+                        <div className="flex justify-end">
+                          <Button
+                            type="button"
+                            disabled={
+                              changePassword.isPending ||
+                              !passwordForm.currentPassword ||
+                              !passwordForm.nextPassword ||
+                              !passwordForm.confirmPassword
+                            }
+                            onClick={() => void handlePasswordChange()}
+                          >
+                            {changePassword.isPending ? "Updating..." : "Update password"}
+                          </Button>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </SectionPanel>
@@ -635,6 +835,11 @@ function SettingsPageContent({
                             Default workspace
                           </Badge>
                         ) : null}
+                        {workspace.isArchived ? (
+                          <Badge variant="secondary" className="rounded-full px-3 py-1">
+                            Archived
+                          </Badge>
+                        ) : null}
                       </div>
                       <div className="space-y-1">
                         <h2 className="text-2xl font-semibold tracking-tight">
@@ -647,13 +852,30 @@ function SettingsPageContent({
                         </p>
                       </div>
                     </div>
-                    <Button
-                      type="button"
-                      disabled={!hasWorkspaceChanges || updateWorkspace.isPending}
-                      onClick={handleWorkspaceSave}
-                    >
-                      {updateWorkspace.isPending ? "Saving..." : "Save changes"}
-                    </Button>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Button
+                        type="button"
+                        variant={workspace.isArchived ? "default" : "outline"}
+                        disabled={
+                          updateWorkspace.isPending ||
+                          (!workspace.isArchived && workspace.isDefault)
+                        }
+                        onClick={handleWorkspaceArchiveToggle}
+                      >
+                        {workspace.isArchived ? "Restore workspace" : "Archive workspace"}
+                      </Button>
+                      <Button
+                        type="button"
+                        disabled={
+                          workspace.isArchived ||
+                          !hasWorkspaceChanges ||
+                          updateWorkspace.isPending
+                        }
+                        onClick={handleWorkspaceSave}
+                      >
+                        {updateWorkspace.isPending ? "Saving..." : "Save changes"}
+                      </Button>
+                    </div>
                   </div>
 
                   <SectionPanel
@@ -671,6 +893,7 @@ function SettingsPageContent({
                           <Input
                             id="workspace-settings-name"
                             value={workspaceName}
+                            disabled={workspace.isArchived}
                             onChange={(event) => setWorkspaceName(event.target.value)}
                           />
                         </div>
@@ -681,6 +904,7 @@ function SettingsPageContent({
                           <Input
                             id="workspace-settings-slug"
                             value={workspaceSlugDraft}
+                            disabled={workspace.isArchived}
                             onChange={(event) =>
                               setWorkspaceSlugDraft(
                                 event.target.value
@@ -748,6 +972,7 @@ function SettingsPageContent({
                       </div>
                       <TimezonePicker
                         value={workspaceTimeZone}
+                        disabled={workspace.isArchived}
                         onValueChange={setWorkspaceTimeZone}
                       />
                     </div>
@@ -763,6 +988,7 @@ function SettingsPageContent({
                         variant={workspace.isDefault ? "outline" : "default"}
                         disabled={
                           workspace.isDefault ||
+                          workspace.isArchived ||
                           !canManageDefaultWorkspace ||
                           updateWorkspace.isPending
                         }
@@ -792,6 +1018,11 @@ function SettingsPageContent({
                               This workspace is currently the default fallback
                               workspace for the platform.
                             </p>
+                          </div>
+                        ) : workspace.isArchived ? (
+                          <div className="surface-subtle rounded-[18px] border px-4 py-3 text-sm text-muted-foreground">
+                            Archived workspaces cannot become the platform
+                            default until they are restored.
                           </div>
                         ) : (
                           <div className="surface-subtle rounded-[18px] border px-4 py-3 text-sm text-muted-foreground">

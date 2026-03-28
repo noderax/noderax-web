@@ -158,6 +158,11 @@ export interface UserDto {
   role: UserRole;
   isActive: boolean;
   timezone: string;
+  inviteStatus: "pending" | "accepted" | "revoked";
+  lastInvitedAt: string | null;
+  activatedAt: string | null;
+  criticalEventEmailsEnabled: boolean;
+  enrollmentEmailsEnabled: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -345,6 +350,11 @@ export interface AuthUser {
   role: UserRole;
   isActive: boolean;
   timezone: string;
+  inviteStatus: "pending" | "accepted" | "revoked";
+  lastInvitedAt: string | null;
+  activatedAt: string | null;
+  criticalEventEmailsEnabled: boolean;
+  enrollmentEmailsEnabled: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -409,7 +419,6 @@ export interface LoginPayload {
 export interface CreateUserPayload {
   email: string;
   name: string;
-  password: string;
   role?: UserRole;
 }
 
@@ -423,6 +432,12 @@ export interface UpdateUserPayload {
 export interface DeleteUserResponse {
   deleted: true;
   id: string;
+}
+
+export interface ResendUserInviteResponse {
+  sent: true;
+  userId: string;
+  expiresAt: string;
 }
 
 export interface CreateWorkspacePayload {
@@ -468,6 +483,21 @@ export interface AssignableUserDto {
   id: string;
   name: string;
   email: string;
+}
+
+export interface WorkspaceSearchHitDto {
+  id: string;
+  title: string;
+  subtitle: string | null;
+}
+
+export interface WorkspaceSearchResponseDto {
+  nodes: WorkspaceSearchHitDto[];
+  tasks: WorkspaceSearchHitDto[];
+  scheduledTasks: WorkspaceSearchHitDto[];
+  events: WorkspaceSearchHitDto[];
+  members: WorkspaceSearchHitDto[];
+  teams: WorkspaceSearchHitDto[];
 }
 
 export interface CreateNodePayload {
@@ -516,7 +546,37 @@ export interface UpdateScheduledTaskPayload {
 }
 
 export interface UpdateUserPreferencesPayload {
-  timezone: string;
+  timezone?: string;
+  criticalEventEmailsEnabled?: boolean;
+  enrollmentEmailsEnabled?: boolean;
+}
+
+export interface ChangePasswordPayload {
+  currentPassword: string;
+  newPassword: string;
+}
+
+export interface InvitationPreviewDto {
+  email: string;
+  name: string;
+  expiresAt: string;
+}
+
+export interface AcceptInvitationPayload {
+  password: string;
+}
+
+export interface ForgotPasswordPayload {
+  email: string;
+}
+
+export interface PasswordResetPreviewDto {
+  email: string;
+  expiresAt: string;
+}
+
+export interface ResetPasswordPayload {
+  password: string;
 }
 
 export interface PlatformAppSettings {

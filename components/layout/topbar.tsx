@@ -1,7 +1,7 @@
 "use client";
 
-import { startTransition, useEffect, useState } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { startTransition, useDeferredValue, useEffect, useMemo, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   AlertTriangle,
   ChevronsUpDown,
@@ -31,10 +31,12 @@ import {
 import { Input } from "@/components/ui/input";
 import { apiClient } from "@/lib/api";
 import { useAuthSession } from "@/lib/hooks/use-auth-session";
+import { useWorkspaceSearch } from "@/lib/hooks/use-noderax-data";
 import { useWorkspaceContext } from "@/lib/hooks/use-workspace-context";
 import { buildWorkspacePath } from "@/lib/workspace";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/store/useAppStore";
+import type { WorkspaceSearchHitDto } from "@/lib/types";
 
 const QUEUED_TASK_WARNING_MS = 20_000;
 const QUEUED_TASK_DANGER_MS = 90_000;
@@ -131,6 +133,7 @@ const realtimeConfig = {
 
 export const Topbar = () => {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const router = useRouter();
   const queryClient = useQueryClient();
   const authQuery = useAuthSession();
@@ -149,12 +152,47 @@ export const Topbar = () => {
     (state) => state.setActiveWorkspaceSlug,
   );
   const clearSession = useAppStore((state) => state.clearSession);
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
+  const deferredSearchQuery = useDeferredValue(searchQuery.trim());
+  const isWorkspaceScopedRoute = pathname.startsWith("/w/");
+  const workspaceSearchQuery = useWorkspaceSearch(
+    deferredSearchQuery,
+    5,
+    Boolean(session && workspaceId && isWorkspaceScopedRoute),
+  );
 
   const statusConfig = realtimeConfig[realtimeStatus];
   const statusHint = realtimeStatusHint[realtimeStatus] ?? "Realtime status";
   const StatusIcon = statusConfig.icon;
   const sectionPath = resolveSectionPath(pathname);
   const currentWorkspaceChildPath = resolveWorkspaceChildPath(pathname);
+  const searchResults = useMemo<
+    Array<{ key: string; label: string; route: string; hits: WorkspaceSearchHitDto[] }>
+  >(
+    () => {
+      const results = workspaceSearchQuery.data;
+      if (!results) {
+        return [];
+      }
+
+      return [
+        { key: "nodes", label: "Nodes", route: "nodes", hits: results.nodes },
+        { key: "tasks", label: "Tasks", route: "tasks", hits: results.tasks },
+        {
+          key: "scheduledTasks",
+          label: "Scheduled Tasks",
+          route: "scheduled-tasks",
+          hits: results.scheduledTasks,
+        },
+        { key: "events", label: "Events", route: "events", hits: results.events },
+        { key: "members", label: "Members", route: "members", hits: results.members },
+        { key: "teams", label: "Teams", route: "teams", hits: results.teams },
+      ].filter((group) => group.hits.length > 0);
+    },
+    [workspaceSearchQuery.data],
+  );
+  const showWorkspaceSearchResults =
+    isWorkspaceScopedRoute && isSearchFocused && deferredSearchQuery.length > 0;
   const queuedTaskHealthQuery = useQuery({
     queryKey: ["tasks", "queued-health", workspaceId ?? "none"],
     queryFn: () =>
@@ -233,6 +271,32 @@ export const Topbar = () => {
       });
     }
   }, [authQuery.isError, router, session]);
+
+  useEffect(() => {
+    if (!searchParams.has("q")) {
+      return;
+    }
+
+    setSearchQuery(searchParams.get("q") ?? "");
+  }, [searchParams, setSearchQuery]);
+
+  const handleSearchResultSelect = (route: string) => {
+    if (!workspaceSlug) {
+      return;
+    }
+
+    const nextQuery = deferredSearchQuery.trim();
+    const target = buildWorkspacePath(
+      workspaceSlug,
+      nextQuery ? `${route}?q=${encodeURIComponent(nextQuery)}` : route,
+    );
+
+    setSearchQuery(nextQuery);
+    setIsSearchFocused(false);
+    startTransition(() => {
+      router.push(target);
+    });
+  };
 
   return (
     <header className="sticky top-0 z-20 border-b border-border/70 bg-background/90 backdrop-blur-xl">
@@ -335,9 +399,60 @@ export const Topbar = () => {
               id="workspace-search-input"
               value={searchQuery}
               onChange={(event) => setSearchQuery(event.target.value)}
-              placeholder="Search nodes, tasks, and events..."
+              onFocus={() => setIsSearchFocused(true)}
+              onBlur={() => {
+                window.setTimeout(() => {
+                  setIsSearchFocused(false);
+                }, 120);
+              }}
+              placeholder={
+                isWorkspaceScopedRoute
+                  ? "Search nodes, tasks, schedules, members, and teams..."
+                  : "Search this page"
+              }
               className="h-10 pl-10"
             />
+            {showWorkspaceSearchResults ? (
+              <div className="absolute inset-x-0 top-[calc(100%+0.5rem)] z-30 rounded-[20px] border bg-background/95 p-2 shadow-[0_22px_50px_-30px_rgba(0,0,0,0.45)] backdrop-blur-xl">
+                {workspaceSearchQuery.isPending ? (
+                  <p className="px-3 py-3 text-sm text-muted-foreground">
+                    Searching workspace…
+                  </p>
+                ) : searchResults.length ? (
+                  <div className="space-y-1">
+                    {searchResults.map((group) => (
+                      <div key={group.key} className="space-y-1">
+                        <p className="px-3 pt-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                          {group.label}
+                        </p>
+                        {group.hits.map((hit) => (
+                          <button
+                            key={`${group.key}-${hit.id}`}
+                            type="button"
+                            className="flex w-full flex-col rounded-[16px] px-3 py-2 text-left transition-colors hover:bg-muted/70"
+                            onMouseDown={(event) => {
+                              event.preventDefault();
+                              handleSearchResultSelect(group.route);
+                            }}
+                          >
+                            <span className="text-sm font-medium">{hit.title}</span>
+                            {hit.subtitle ? (
+                              <span className="text-xs text-muted-foreground">
+                                {hit.subtitle}
+                              </span>
+                            ) : null}
+                          </button>
+                        ))}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="px-3 py-3 text-sm text-muted-foreground">
+                    No workspace results matched “{deferredSearchQuery}”.
+                  </p>
+                )}
+              </div>
+            ) : null}
           </div>
           <ThemeToggle />
           <DropdownMenu>

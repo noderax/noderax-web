@@ -7,6 +7,7 @@ import { ApiError, apiClient } from "@/lib/api";
 import { sessionQueryKey } from "@/lib/hooks/use-auth-session";
 import { useWorkspaceContext, workspacesQueryKey } from "@/lib/hooks/use-workspace-context";
 import type {
+  ChangePasswordPayload,
   AddTeamMemberPayload,
   AssignableUserDto,
   AuthSession,
@@ -31,6 +32,7 @@ import type {
   NodeFilters,
   RemovePackagePayload,
   PlatformSettingsResponse,
+  ResendUserInviteResponse,
   UpdatePlatformSettingsPayload,
   TeamMembershipDto,
   UpdateScheduledTaskPayload,
@@ -42,6 +44,7 @@ import type {
   TaskStatus,
   UpdateUserPayload,
   WorkspaceMembershipDto,
+  WorkspaceSearchResponseDto,
 } from "@/lib/types";
 import { useAppStore } from "@/store/useAppStore";
 
@@ -63,6 +66,8 @@ export const queryKeys = {
     members: (workspaceId: string) => ["workspaces", workspaceId, "members"] as const,
     assignableUsers: (workspaceId: string) =>
       ["workspaces", workspaceId, "assignable-users"] as const,
+    search: (workspaceId: string, q: string, limit: number) =>
+      ["workspaces", workspaceId, "search", q, limit] as const,
     teams: (workspaceId: string) => ["workspaces", workspaceId, "teams"] as const,
     teamMembers: (workspaceId: string, teamId: string) =>
       ["workspaces", workspaceId, "teams", teamId, "members"] as const,
@@ -122,6 +127,7 @@ const invalidateAllWorkspaceUserQueries = (
         key[0] === "workspaces" &&
         (key[2] === "members" ||
           key[2] === "assignable-users" ||
+          key[2] === "search" ||
           (key[2] === "teams" && key[4] === "members"))
       );
     },
@@ -139,6 +145,13 @@ const invalidateWorkspaceUserQueries = async (
     }),
     queryClient.invalidateQueries({
       queryKey: queryKeys.workspaces.assignableUsers(workspaceId),
+      refetchType: "active",
+    }),
+    queryClient.invalidateQueries({
+      predicate: (query) =>
+        query.queryKey[0] === "workspaces" &&
+        query.queryKey[1] === workspaceId &&
+        query.queryKey[2] === "search",
       refetchType: "active",
     }),
     queryClient.invalidateQueries({
@@ -183,6 +196,21 @@ export const useUsers = (enabled = true) =>
     enabled,
     staleTime: 15_000,
   });
+
+export const useWorkspaceSearch = (q: string, limit = 5, enabled = true) => {
+  const { workspaceId } = useWorkspaceContext();
+  const normalizedQuery = q.trim();
+
+  return useQuery<WorkspaceSearchResponseDto>({
+    queryKey:
+      workspaceId && normalizedQuery
+        ? queryKeys.workspaces.search(workspaceId, normalizedQuery, limit)
+        : ["workspaces", "search", "idle", normalizedQuery, limit],
+    queryFn: () => apiClient.searchWorkspace(workspaceId!, normalizedQuery, limit),
+    enabled: enabled && Boolean(workspaceId && normalizedQuery),
+    staleTime: 15_000,
+  });
+};
 
 export const useUpdateUser = () => {
   const queryClient = useQueryClient();
@@ -246,6 +274,29 @@ export const useDeleteUser = () => {
     },
     onError: (error) => {
       toast.error("Unable to delete user", {
+        description: readMutationError(error),
+      });
+    },
+  });
+};
+
+export const useResendUserInvite = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (userId: string) => apiClient.resendUserInvite(userId),
+    onSuccess: async (result: ResendUserInviteResponse) => {
+      toast.success("Invitation resent", {
+        description: `A fresh activation link expires at ${result.expiresAt}.`,
+      });
+
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.users.all,
+        refetchType: "active",
+      });
+    },
+    onError: (error) => {
+      toast.error("Unable to resend invitation", {
         description: readMutationError(error),
       });
     },
@@ -497,8 +548,8 @@ export const useCreateUser = () => {
   return useMutation({
     mutationFn: (payload: CreateUserPayload) => apiClient.createUser(payload),
     onSuccess: async (user) => {
-      toast.success("User created", {
-        description: `${user.name} can now be assigned to workspaces.`,
+      toast.success("Invitation sent", {
+        description: `${user.name} must activate the account before workspace assignment.`,
       });
       await queryClient.invalidateQueries({
         queryKey: queryKeys.users.all,
@@ -543,8 +594,8 @@ export const useUpdateCurrentUserPreferences = () => {
         });
       }
 
-      toast.success("Timezone updated", {
-        description: `Absolute timestamps now render in ${user.timezone}.`,
+      toast.success("Preferences updated", {
+        description: `Account preferences were saved for ${user.name}.`,
       });
 
       await Promise.all([
@@ -563,6 +614,13 @@ export const useUpdateCurrentUserPreferences = () => {
         description: readMutationError(error),
       });
     },
+  });
+};
+
+export const useChangeCurrentUserPassword = () => {
+  return useMutation({
+    mutationFn: (payload: ChangePasswordPayload) =>
+      apiClient.changeCurrentUserPassword(payload),
   });
 };
 
@@ -1172,6 +1230,42 @@ export const useUpdateWorkspace = () => {
   });
 };
 
+export const useUpdateWorkspaceRecord = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (input: { workspaceId: string; payload: UpdateWorkspacePayload }) =>
+      apiClient.updateWorkspace(input.workspaceId, input.payload),
+    onSuccess: async (workspace) => {
+      toast.success("Workspace updated", {
+        description: workspace.name,
+      });
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.workspaces.all,
+          refetchType: "active",
+        }),
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.workspaces.detail(workspace.id),
+          refetchType: "active",
+        }),
+        queryClient.invalidateQueries({
+          predicate: (query) =>
+            query.queryKey[0] === "workspaces" &&
+            query.queryKey[1] === workspace.id &&
+            query.queryKey[2] === "search",
+          refetchType: "active",
+        }),
+      ]);
+    },
+    onError: (error) => {
+      toast.error("Unable to update workspace", {
+        description: readMutationError(error),
+      });
+    },
+  });
+};
+
 export const useDeleteWorkspace = () => {
   const queryClient = useQueryClient();
   const { workspaceId } = useWorkspaceContext();
@@ -1250,10 +1344,10 @@ export const useUpdateWorkspaceMember = () => {
         input.payload,
       ),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({
-        queryKey: queryKeys.workspaces.members(requireWorkspaceId(workspaceId)),
-        refetchType: "active",
-      });
+      await invalidateWorkspaceUserQueries(
+        queryClient,
+        requireWorkspaceId(workspaceId),
+      );
     },
   });
 };
@@ -1289,10 +1383,19 @@ export const useCreateWorkspaceTeam = () => {
       toast.success("Team created", {
         description: team.name,
       });
-      await queryClient.invalidateQueries({
-        queryKey: queryKeys.workspaces.teams(requireWorkspaceId(workspaceId)),
-        refetchType: "active",
-      });
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.workspaces.teams(requireWorkspaceId(workspaceId)),
+          refetchType: "active",
+        }),
+        queryClient.invalidateQueries({
+          predicate: (query) =>
+            query.queryKey[0] === "workspaces" &&
+            query.queryKey[1] === requireWorkspaceId(workspaceId) &&
+            query.queryKey[2] === "search",
+          refetchType: "active",
+        }),
+      ]);
     },
   });
 };
@@ -1309,10 +1412,19 @@ export const useUpdateWorkspaceTeam = () => {
         input.payload,
       ),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({
-        queryKey: queryKeys.workspaces.teams(requireWorkspaceId(workspaceId)),
-        refetchType: "active",
-      });
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.workspaces.teams(requireWorkspaceId(workspaceId)),
+          refetchType: "active",
+        }),
+        queryClient.invalidateQueries({
+          predicate: (query) =>
+            query.queryKey[0] === "workspaces" &&
+            query.queryKey[1] === requireWorkspaceId(workspaceId) &&
+            query.queryKey[2] === "search",
+          refetchType: "active",
+        }),
+      ]);
     },
   });
 };
@@ -1326,10 +1438,19 @@ export const useDeleteWorkspaceTeam = () => {
       apiClient.deleteWorkspaceTeam(requireWorkspaceId(workspaceId), teamId),
     onSuccess: async () => {
       toast.success("Team deleted");
-      await queryClient.invalidateQueries({
-        queryKey: queryKeys.workspaces.teams(requireWorkspaceId(workspaceId)),
-        refetchType: "active",
-      });
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.workspaces.teams(requireWorkspaceId(workspaceId)),
+          refetchType: "active",
+        }),
+        queryClient.invalidateQueries({
+          predicate: (query) =>
+            query.queryKey[0] === "workspaces" &&
+            query.queryKey[1] === requireWorkspaceId(workspaceId) &&
+            query.queryKey[2] === "search",
+          refetchType: "active",
+        }),
+      ]);
     },
   });
 };

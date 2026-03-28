@@ -3,8 +3,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
+  Copy,
   MoreVertical,
   PencilLine,
+  Send,
   ShieldCheck,
   ShieldX,
   Trash2,
@@ -31,8 +33,9 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useDeleteUser, useUpdateUser } from "@/lib/hooks/use-noderax-data";
+import { useDeleteUser, useResendUserInvite, useUpdateUser } from "@/lib/hooks/use-noderax-data";
 import type { UserDto, UserRole } from "@/lib/types";
+import { toast } from "sonner";
 
 const editUserSchema = z.object({
   email: z.string().email("Enter a valid work email."),
@@ -62,6 +65,7 @@ export const UserRowActions = ({
   const [actionError, setActionError] = useState<string | null>(null);
   const updateUserMutation = useUpdateUser();
   const deleteUserMutation = useDeleteUser();
+  const resendInviteMutation = useResendUserInvite();
   const form = useForm<EditUserValues>({
     resolver: zodResolver(editUserSchema),
     defaultValues: buildDefaultValues(user),
@@ -106,6 +110,14 @@ export const UserRowActions = ({
           confirmVariant: "destructive" as const,
         };
   }, [pendingAction]);
+
+  const canToggleActivation = user.inviteStatus === "accepted";
+  const lifecycleSummary =
+    user.inviteStatus === "pending"
+      ? `Invitation pending for ${user.email}. Last sent ${user.lastInvitedAt ?? "unknown"}.`
+      : user.isActive
+        ? `${user.name} is active on the platform.`
+        : `${user.name} is inactive and cannot sign in.`;
 
   const onSubmit = form.handleSubmit(async (values) => {
     setEditError(null);
@@ -176,7 +188,7 @@ export const UserRowActions = ({
           </DropdownMenuItem>
           <DropdownMenuItem
             className="gap-2"
-            disabled={isCurrentUser}
+            disabled={isCurrentUser || !canToggleActivation}
             onClick={() => {
               setActionError(null);
               setPendingAction(user.isActive ? "deactivate" : "activate");
@@ -188,6 +200,27 @@ export const UserRowActions = ({
               <ShieldCheck className="size-4" />
             )}
             <span>{user.isActive ? "Deactivate user" : "Activate user"}</span>
+          </DropdownMenuItem>
+          {user.inviteStatus === "pending" ? (
+            <DropdownMenuItem
+              className="gap-2"
+              onClick={() => void resendInviteMutation.mutateAsync(user.id)}
+            >
+              <Send className="size-4" />
+              <span>Resend invite</span>
+            </DropdownMenuItem>
+          ) : null}
+          <DropdownMenuItem
+            className="gap-2"
+            onClick={async () => {
+              await navigator.clipboard.writeText(lifecycleSummary);
+              toast.success("Invite status copied", {
+                description: lifecycleSummary,
+              });
+            }}
+          >
+            <Copy className="size-4" />
+            <span>Copy invite status</span>
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem
@@ -276,6 +309,10 @@ export const UserRowActions = ({
                 <p className="text-sm text-muted-foreground">
                   Your own platform admin role cannot be downgraded here.
                 </p>
+              ) : !canToggleActivation ? (
+                <p className="text-sm text-muted-foreground">
+                  Pending invited accounts activate themselves from the invitation email.
+                </p>
               ) : null}
             </div>
 
@@ -339,7 +376,9 @@ export const UserRowActions = ({
               disabled={updateUserMutation.isPending || deleteUserMutation.isPending}
               onClick={() => void handleActionConfirm()}
             >
-              {updateUserMutation.isPending || deleteUserMutation.isPending
+              {updateUserMutation.isPending ||
+              deleteUserMutation.isPending ||
+              resendInviteMutation.isPending
                 ? "Working..."
                 : (actionMeta?.confirmLabel ?? "Confirm")}
             </Button>

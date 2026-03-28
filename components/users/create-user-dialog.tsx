@@ -25,7 +25,6 @@ import { useCreateUser } from "@/lib/hooks/use-noderax-data";
 const createUserSchema = z.object({
   email: z.string().email("Enter a valid work email."),
   name: z.string().min(2, "Name must be at least 2 characters."),
-  password: z.string().min(8, "Password must be at least 8 characters."),
   role: z.enum(["platform_admin", "user"]),
 });
 
@@ -34,7 +33,6 @@ type CreateUserValues = z.infer<typeof createUserSchema>;
 const defaultValues: CreateUserValues = {
   email: "",
   name: "",
-  password: "",
   role: "user",
 };
 
@@ -58,7 +56,6 @@ export const CreateUserDialog = () => {
       await createUserMutation.mutateAsync({
         email: values.email.trim(),
         name: values.name.trim(),
-        password: values.password,
         role: values.role,
       });
       form.reset(defaultValues);
@@ -89,7 +86,7 @@ export const CreateUserDialog = () => {
         <DialogHeader>
           <DialogTitle>Add user</DialogTitle>
           <DialogDescription>
-            Create a new global operator account for the Noderax platform.
+            Invite a new global operator account. The user will activate access from an email link.
           </DialogDescription>
         </DialogHeader>
 
@@ -121,22 +118,6 @@ export const CreateUserDialog = () => {
             {form.formState.errors.name ? (
               <p className="text-sm text-tone-danger">
                 {form.formState.errors.name.message}
-              </p>
-            ) : null}
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="user-password">Password</Label>
-            <Input
-              id="user-password"
-              type="password"
-              placeholder="StrongPassword123!"
-              aria-invalid={Boolean(form.formState.errors.password)}
-              {...form.register("password")}
-            />
-            {form.formState.errors.password ? (
-              <p className="text-sm text-tone-danger">
-                {form.formState.errors.password.message}
               </p>
             ) : null}
           </div>
@@ -176,7 +157,7 @@ export const CreateUserDialog = () => {
               Cancel
             </DialogClose>
             <Button type="submit" disabled={createUserMutation.isPending}>
-              {createUserMutation.isPending ? "Adding..." : "Create user"}
+              {createUserMutation.isPending ? "Sending..." : "Send invite"}
             </Button>
           </DialogFooter>
         </form>

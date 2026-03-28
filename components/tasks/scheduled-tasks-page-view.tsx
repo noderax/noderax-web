@@ -1,5 +1,6 @@
 "use client";
 
+import { useDeferredValue, useMemo } from "react";
 import { Clock3, ShieldAlert } from "lucide-react";
 
 import { EmptyState } from "@/components/empty-state";
@@ -13,16 +14,37 @@ import {
   useNodes,
   useScheduledTasks,
 } from "@/lib/hooks/use-noderax-data";
+import { useAppStore } from "@/store/useAppStore";
 
 export const ScheduledTasksPageView = () => {
   const authQuery = useAuthSession();
   const { isWorkspaceAdmin, workspace } = useWorkspaceContext();
+  const searchQuery = useAppStore((state) => state.searchQuery);
+  const deferredSearchQuery = useDeferredValue(searchQuery.trim().toLowerCase());
   const nodesQuery = useNodes({ limit: 100 });
-  const isAdmin = isWorkspaceAdmin;
+  const isAdmin = isWorkspaceAdmin && !workspace?.isArchived;
   const timezone = workspace?.defaultTimezone;
   const scheduledTasksQuery = useScheduledTasks(isAdmin);
+  const filteredSchedules = useMemo(
+    () =>
+      (scheduledTasksQuery.data ?? []).filter((schedule) =>
+        deferredSearchQuery
+          ? [
+              schedule.name,
+              schedule.command,
+              schedule.nodeName,
+              schedule.ownerName ?? "",
+              schedule.frequencyLabel,
+            ]
+              .join(" ")
+              .toLowerCase()
+              .includes(deferredSearchQuery)
+          : true,
+      ),
+    [deferredSearchQuery, scheduledTasksQuery.data],
+  );
   const createAction =
-    nodesQuery.data !== undefined ? (
+    nodesQuery.data !== undefined && !workspace?.isArchived ? (
       <CreateTaskDialog
         nodes={nodesQuery.data}
         defaultTab="scheduled"
@@ -62,12 +84,13 @@ export const ScheduledTasksPageView = () => {
     <AppShell>
       <div className="space-y-6">
         <ScheduledTasksPanel
-          schedules={scheduledTasksQuery.data ?? []}
+          schedules={filteredSchedules}
           isLoading={scheduledTasksQuery.isPending}
           isError={scheduledTasksQuery.isError}
           onRetry={() => scheduledTasksQuery.refetch()}
-          action={createAction}
-        />
+        action={createAction}
+        canManage={!workspace?.isArchived}
+      />
 
         {nodesQuery.isError ? (
           <SectionPanel

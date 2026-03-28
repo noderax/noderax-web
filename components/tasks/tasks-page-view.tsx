@@ -22,7 +22,7 @@ const EMPTY_TASKS: TaskSummary[] = [];
 const EMPTY_NODES: NodeSummary[] = [];
 
 export const TasksPageView = () => {
-  const { isWorkspaceAdmin } = useWorkspaceContext();
+  const { isWorkspaceAdmin, workspace } = useWorkspaceContext();
   const searchQuery = useAppStore((state) => state.searchQuery);
   const deferredSearchQuery = useDeferredValue(
     searchQuery.trim().toLowerCase(),
@@ -46,7 +46,7 @@ export const TasksPageView = () => {
   const nodesQuery = useNodes({ limit: 100 });
   const tasks = tasksQuery.data ?? EMPTY_TASKS;
   const nodes = nodesQuery.data ?? EMPTY_NODES;
-  const isAdmin = isWorkspaceAdmin;
+  const isAdmin = isWorkspaceAdmin && !workspace?.isArchived;
 
   const visibleTasks = useMemo(
     () =>

@@ -42,12 +42,14 @@ export const ScheduledTasksPanel = ({
   isError,
   onRetry,
   action,
+  canManage = true,
 }: {
   schedules: ScheduledTaskSummary[];
   isLoading?: boolean;
   isError?: boolean;
   onRetry?: () => void;
   action?: React.ReactNode;
+  canManage?: boolean;
 }) => {
   const updateScheduledTask = useUpdateScheduledTask();
   const deleteScheduledTask = useDeleteScheduledTask();
@@ -221,7 +223,11 @@ export const ScheduledTasksPanel = ({
                     <Switch
                       checked={schedule.enabled}
                       size="sm"
-                      disabled={updateScheduledTask.isPending || deleteScheduledTask.isPending}
+                      disabled={
+                        !canManage ||
+                        updateScheduledTask.isPending ||
+                        deleteScheduledTask.isPending
+                      }
                       aria-label={schedule.enabled ? "Disable schedule" : "Enable schedule"}
                       onCheckedChange={(checked) =>
                         updateScheduledTask.mutate({
@@ -245,7 +251,7 @@ export const ScheduledTasksPanel = ({
                       variant="ghost"
                       size="sm"
                       className="text-tone-danger"
-                      disabled={deleteScheduledTask.isPending}
+                      disabled={!canManage || deleteScheduledTask.isPending}
                       onClick={() => setPendingDelete(schedule)}
                     >
                       <Trash2 className="size-4" />

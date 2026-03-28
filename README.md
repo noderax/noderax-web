@@ -19,7 +19,11 @@ Current product surface:
 - First-run setup screen for installer-managed deployments
 - Workspace selection and default-workspace fallback
 - Workspace-scoped dashboard, nodes, tasks, events, scheduled tasks, members, and teams
-- Platform-admin global user directory with create, edit, activate, deactivate, and guarded delete flows
+- Platform-admin global user directory with invite-first create, edit, resend invite, activate, deactivate, and guarded delete flows
+- Public auth lifecycle routes for:
+  - invitation acceptance
+  - forgot password
+  - reset password
 - Unified settings surface with:
   - `Account`
   - `Workspace`
@@ -34,8 +38,13 @@ Current product surface:
 - Platform-admin workspaces page
 - User-centric membership management:
   - `Users` is the only account creation surface
-  - workspace members are assigned from existing active users
+  - workspace members are assigned from existing accepted active users
   - teams can only add active members already attached to the workspace
+- Workspace archive UX:
+  - archived banner inside workspace routes
+  - archive / restore actions
+  - read-only operator controls while archived
+- Workspace-scoped topbar search with grouped suggestions for nodes, tasks, schedules, events, members, and teams
 
 ## Tech Stack
 
@@ -83,6 +92,9 @@ The current primary UI uses workspace-scoped routes:
 Additional top-level routes:
 
 - `/login`
+- `/forgot-password`
+- `/invite/[token]`
+- `/reset-password/[token]`
 - `/settings`
 - `/setup`
 - `/users`
@@ -92,13 +104,17 @@ The top-level non-workspace pages continue to exist as convenience or fallback s
 ## Features
 
 - JWT login with cookie-based session handling
+- Invite acceptance and password reset flows through public auth handlers
 - Next.js proxy layer over `noderax-api`
 - Workspace-aware navigation and workspace cookie persistence
 - Default workspace fallback when a prior workspace disappears
 - Platform-admin workspace creation and workspace inventory
+- Workspace archive / restore controls with read-only UI states
 - Workspace member and team management built on top of the global user directory
+- Workspace-scoped topbar search with grouped suggestions and `?q=` route handoff
 - Unified settings page:
   - account preferences
+  - change password
   - workspace settings
   - platform runtime settings
 - Platform-admin user lifecycle management with self-protection and last-admin guardrails
@@ -131,7 +147,8 @@ The UI hides actions that the current session should not perform.
 ## User And Membership Model
 
 - `Users` is the platform-wide identity directory and the only place where new accounts are created.
-- `Members` does not create users inline. It assigns an existing active user to the current workspace with a workspace role.
+- New users are invited first. They activate themselves from the invite link before they can sign in or be assigned anywhere.
+- `Members` does not create users inline. It assigns an existing accepted active user to the current workspace with a workspace role.
 - `Teams` only offer workspace-local grouping. The add-member list is limited to active workspace members who are not already in the selected team.
 - Inactive users remain visible in historical membership lists, but they cannot sign in and they cannot be added to new workspaces or teams.
 - Removing a workspace membership also removes that user from every team in the same workspace.
@@ -143,9 +160,12 @@ The unified `/settings` page now contains:
 - `Account`
   - profile/session/preferences
   - timezone preferences used across task scheduling displays
+  - persisted notification email preferences
+  - authenticated password change with forced re-login
 - `Workspace`
   - workspace name and slug
   - workspace timezone
+  - archive / restore
   - default-workspace status and selection
   - danger zone with typed confirmation for deletion
 - `Platform`
@@ -182,18 +202,26 @@ Surfaces kept fresh by realtime:
 Primary upstream routes:
 
 - `POST /auth/login`
+- `GET /auth/invitations/:token`
+- `POST /auth/invitations/:token/accept`
+- `POST /auth/password/forgot`
+- `GET /auth/password/reset/:token`
+- `POST /auth/password/reset/:token`
 - `GET /users`
 - `GET /users/me`
 - `POST /users`
+- `POST /users/:userId/resend-invite`
 - `PATCH /users/:userId`
 - `DELETE /users/:userId`
 - `PATCH /users/me/preferences`
+- `POST /users/me/password`
 - `GET /workspaces`
 - `POST /workspaces`
 - `PATCH /workspaces/:workspaceId`
 - `DELETE /workspaces/:workspaceId`
 - `GET /workspaces/:workspaceId/members`
 - `GET /workspaces/:workspaceId/assignable-users`
+- `GET /workspaces/:workspaceId/search`
 - `GET /workspaces/:workspaceId/teams`
 - `GET /workspaces/:workspaceId/teams/:teamId/members`
 - `GET /workspaces/:workspaceId/nodes`

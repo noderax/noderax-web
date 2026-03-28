@@ -1,6 +1,7 @@
 "use client";
 
 import { startTransition, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
@@ -87,6 +88,15 @@ const workspaceHighlights: readonly {
   },
 ] as const;
 
+const loginMessageCopy: Record<string, string> = {
+  "invite-accepted":
+    "Account activated. Sign in with the password you just created.",
+  "password-reset":
+    "Password reset complete. Sign in with your new password.",
+  "password-updated":
+    "Password updated. Sign in again to continue.",
+};
+
 function LoginBackdrop() {
   const { resolvedTheme } = useTheme();
   const reduceMotion = Boolean(useReducedMotion());
@@ -121,7 +131,13 @@ function LoginBackdrop() {
   );
 }
 
-export const LoginScreen = ({ nextPath }: { nextPath?: string }) => {
+export const LoginScreen = ({
+  nextPath,
+  message,
+}: {
+  nextPath?: string;
+  message?: string;
+}) => {
   const router = useRouter();
   const reduceMotion = Boolean(useReducedMotion());
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -143,6 +159,7 @@ export const LoginScreen = ({ nextPath }: { nextPath?: string }) => {
     control: form.control,
     name: "remember",
   });
+  const loginMessage = message ? loginMessageCopy[message] : null;
 
   const onSubmit = form.handleSubmit(async (values) => {
     setErrorMessage(null);
@@ -290,6 +307,12 @@ export const LoginScreen = ({ nextPath }: { nextPath?: string }) => {
                 </div>
 
                 <form className="space-y-3.5" onSubmit={onSubmit}>
+                  {loginMessage ? (
+                    <div className="tone-success rounded-[18px] border px-4 py-3 text-sm leading-6">
+                      {loginMessage}
+                    </div>
+                  ) : null}
+
                   <div className="space-y-2">
                     <Label htmlFor="email">Work email</Label>
                     <Input
@@ -341,6 +364,15 @@ export const LoginScreen = ({ nextPath }: { nextPath?: string }) => {
                         })
                       }
                     />
+                  </div>
+
+                  <div className="flex items-center justify-end">
+                    <Link
+                      href="/forgot-password"
+                      className="text-sm font-medium text-primary transition-opacity hover:opacity-80"
+                    >
+                      Forgot password?
+                    </Link>
                   </div>
 
                   {errorMessage ? (

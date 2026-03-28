@@ -10,11 +10,13 @@ import {
   mapTaskSummary,
 } from "@/lib/noderax";
 import type {
+  AcceptInvitationPayload,
   AddTeamMemberPayload,
   AssignableUserDto,
   AuthSession,
   CancelTaskPayload,
   CancelTaskResponse,
+  ChangePasswordPayload,
   CreateBatchScheduledTaskPayload,
   CreateBatchTaskPayload,
   CreateScheduledTaskPayload,
@@ -35,6 +37,8 @@ import type {
   EventRecord,
   FinalizeEnrollmentPayload,
   FinalizeEnrollmentResponse,
+  ForgotPasswordPayload,
+  InvitationPreviewDto,
   InstallPackagesPayload,
   LoginPayload,
   MetricDto,
@@ -72,12 +76,16 @@ import type {
   UpdateWorkspaceMemberPayload,
   UpdateWorkspacePayload,
   UserDto,
+  ResendUserInviteResponse,
+  ResetPasswordPayload,
   ValidatePostgresSetupPayload,
   ValidatePostgresSetupResponse,
   ValidateRedisSetupPayload,
   ValidateRedisSetupResponse,
+  PasswordResetPreviewDto,
   WorkspaceDto,
   WorkspaceMembershipDto,
+  WorkspaceSearchResponseDto,
 } from "@/lib/types";
 
 class ApiError extends Error {
@@ -674,6 +682,14 @@ export const apiClient = {
       buildWorkspaceApiPath(workspaceId, "/assignable-users"),
     );
   },
+  searchWorkspace(workspaceId: string, q: string, limit = 5) {
+    return request<WorkspaceSearchResponseDto>(
+      `${buildWorkspaceApiPath(workspaceId, "/search")}${buildQueryString({
+        q,
+        limit,
+      })}`,
+    );
+  },
   createWorkspaceMember(
     workspaceId: string,
     payload: CreateWorkspaceMemberPayload,
@@ -784,6 +800,14 @@ export const apiClient = {
       body: JSON.stringify(payload),
     });
   },
+  resendUserInvite(userId: string) {
+    return request<ResendUserInviteResponse>(
+      `/api/proxy/users/${userId}/resend-invite`,
+      {
+        method: "POST",
+      },
+    );
+  },
   updateUser(userId: string, payload: UpdateUserPayload) {
     return request<UserDto>(`/api/proxy/users/${userId}`, {
       method: "PATCH",
@@ -794,6 +818,46 @@ export const apiClient = {
     return request<DeleteUserResponse>(`/api/proxy/users/${userId}`, {
       method: "DELETE",
     });
+  },
+  changeCurrentUserPassword(payload: ChangePasswordPayload) {
+    return request<{ success: true }>("/api/proxy/users/me/password", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  },
+  getInvitationPreview(token: string) {
+    return request<InvitationPreviewDto>(
+      `/api/auth/invitations/${encodeURIComponent(token)}`,
+    );
+  },
+  acceptInvitation(token: string, payload: AcceptInvitationPayload) {
+    return request<{ success: true }>(
+      `/api/auth/invitations/${encodeURIComponent(token)}/accept`,
+      {
+        method: "POST",
+        body: JSON.stringify(payload),
+      },
+    );
+  },
+  requestPasswordReset(payload: ForgotPasswordPayload) {
+    return request<{ success: true }>("/api/auth/password/forgot", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  },
+  getPasswordResetPreview(token: string) {
+    return request<PasswordResetPreviewDto>(
+      `/api/auth/password/reset/${encodeURIComponent(token)}`,
+    );
+  },
+  resetPassword(token: string, payload: ResetPasswordPayload) {
+    return request<{ success: true }>(
+      `/api/auth/password/reset/${encodeURIComponent(token)}`,
+      {
+        method: "POST",
+        body: JSON.stringify(payload),
+      },
+    );
   },
   getNodes(filters?: NodeFilters, workspaceId?: string) {
     return request<NodeDto[]>(

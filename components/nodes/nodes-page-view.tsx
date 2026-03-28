@@ -16,7 +16,7 @@ const PAGE_SIZE = 25;
 const EMPTY_NODES: NodeSummary[] = [];
 
 export const NodesPageView = () => {
-  const { isWorkspaceAdmin } = useWorkspaceContext();
+  const { isWorkspaceAdmin, workspace } = useWorkspaceContext();
   const searchQuery = useAppStore((state) => state.searchQuery);
   const deferredSearchQuery = useDeferredValue(searchQuery.trim());
   const [pageState, setPageState] = useState({
@@ -33,7 +33,7 @@ export const NodesPageView = () => {
     offset: page * PAGE_SIZE,
   });
   const nodes = nodesQuery.data ?? EMPTY_NODES;
-  const isAdmin = isWorkspaceAdmin;
+  const isAdmin = isWorkspaceAdmin && !workspace?.isArchived;
 
   const onlineNodes = nodes.filter((node) => node.status === "online");
   const offlineNodes = nodes.filter((node) => node.status === "offline");

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useDeferredValue, useMemo, useState } from "react";
 import { Plus, Users2 } from "lucide-react";
 
 import { AppShell } from "@/components/layout/app-shell";
@@ -31,9 +31,12 @@ import {
   useWorkspaceTeams,
 } from "@/lib/hooks/use-noderax-data";
 import { useWorkspaceContext } from "@/lib/hooks/use-workspace-context";
+import { useAppStore } from "@/store/useAppStore";
 
 export const TeamsPageView = () => {
   const { workspace, isWorkspaceAdmin } = useWorkspaceContext();
+  const searchQuery = useAppStore((state) => state.searchQuery);
+  const deferredSearchQuery = useDeferredValue(searchQuery.trim().toLowerCase());
   const teamsQuery = useWorkspaceTeams(Boolean(workspace));
   const membersQuery = useWorkspaceMembers(Boolean(workspace));
   const createTeamMutation = useCreateWorkspaceTeam();
@@ -41,6 +44,19 @@ export const TeamsPageView = () => {
   const [open, setOpen] = useState(false);
   const [teamName, setTeamName] = useState("");
   const [teamDescription, setTeamDescription] = useState("");
+  const canManageTeams = isWorkspaceAdmin && !workspace?.isArchived;
+  const filteredTeams = useMemo(
+    () =>
+      (teamsQuery.data ?? []).filter((team) =>
+        deferredSearchQuery
+          ? [team.name, team.description ?? ""]
+              .join(" ")
+              .toLowerCase()
+              .includes(deferredSearchQuery)
+          : true,
+      ),
+    [deferredSearchQuery, teamsQuery.data],
+  );
 
   return (
     <AppShell>
@@ -53,7 +69,7 @@ export const TeamsPageView = () => {
             : "Organize workspace members into teams."
         }
         action={
-          isWorkspaceAdmin ? (
+          canManageTeams ? (
             <Dialog
               open={open}
               onOpenChange={(nextOpen) => {
@@ -124,20 +140,32 @@ export const TeamsPageView = () => {
               <Skeleton key={index} className="h-48 rounded-[22px]" />
             ))}
           </div>
-        ) : teamsQuery.data?.length ? (
+        ) : filteredTeams.length ? (
           <div className="space-y-4">
-            {teamsQuery.data.map((team) => (
+            {workspace?.isArchived ? (
+              <div className="rounded-[18px] border px-4 py-3 text-sm text-muted-foreground">
+                Team structure stays visible while the workspace is archived, but
+                add/remove mutations are disabled until restore.
+              </div>
+            ) : null}
+            {filteredTeams.map((team) => (
               <TeamCard
                 key={team.id}
                 teamId={team.id}
                 name={team.name}
                 description={team.description}
-                canManage={isWorkspaceAdmin}
+                canManage={canManageTeams}
                 members={membersQuery.data ?? []}
                 onDelete={() => deleteTeamMutation.mutate(team.id)}
               />
             ))}
           </div>
+        ) : teamsQuery.data?.length ? (
+          <EmptyState
+            icon={Users2}
+            title="No teams match the workspace search"
+            description="Clear the search query or try a different team name."
+          />
         ) : (
           <EmptyState
             icon={Users2}

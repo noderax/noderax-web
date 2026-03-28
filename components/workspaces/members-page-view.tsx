@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useDeferredValue, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Plus, ShieldAlert, UserPlus, Users } from "lucide-react";
 
@@ -30,9 +30,12 @@ import {
   useUpdateWorkspaceMember,
   useWorkspaceAssignableUsers,
   useWorkspaceMembers,
+  useWorkspaceTeamMembers,
+  useWorkspaceTeams,
 } from "@/lib/hooks/use-noderax-data";
 import { useWorkspaceContext } from "@/lib/hooks/use-workspace-context";
 import type { WorkspaceMembershipRole } from "@/lib/types";
+import { useAppStore } from "@/store/useAppStore";
 
 const defaultFormState = {
   role: "member" as WorkspaceMembershipRole,
@@ -43,7 +46,10 @@ const defaultFormState = {
 export const MembersPageView = () => {
   const router = useRouter();
   const { workspace, isPlatformAdmin, isWorkspaceAdmin } = useWorkspaceContext();
+  const searchQuery = useAppStore((state) => state.searchQuery);
+  const deferredSearchQuery = useDeferredValue(searchQuery.trim().toLowerCase());
   const membersQuery = useWorkspaceMembers(Boolean(workspace));
+  const teamsQuery = useWorkspaceTeams(Boolean(workspace));
   const assignableUsersQuery = useWorkspaceAssignableUsers(
     Boolean(workspace) && isWorkspaceAdmin,
   );
@@ -52,6 +58,12 @@ export const MembersPageView = () => {
   const deleteMemberMutation = useDeleteWorkspaceMember();
   const [open, setOpen] = useState(false);
   const [formState, setFormState] = useState(defaultFormState);
+  const [teamFilter, setTeamFilter] = useState<string>("all");
+  const selectedTeamMembersQuery = useWorkspaceTeamMembers(
+    teamFilter === "all" ? "" : teamFilter,
+    Boolean(workspace && teamFilter !== "all"),
+  );
+  const canManageMembers = isWorkspaceAdmin && !workspace?.isArchived;
 
   const filteredAssignableUsers = useMemo(() => {
     const search = formState.search.trim().toLowerCase();
@@ -68,6 +80,37 @@ export const MembersPageView = () => {
     });
   }, [assignableUsersQuery.data, formState.search]);
 
+  const filteredMembers = useMemo(() => {
+    const selectedTeamMemberIds =
+      teamFilter === "all"
+        ? null
+        : new Set((selectedTeamMembersQuery.data ?? []).map((member) => member.userId));
+
+    return (membersQuery.data ?? []).filter((membership) => {
+      if (selectedTeamMemberIds && !selectedTeamMemberIds.has(membership.userId)) {
+        return false;
+      }
+
+      if (!deferredSearchQuery) {
+        return true;
+      }
+
+      return [
+        membership.userName ?? "",
+        membership.userEmail ?? "",
+        membership.role,
+      ]
+        .join(" ")
+        .toLowerCase()
+        .includes(deferredSearchQuery);
+    });
+  }, [
+    deferredSearchQuery,
+    membersQuery.data,
+    selectedTeamMembersQuery.data,
+    teamFilter,
+  ]);
+
   return (
     <AppShell>
       {!workspace ? (
@@ -82,7 +125,7 @@ export const MembersPageView = () => {
           title="Members"
           description={`Manage who can access ${workspace.name} and what role they hold inside this workspace.`}
           action={
-            isWorkspaceAdmin ? (
+            canManageMembers ? (
               <Dialog
                 open={open}
                 onOpenChange={(nextOpen) => {
@@ -283,73 +326,120 @@ export const MembersPageView = () => {
               />
             </div>
           ) : membersQuery.data?.length ? (
-            <Table>
-              <TableHeader>
-                <TableRow className="hover:bg-transparent">
-                  <TableHead>Name</TableHead>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Role</TableHead>
-                  <TableHead>Added</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {membersQuery.data.map((membership) => (
-                  <TableRow key={membership.id}>
-                    <TableCell className="font-medium">
-                      {membership.userName ?? "Workspace member"}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {membership.userEmail ?? "Unknown email"}
-                    </TableCell>
-                    <TableCell>
-                      <Badge
-                        variant={membership.userIsActive === false ? "destructive" : "secondary"}
-                        className="rounded-full px-3 py-1"
-                      >
-                        {membership.userIsActive === false ? "Inactive" : "Active"}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Select
-                        value={membership.role}
-                        onValueChange={(value) =>
-                          updateMemberMutation.mutate({
-                            membershipId: membership.id,
-                            payload: {
-                              role: value as WorkspaceMembershipRole,
-                            },
-                          })
-                        }
-                      >
-                        <SelectTrigger className="w-32">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="viewer">Viewer</SelectItem>
-                          <SelectItem value="member">Member</SelectItem>
-                          <SelectItem value="admin">Admin</SelectItem>
-                          <SelectItem value="owner">Owner</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      <TimeDisplay value={membership.createdAt} mode="datetime" />
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => deleteMemberMutation.mutate(membership.id)}
-                      >
-                        Remove
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+            <>
+              <div className="flex flex-col gap-3 border-b px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+                <div className="space-y-1">
+                  <p className="text-sm font-medium">Filter by team</p>
+                  <p className="text-xs text-muted-foreground">
+                    Use the active workspace search plus an optional team filter
+                    to inspect a smaller member slice.
+                  </p>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  {workspace.isArchived ? (
+                    <Badge variant="outline" className="rounded-full px-3 py-1">
+                      Read-only while archived
+                    </Badge>
+                  ) : null}
+                  <Select
+                    value={teamFilter}
+                    onValueChange={(value) => setTeamFilter(value ?? "all")}
+                  >
+                    <SelectTrigger className="w-full sm:w-56">
+                      <SelectValue placeholder="Filter by team" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All members</SelectItem>
+                      {(teamsQuery.data ?? []).map((team) => (
+                        <SelectItem key={team.id} value={team.id}>
+                          {team.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              {filteredMembers.length ? (
+                <Table>
+                  <TableHeader>
+                    <TableRow className="hover:bg-transparent">
+                      <TableHead>Name</TableHead>
+                      <TableHead>Email</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Role</TableHead>
+                      <TableHead>Added</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredMembers.map((membership) => (
+                      <TableRow key={membership.id}>
+                        <TableCell className="font-medium">
+                          {membership.userName ?? "Workspace member"}
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {membership.userEmail ?? "Unknown email"}
+                        </TableCell>
+                        <TableCell>
+                          <Badge
+                            variant={membership.userIsActive === false ? "destructive" : "secondary"}
+                            className="rounded-full px-3 py-1"
+                          >
+                            {membership.userIsActive === false ? "Inactive" : "Active"}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Select
+                            value={membership.role}
+                            disabled={!canManageMembers}
+                            onValueChange={(value) =>
+                              updateMemberMutation.mutate({
+                                membershipId: membership.id,
+                                payload: {
+                                  role: value as WorkspaceMembershipRole,
+                                },
+                              })
+                            }
+                          >
+                            <SelectTrigger className="w-32">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="viewer">Viewer</SelectItem>
+                              <SelectItem value="member">Member</SelectItem>
+                              <SelectItem value="admin">Admin</SelectItem>
+                              <SelectItem value="owner">Owner</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">
+                          <TimeDisplay value={membership.createdAt} mode="datetime" />
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={!canManageMembers}
+                            onClick={() => deleteMemberMutation.mutate(membership.id)}
+                          >
+                            Remove
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              ) : (
+                <div className="px-5 py-8 sm:px-6">
+                  <EmptyState
+                    icon={Users}
+                    title="No members match the active filters"
+                    description="Try a different team filter or clear the workspace search query."
+                  />
+                </div>
+              )}
+            </>
           ) : (
             <div className="px-5 py-4 sm:px-6">
               <EmptyState

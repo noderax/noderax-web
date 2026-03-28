@@ -26,6 +26,25 @@ export const UsersPageView = () => {
   const isAdmin = authQuery.session?.user.role === "platform_admin";
   const usersQuery = useUsers(isAdmin);
 
+  const getStatusLabel = (inviteStatus: string, isActive: boolean) => {
+    if (inviteStatus === "pending") {
+      return {
+        label: "Invited",
+        variant: "outline" as const,
+      };
+    }
+
+    return isActive
+      ? {
+          label: "Active",
+          variant: "secondary" as const,
+        }
+      : {
+          label: "Inactive",
+          variant: "destructive" as const,
+        };
+  };
+
   return (
     <AppShell>
       {!authQuery.session && authQuery.isPending ? (
@@ -101,12 +120,18 @@ export const UsersPageView = () => {
                       </Badge>
                     </TableCell>
                     <TableCell>
+                      {(() => {
+                        const status = getStatusLabel(user.inviteStatus, user.isActive);
+
+                        return (
                       <Badge
-                        variant={user.isActive ? "secondary" : "destructive"}
+                        variant={status.variant}
                         className="rounded-full px-3 py-1"
                       >
-                        {user.isActive ? "Active" : "Inactive"}
+                        {status.label}
                       </Badge>
+                        );
+                      })()}
                     </TableCell>
                     <TableCell className="text-muted-foreground">
                       <TimeDisplay value={user.createdAt} mode="datetime" />
