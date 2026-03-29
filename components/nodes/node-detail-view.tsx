@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Network, Timer, Wrench } from "lucide-react";
+import { Network, SquareTerminal, Timer, Wrench } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 import { DeleteNodeDialog } from "@/components/nodes/delete-node-dialog";
@@ -15,7 +15,7 @@ import { NodePackagesScreen } from "@/components/packages/node-packages-screen";
 import { SeverityBadge } from "@/components/severity-badge";
 import { TaskStatusBadge } from "@/components/tasks/task-status-badge";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SectionPanel } from "@/components/ui/section-panel";
@@ -103,7 +103,7 @@ const formatNetworkSummary = (stats: Record<string, unknown> | null) => {
 
 export const NodeDetailView = ({ id }: { id: string }) => {
   const router = useRouter();
-  const { buildWorkspaceHref, isWorkspaceAdmin } = useWorkspaceContext();
+  const { buildWorkspaceHref, isWorkspaceAdmin, workspace } = useWorkspaceContext();
   const [selectedTeamId, setSelectedTeamId] = useState<"none" | string>("none");
   const [maintenanceReason, setMaintenanceReason] = useState("");
 
@@ -174,15 +174,33 @@ export const NodeDetailView = ({ id }: { id: string }) => {
             </p>
           </div>
         </div>
-        {isAdmin ? (
-          <DeleteNodeDialog
-            nodeId={node.id}
-            nodeName={node.name}
-            triggerLabel="Delete node"
-            triggerVariant="destructive"
-            onDeleted={() => router.replace(buildWorkspaceHref("nodes") ?? "/workspaces")}
-          />
-        ) : null}
+        <div className="flex flex-wrap items-center gap-2">
+          {isAdmin ? (
+            workspace?.isArchived ? (
+              <Button variant="outline" disabled>
+                <SquareTerminal className="size-4" />
+                Terminal unavailable
+              </Button>
+            ) : (
+              <Link
+                href={buildWorkspaceHref(`nodes/${node.id}/terminal`) ?? "/workspaces"}
+                className={buttonVariants({ variant: "outline" })}
+              >
+                <SquareTerminal className="size-4" />
+                Open terminal
+              </Link>
+            )
+          ) : null}
+          {isAdmin ? (
+            <DeleteNodeDialog
+              nodeId={node.id}
+              nodeName={node.name}
+              triggerLabel="Delete node"
+              triggerVariant="destructive"
+              onDeleted={() => router.replace(buildWorkspaceHref("nodes") ?? "/workspaces")}
+            />
+          ) : null}
+        </div>
       </div>
 
       <div className="flex flex-wrap gap-2">

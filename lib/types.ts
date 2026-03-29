@@ -324,6 +324,57 @@ export interface NodeDetail extends NodeSummary {
   networkStats: Record<string, unknown> | null;
 }
 
+export type TerminalSessionStatus =
+  | "pending"
+  | "open"
+  | "closed"
+  | "failed"
+  | "terminating";
+
+export type TerminalTranscriptDirection =
+  | "stdin"
+  | "stdout"
+  | "stderr"
+  | "system";
+
+export interface TerminalSession {
+  id: string;
+  workspaceId: string;
+  nodeId: string;
+  createdByUserId: string | null;
+  createdByEmailSnapshot: string | null;
+  status: TerminalSessionStatus;
+  openedAt: string | null;
+  closedAt: string | null;
+  closedReason: string | null;
+  exitCode: number | null;
+  cols: number;
+  rows: number;
+  retentionExpiresAt: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface TerminalTranscriptChunk {
+  id: string;
+  sessionId: string;
+  direction: TerminalTranscriptDirection;
+  encoding: string;
+  payload: string;
+  seq: number;
+  sourceTimestamp?: string | null;
+  createdAt: string;
+}
+
+export interface CreateTerminalSessionPayload {
+  cols?: number;
+  rows?: number;
+}
+
+export interface TerminateTerminalSessionPayload {
+  reason?: string;
+}
+
 export interface TaskSummary {
   id: string;
   name: string;

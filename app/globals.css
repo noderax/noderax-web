@@ -2,6 +2,7 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
+@import "xterm/css/xterm.css";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -248,6 +249,10 @@
   .surface-hover:hover {
     border-color: var(--surface-hover-border);
     box-shadow: var(--shadow-dashboard-hover);
+  }
+
+  .xterm {
+    height: 100%;
   }
 
   .brand-badge {

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { ExternalLink, MonitorCog } from "lucide-react";
+import { ExternalLink, MonitorCog, SquareTerminal } from "lucide-react";
 
 import { NodeActionMenu } from "@/components/nodes/node-action-menu";
 
@@ -397,6 +397,13 @@ export const NodesTable = ({
 
                   {isAdmin ? (
                     <>
+                      <Link
+                        href={buildWorkspaceHref(`nodes/${node.id}/terminal`) ?? "/workspaces"}
+                        className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
+                      >
+                        Terminal
+                        <SquareTerminal className="size-4" />
+                      </Link>
                       <NodeActionMenu
                         nodeId={node.id}
                         nodeName={node.name}

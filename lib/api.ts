@@ -27,6 +27,7 @@ import type {
   CreateOidcProviderPayload,
   CreateTeamPayload,
   CreateTeamTaskPayload,
+  CreateTerminalSessionPayload,
   CreateTaskPayload,
   CreateTaskTemplatePayload,
   CreateUserPayload,
@@ -110,6 +111,9 @@ import type {
   WorkspaceMembershipDto,
   WorkspaceSearchResponseDto,
   EnableNodeMaintenancePayload,
+  TerminalSession,
+  TerminalTranscriptChunk,
+  TerminateTerminalSessionPayload,
 } from "@/lib/types";
 
 class ApiError extends Error {
@@ -1029,6 +1033,67 @@ export const apiClient = {
         : `/api/proxy/nodes/${nodeId}/maintenance/disable`,
       {
         method: "POST",
+      },
+    );
+  },
+  createTerminalSession(
+    nodeId: string,
+    payload: CreateTerminalSessionPayload,
+    workspaceId: string,
+  ) {
+    return request<TerminalSession>(
+      buildWorkspaceApiPath(workspaceId, `/nodes/${nodeId}/terminal-sessions`),
+      {
+        method: "POST",
+        body: JSON.stringify(payload),
+      },
+    );
+  },
+  getNodeTerminalSessions(
+    nodeId: string,
+    workspaceId: string,
+    options?: {
+      limit?: number;
+      offset?: number;
+    },
+  ) {
+    return request<TerminalSession[]>(
+      `${buildWorkspaceApiPath(workspaceId, `/nodes/${nodeId}/terminal-sessions`)}${buildQueryString({
+        limit: options?.limit,
+        offset: options?.offset,
+      })}`,
+    );
+  },
+  getTerminalSession(sessionId: string, workspaceId: string) {
+    return request<TerminalSession>(
+      buildWorkspaceApiPath(workspaceId, `/terminal-sessions/${sessionId}`),
+    );
+  },
+  getTerminalSessionChunks(
+    sessionId: string,
+    workspaceId: string,
+    options?: {
+      limit?: number;
+      offset?: number;
+    },
+  ) {
+    return request<TerminalTranscriptChunk[]>(
+      `${buildWorkspaceApiPath(workspaceId, `/terminal-sessions/${sessionId}/chunks`)}${buildQueryString({
+        limit: options?.limit,
+        offset: options?.offset,
+      })}`,
+    );
+  },
+  terminateTerminalSession(
+    sessionId: string,
+    payload: TerminateTerminalSessionPayload,
+    workspaceId: string,
+  ) {
+    return request<TerminalSession>(
+      buildWorkspaceApiPath(workspaceId, `/terminal-sessions/${sessionId}/terminate`),
+      {
+        method: "POST",
+        body: JSON.stringify(payload),
       },
     );
   },

@@ -19,6 +19,7 @@ import type {
   CreateScheduledTaskPayload,
   CreateNodePayload,
   CreateOidcProviderPayload,
+  CreateTerminalSessionPayload,
   CreateTeamPayload,
   CreateTeamTaskPayload,
   CreateTaskPayload,
@@ -54,6 +55,8 @@ import type {
   UpdateWorkspacePayload,
   TaskFilters,
   TaskStatus,
+  TerminalSession,
+  TerminateTerminalSessionPayload,
   UpdateUserPayload,
   WorkspaceMembershipDto,
   WorkspaceSearchResponseDto,
@@ -109,6 +112,18 @@ export const queryKeys = {
     all: (workspaceId: string, filters?: NodeFilters) =>
       ["nodes", workspaceId, "list", filters ?? {}] as const,
     detail: (workspaceId: string, id: string) => ["nodes", workspaceId, "detail", id] as const,
+    terminalSessions: (
+      workspaceId: string,
+      nodeId: string,
+      options?: { limit?: number; offset?: number },
+    ) => ["nodes", workspaceId, nodeId, "terminal-sessions", options ?? {}] as const,
+    terminalSession: (workspaceId: string, sessionId: string) =>
+      ["nodes", workspaceId, "terminal-session", sessionId] as const,
+    terminalChunks: (
+      workspaceId: string,
+      sessionId: string,
+      options?: { limit?: number; offset?: number },
+    ) => ["nodes", workspaceId, "terminal-session", sessionId, "chunks", options ?? {}] as const,
   },
   tasks: {
     all: (workspaceId: string, filters?: TaskFilters) =>
@@ -474,6 +489,66 @@ export const useNode = (id: string) => {
   });
 };
 
+export const useNodeTerminalSessions = (
+  nodeId: string,
+  options?: {
+    limit?: number;
+    offset?: number;
+  },
+) => {
+  const { workspaceId } = useWorkspaceContext();
+
+  return useQuery({
+    queryKey:
+      workspaceId && nodeId
+        ? queryKeys.nodes.terminalSessions(workspaceId, nodeId, options)
+        : ["nodes", "terminal-sessions", "idle", nodeId, options ?? {}],
+    queryFn: () =>
+      apiClient.getNodeTerminalSessions(nodeId, workspaceId!, options),
+    enabled: Boolean(workspaceId && nodeId),
+    staleTime: 5_000,
+    refetchOnWindowFocus: false,
+  });
+};
+
+export const useTerminalSession = (sessionId: string, enabled = true) => {
+  const { workspaceId } = useWorkspaceContext();
+
+  return useQuery({
+    queryKey:
+      workspaceId && sessionId
+        ? queryKeys.nodes.terminalSession(workspaceId, sessionId)
+        : ["nodes", "terminal-session", "idle", sessionId],
+    queryFn: () => apiClient.getTerminalSession(sessionId, workspaceId!),
+    enabled: enabled && Boolean(workspaceId && sessionId),
+    staleTime: 5_000,
+    refetchOnWindowFocus: false,
+  });
+};
+
+export const useTerminalSessionChunks = (
+  sessionId: string,
+  options?: {
+    limit?: number;
+    offset?: number;
+  },
+  enabled = true,
+) => {
+  const { workspaceId } = useWorkspaceContext();
+
+  return useQuery({
+    queryKey:
+      workspaceId && sessionId
+        ? queryKeys.nodes.terminalChunks(workspaceId, sessionId, options)
+        : ["nodes", "terminal-session", "chunks", "idle", sessionId, options ?? {}],
+    queryFn: () =>
+      apiClient.getTerminalSessionChunks(sessionId, workspaceId!, options),
+    enabled: enabled && Boolean(workspaceId && sessionId),
+    staleTime: 5_000,
+    refetchOnWindowFocus: false,
+  });
+};
+
 export const useTasks = (filters?: TaskFilters) => {
   const { workspaceId } = useWorkspaceContext();
 
@@ -796,6 +871,87 @@ export const useCreateNode = () => {
     },
     onError: (error) => {
       toast.error("Unable to add node", {
+        description: readMutationError(error),
+      });
+    },
+  });
+};
+
+export const useCreateTerminalSession = () => {
+  const queryClient = useQueryClient();
+  const { workspaceId } = useWorkspaceContext();
+
+  return useMutation({
+    mutationFn: (input: {
+      nodeId: string;
+      payload?: CreateTerminalSessionPayload;
+    }) =>
+      apiClient.createTerminalSession(
+        input.nodeId,
+        input.payload ?? {},
+        requireWorkspaceId(workspaceId),
+      ),
+    onSuccess: async (session: TerminalSession) => {
+      toast.success("Terminal session created", {
+        description: `Session ${session.id.slice(0, 8)} is starting.`,
+      });
+
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: ["nodes", session.workspaceId, session.nodeId, "terminal-sessions"],
+          refetchType: "active",
+        }),
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.nodes.detail(session.workspaceId, session.nodeId),
+          refetchType: "active",
+        }),
+      ]);
+    },
+    onError: (error) => {
+      toast.error("Unable to create terminal session", {
+        description: readMutationError(error),
+      });
+    },
+  });
+};
+
+export const useTerminateTerminalSession = () => {
+  const queryClient = useQueryClient();
+  const { workspaceId } = useWorkspaceContext();
+
+  return useMutation({
+    mutationFn: (input: {
+      sessionId: string;
+      nodeId: string;
+      payload?: TerminateTerminalSessionPayload;
+    }) =>
+      apiClient.terminateTerminalSession(
+        input.sessionId,
+        input.payload ?? {},
+        requireWorkspaceId(workspaceId),
+      ),
+    onSuccess: async (session, variables) => {
+      toast.success("Terminal session terminated", {
+        description: `Session ${session.id.slice(0, 8)} was stopped.`,
+      });
+
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: ["nodes", session.workspaceId, variables.nodeId, "terminal-sessions"],
+          refetchType: "active",
+        }),
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.nodes.terminalSession(session.workspaceId, session.id),
+          refetchType: "active",
+        }),
+        queryClient.invalidateQueries({
+          queryKey: ["nodes", session.workspaceId, "terminal-session", session.id, "chunks"],
+          refetchType: "active",
+        }),
+      ]);
+    },
+    onError: (error) => {
+      toast.error("Unable to terminate terminal session", {
         description: readMutationError(error),
       });
     },

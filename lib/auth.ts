@@ -73,6 +73,16 @@ export const resolveApiBaseUrl = (
 export const getApiBaseUrl = (override?: string | null) =>
   resolveApiBaseUrl(override).apiUrl ?? "";
 
+export const getApiBaseUrlCandidates = (override?: string | null) => {
+  const candidates = [
+    normalizeApiBaseUrl(override),
+    normalizeApiBaseUrl(process.env.NODERAX_API_URL),
+    normalizeApiBaseUrl(process.env.NEXT_PUBLIC_NODERAX_API_URL),
+  ].filter((value): value is string => Boolean(value));
+
+  return Array.from(new Set(candidates));
+};
+
 const normalizePathname = (value: string) =>
   `/${value.replace(/^\/+|\/+$/g, "")}`.replace(/\/{2,}/g, "/");
 
@@ -108,13 +118,15 @@ const resolveRestBaseUrl = (baseUrl: string) => {
 };
 
 export const getApiRequestUrls = (path: string, override?: string | null) => {
-  const baseUrl = getApiBaseUrl(override);
+  const baseUrls = getApiBaseUrlCandidates(override);
 
-  if (!baseUrl) {
+  if (!baseUrls.length) {
     return [];
   }
 
-  return [joinApiUrl(resolveRestBaseUrl(baseUrl).href, path)];
+  return baseUrls.map((baseUrl) =>
+    joinApiUrl(resolveRestBaseUrl(baseUrl).href, path),
+  );
 };
 
 export const fetchApiWithFallback = async (
@@ -122,13 +134,23 @@ export const fetchApiWithFallback = async (
   init?: RequestInit,
   override?: string | null,
 ) => {
-  const [candidate] = getApiRequestUrls(path, override);
+  const candidates = getApiRequestUrls(path, override);
 
-  if (!candidate) {
+  if (!candidates.length) {
     throw new Error("Missing NODERAX_API_URL configuration.");
   }
 
-  return fetch(candidate, init);
+  let response: Response | null = null;
+
+  for (const candidate of candidates) {
+    response = await fetch(candidate, init);
+
+    if (response.status !== 404) {
+      return response;
+    }
+  }
+
+  return response!;
 };
 
 export const parseDurationToMs = (value?: string | null) => {
