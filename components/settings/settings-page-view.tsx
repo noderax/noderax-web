@@ -5,11 +5,14 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   AlertTriangle,
+  BellRing,
   CheckCircle2,
   Clock3,
   Globe2,
   KeyRound,
+  Mail,
   Palette,
+  Send,
   Settings2,
   Shield,
   Trash2,
@@ -71,7 +74,7 @@ import { useAppStore } from "@/store/useAppStore";
 import { PASSWORD_MIN_LENGTH } from "@/lib/password";
 import { toast } from "sonner";
 
-type SettingsTab = "account" | "workspace" | "platform";
+type SettingsTab = "account" | "notifications" | "workspace" | "platform";
 type AccountSectionTab = "preferences" | "security";
 type PlatformSectionTab = "runtime" | "infrastructure" | "identity" | "agents";
 type SmtpTestState = {
@@ -79,7 +82,7 @@ type SmtpTestState = {
   message: string;
 };
 
-const SETTINGS_TABS: SettingsTab[] = ["account", "workspace", "platform"];
+const SETTINGS_TABS: SettingsTab[] = ["account", "notifications", "workspace", "platform"];
 
 const isSettingsTab = (value: string | null): value is SettingsTab =>
   SETTINGS_TABS.includes((value ?? "") as SettingsTab);
@@ -173,7 +176,9 @@ function SettingsPageContent({
   const browserTimeZone = useMemo(() => getBrowserTimeZone(), []);
   const availableTabs = useMemo<SettingsTab[]>(
     () =>
-      isPlatformAdmin ? ["account", "workspace", "platform"] : ["account", "workspace"],
+      isPlatformAdmin
+        ? ["account", "notifications", "workspace", "platform"]
+        : ["account", "notifications", "workspace"],
     [isPlatformAdmin],
   );
 
@@ -209,6 +214,10 @@ function SettingsPageContent({
     criticalEventEmailsEnabled: session?.user.criticalEventEmailsEnabled ?? true,
     enrollmentEmailsEnabled: session?.user.enrollmentEmailsEnabled ?? true,
   });
+  const [automationEmailEnabled, setAutomationEmailEnabled] = useState(false);
+  const [automationTelegramEnabled, setAutomationTelegramEnabled] = useState(false);
+  const [automationTelegramBotToken, setAutomationTelegramBotToken] = useState("");
+  const [automationTelegramChatId, setAutomationTelegramChatId] = useState("");
   const [passwordForm, setPasswordForm] = useState({
     currentPassword: "",
     nextPassword: "",
@@ -235,6 +244,10 @@ function SettingsPageContent({
     setWorkspaceName(workspace.name);
     setWorkspaceSlugDraft(workspace.slug);
     setWorkspaceTimeZone(workspace.defaultTimezone);
+    setAutomationEmailEnabled(workspace.automationEmailEnabled);
+    setAutomationTelegramEnabled(workspace.automationTelegramEnabled);
+    setAutomationTelegramBotToken(workspace.automationTelegramBotToken ?? "");
+    setAutomationTelegramChatId(workspace.automationTelegramChatId ?? "");
   }, [workspace]);
 
   const platformBaseline = useMemo(
@@ -298,7 +311,11 @@ function SettingsPageContent({
     workspace &&
       (workspaceName !== workspace.name ||
         workspaceSlugDraft !== workspace.slug ||
-        workspaceTimeZone !== workspace.defaultTimezone),
+        workspaceTimeZone !== workspace.defaultTimezone ||
+        automationEmailEnabled !== workspace.automationEmailEnabled ||
+        automationTelegramEnabled !== workspace.automationTelegramEnabled ||
+        automationTelegramBotToken !== (workspace.automationTelegramBotToken ?? "") ||
+        automationTelegramChatId !== (workspace.automationTelegramChatId ?? "")),
   );
 
   const canManageDefaultWorkspace = isPlatformAdmin;
@@ -349,12 +366,20 @@ function SettingsPageContent({
         name: workspaceName,
         slug: workspaceSlugDraft,
         defaultTimezone: workspaceTimeZone,
+        automationEmailEnabled,
+        automationTelegramEnabled,
+        automationTelegramBotToken: automationTelegramBotToken || undefined,
+        automationTelegramChatId: automationTelegramChatId || undefined,
       },
       {
         onSuccess: (updatedWorkspace) => {
           setWorkspaceName(updatedWorkspace.name);
           setWorkspaceSlugDraft(updatedWorkspace.slug);
           setWorkspaceTimeZone(updatedWorkspace.defaultTimezone);
+          setAutomationEmailEnabled(updatedWorkspace.automationEmailEnabled);
+          setAutomationTelegramEnabled(updatedWorkspace.automationTelegramEnabled);
+          setAutomationTelegramBotToken(updatedWorkspace.automationTelegramBotToken ?? "");
+          setAutomationTelegramChatId(updatedWorkspace.automationTelegramChatId ?? "");
 
           if (workspaceSlug !== updatedWorkspace.slug) {
             setActiveWorkspaceSlug(updatedWorkspace.slug);
@@ -528,6 +553,10 @@ function SettingsPageContent({
                 <Settings2 className="size-4" />
                 Workspace Settings
               </TabsTrigger>
+              <TabsTrigger value="notifications">
+                <BellRing className="size-4" />
+                Notifications
+              </TabsTrigger>
               {isPlatformAdmin ? (
                 <TabsTrigger value="platform">
                   <Shield className="size-4" />
@@ -687,8 +716,8 @@ function SettingsPageContent({
 
                       <SectionPanel
                         eyebrow="Operator"
-                        title="Profile and notifications"
-                        description="Identity details and alert preferences grouped together for quick operator-level changes."
+                        title="Profile"
+                        description="Identity details and role surfaced from the authenticated session."
                         contentClassName="space-y-6"
                       >
                         <div className="flex items-start gap-3">
@@ -734,90 +763,9 @@ function SettingsPageContent({
                             </p>
                           </div>
                         </div>
-
-                        <Separator />
-
-                        <div className="space-y-4">
-                          <div className="flex items-start gap-3">
-                            <div className="tone-brand flex size-11 items-center justify-center rounded-full border">
-                              <Shield className="size-4.5" />
-                            </div>
-                            <div className="min-w-0">
-                              <p className="font-medium">
-                                Notification preferences
-                              </p>
-                              <p className="mt-1 text-sm text-muted-foreground">
-                                UI-only settings for how critical activity is
-                                surfaced to operators.
-                              </p>
-                            </div>
-                          </div>
-                          <div className="space-y-3 rounded-[18px] border p-4">
-                            <div className="surface-subtle flex items-center justify-between rounded-[18px] border px-4 py-4">
-                              <div>
-                                <p className="font-medium">
-                                  Critical event emails
-                                </p>
-                                <p className="text-sm text-muted-foreground">
-                                  Send operational emails for critical workspace
-                                  events.
-                                </p>
-                              </div>
-                              <Switch
-                                checked={
-                                  notificationPreferences.criticalEventEmailsEnabled
-                                }
-                                disabled={updatePreferences.isPending}
-                                onCheckedChange={(checked) =>
-                                  setNotificationPreferences((current) => ({
-                                    ...current,
-                                    criticalEventEmailsEnabled: Boolean(checked),
-                                  }))
-                                }
-                              />
-                            </div>
-                            <div className="surface-subtle flex items-center justify-between rounded-[18px] border px-4 py-4">
-                              <div>
-                                <p className="font-medium">
-                                  Enrollment request emails
-                                </p>
-                                <p className="text-sm text-muted-foreground">
-                                  Send approval emails when node enrollments need
-                                  operator action.
-                                </p>
-                              </div>
-                              <Switch
-                                checked={
-                                  notificationPreferences.enrollmentEmailsEnabled
-                                }
-                                disabled={updatePreferences.isPending}
-                                onCheckedChange={(checked) =>
-                                  setNotificationPreferences((current) => ({
-                                    ...current,
-                                    enrollmentEmailsEnabled: Boolean(checked),
-                                  }))
-                                }
-                              />
-                            </div>
-                            <div className="flex justify-end">
-                              <Button
-                                type="button"
-                                disabled={
-                                  !hasNotificationPreferenceChanges ||
-                                  updatePreferences.isPending
-                                }
-                                onClick={handleSaveNotificationPreferences}
-                              >
-                                {updatePreferences.isPending
-                                  ? "Saving..."
-                                  : "Save preferences"}
-                              </Button>
-                            </div>
-                          </div>
-                        </div>
                       </SectionPanel>
-                    </div>
-                  </TabsContent>
+                      </div>
+                    </TabsContent>
 
                   <TabsContent value="security" className="pt-2">
                     <div className="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
@@ -960,7 +908,8 @@ function SettingsPageContent({
                               {passwordError}
                             </p>
                           ) : null}
-                          <div className="flex justify-end">
+                        </div>
+                        <div className="flex justify-end">
                             <Button
                               type="button"
                               disabled={!canSubmitPasswordChange}
@@ -971,12 +920,168 @@ function SettingsPageContent({
                                 : "Update password"}
                             </Button>
                           </div>
+                        </SectionPanel>
+                      </div>
+                    </TabsContent>
+                  </Tabs>
+                </SectionPanel>
+              </TabsContent>
+
+            <TabsContent value="notifications" className="pt-6">
+              <div className="mx-auto max-w-5xl space-y-6">
+                <SectionPanel
+                  eyebrow="Notifications"
+                  title="Notification and automation preferences"
+                  description="Aggregate personal alert preferences and workspace-scoped notification automations into a single control surface."
+                  contentClassName="space-y-6"
+                >
+                  <div className="grid gap-6 xl:grid-cols-2">
+                    {/* Personal Notifications */}
+                    <div className="space-y-6 rounded-[24px] border border-sidebar-border bg-card/40 p-6">
+                      <div className="flex items-start gap-4">
+                        <div className="flex size-11 grow-0 items-center justify-center rounded-full border bg-blue-500/10 text-blue-500">
+                          <UserRound className="size-5" />
                         </div>
-                      </SectionPanel>
+                        <div className="space-y-1">
+                          <p className="font-medium">Personal Preferences</p>
+                          <p className="text-sm text-muted-foreground">
+                            Control which workspace events trigger direct emails
+                            to your account.
+                          </p>
+                        </div>
+                      </div>
+                      
+                      <div className="space-y-3">
+                        <div className="surface-subtle flex items-center justify-between rounded-[18px] border px-4 py-4">
+                          <div className="min-w-0 pr-3">
+                            <p className="text-sm font-medium">Critical event emails</p>
+                            <p className="text-xs text-muted-foreground">
+                              Operational emails for critical workspace events.
+                            </p>
+                          </div>
+                          <Switch
+                            checked={notificationPreferences.criticalEventEmailsEnabled}
+                            disabled={updatePreferences.isPending}
+                            onCheckedChange={(checked) =>
+                              setNotificationPreferences((current) => ({
+                                ...current,
+                                criticalEventEmailsEnabled: Boolean(checked),
+                              }))
+                            }
+                          />
+                        </div>
+                        <div className="surface-subtle flex items-center justify-between rounded-[18px] border px-4 py-4">
+                          <div className="min-w-0 pr-3">
+                            <p className="text-sm font-medium">Enrollment request emails</p>
+                            <p className="text-xs text-muted-foreground">
+                              Emails when node enrollments need your action.
+                            </p>
+                          </div>
+                          <Switch
+                            checked={notificationPreferences.enrollmentEmailsEnabled}
+                            disabled={updatePreferences.isPending}
+                            onCheckedChange={(checked) =>
+                              setNotificationPreferences((current) => ({
+                                ...current,
+                                enrollmentEmailsEnabled: Boolean(checked),
+                              }))
+                            }
+                          />
+                        </div>
+                      </div>
+
+                      <div className="flex justify-end pt-2">
+                        <Button
+                          type="button"
+                          disabled={!hasNotificationPreferenceChanges || updatePreferences.isPending}
+                          onClick={handleSaveNotificationPreferences}
+                        >
+                          {updatePreferences.isPending ? "Saving..." : "Save personal preferences"}
+                        </Button>
+                      </div>
                     </div>
-                  </TabsContent>
-                </Tabs>
-              </SectionPanel>
+
+                    {/* Workspace Automations */}
+                    <div className="space-y-6 rounded-[24px] border border-sidebar-border bg-card/40 p-6">
+                      <div className="flex items-start gap-4">
+                        <div className="flex size-11 grow-0 items-center justify-center rounded-full border bg-orange-500/10 text-orange-500">
+                          <BellRing className="size-5" />
+                        </div>
+                        <div className="space-y-1">
+                          <p className="font-medium">Workspace Automations</p>
+                          <p className="text-sm text-muted-foreground">
+                            Configure rule-based notifications (Email/Telegram)
+                            for this entire workspace.
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="space-y-3">
+                        <div className="surface-subtle flex items-center justify-between rounded-[18px] border px-4 py-4">
+                          <div className="flex items-center gap-3 min-w-0 pr-3">
+                            <Mail className="size-4 text-blue-500" />
+                            <div>
+                              <p className="text-sm font-medium">Email Notifications</p>
+                              <p className="text-xs text-muted-foreground">Alert all workspace admins via email.</p>
+                            </div>
+                          </div>
+                          <Switch
+                            checked={automationEmailEnabled}
+                            onCheckedChange={setAutomationEmailEnabled}
+                          />
+                        </div>
+
+                        <div className="surface-subtle flex items-center justify-between rounded-[18px] border px-4 py-4">
+                          <div className="flex items-center gap-3 min-w-0 pr-3">
+                            <Send className="size-4 text-sky-500" />
+                            <div>
+                              <p className="text-sm font-medium">Telegram Notifications</p>
+                              <p className="text-xs text-muted-foreground">Get real-time updates in a Telegram chat.</p>
+                            </div>
+                          </div>
+                          <Switch
+                            checked={automationTelegramEnabled}
+                            onCheckedChange={setAutomationTelegramEnabled}
+                          />
+                        </div>
+                      </div>
+
+                      {automationTelegramEnabled && (
+                        <div className="animate-in fade-in slide-in-from-top-2 space-y-4 rounded-xl border bg-background/50 p-4 duration-300">
+                          <div className="space-y-2">
+                            <Label htmlFor="global-telegram-bot-token" className="text-xs uppercase tracking-wider text-muted-foreground">Bot Token</Label>
+                            <Input
+                              id="global-telegram-bot-token"
+                              placeholder="123456789:ABC..."
+                              value={automationTelegramBotToken}
+                              onChange={(e) => setAutomationTelegramBotToken(e.target.value)}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="global-telegram-chat-id" className="text-xs uppercase tracking-wider text-muted-foreground">Chat ID</Label>
+                            <Input
+                              id="global-telegram-chat-id"
+                              placeholder="-100..."
+                              value={automationTelegramChatId}
+                              onChange={(e) => setAutomationTelegramChatId(e.target.value)}
+                            />
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="flex justify-end pt-2">
+                        <Button
+                          type="button"
+                          disabled={!hasWorkspaceChanges || updateWorkspace.isPending || !workspace || workspace.isArchived}
+                          onClick={handleWorkspaceSave}
+                        >
+                          {updateWorkspace.isPending ? "Saving..." : "Save workspace automations"}
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </SectionPanel>
+              </div>
             </TabsContent>
 
             <TabsContent value="workspace" className="pt-6">

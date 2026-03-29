@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Clock3, Settings2 } from "lucide-react";
+import { Clock3, Mail, Send, Settings2, BellRing } from "lucide-react";
 
 import { AppShell } from "@/components/layout/app-shell";
 import { EmptyState } from "@/components/empty-state";
@@ -10,9 +10,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SectionPanel } from "@/components/ui/section-panel";
 import { TimezonePicker } from "@/components/ui/timezone-picker";
+import { Switch } from "@/components/ui/switch";
+import { Separator } from "@/components/ui/separator";
 import { useUpdateWorkspace } from "@/lib/hooks/use-noderax-data";
 import { useWorkspaceContext } from "@/lib/hooks/use-workspace-context";
-import type { WorkspaceDto } from "@/lib/types";
+import type { WorkspaceDto, UpdateWorkspacePayload } from "@/lib/types";
 
 export const WorkspaceSettingsPageView = () => {
   const { workspace, isWorkspaceAdmin } = useWorkspaceContext();
@@ -63,15 +65,23 @@ const WorkspaceSettingsEditor = ({
 }: {
   workspace: WorkspaceDto;
   isSaving: boolean;
-  onSave: (payload: {
-    name: string;
-    slug: string;
-    defaultTimezone: string;
-  }) => void;
+  onSave: (payload: UpdateWorkspacePayload) => void;
 }) => {
   const [name, setName] = useState(workspace.name);
   const [slug, setSlug] = useState(workspace.slug);
   const [timezone, setTimezone] = useState(workspace.defaultTimezone);
+  const [automationEmailEnabled, setAutomationEmailEnabled] = useState(
+    workspace.automationEmailEnabled,
+  );
+  const [automationTelegramEnabled, setAutomationTelegramEnabled] = useState(
+    workspace.automationTelegramEnabled,
+  );
+  const [automationTelegramBotToken, setAutomationTelegramBotToken] = useState(
+    workspace.automationTelegramBotToken ?? "",
+  );
+  const [automationTelegramChatId, setAutomationTelegramChatId] = useState(
+    workspace.automationTelegramChatId ?? "",
+  );
 
   return (
     <>
@@ -117,6 +127,100 @@ const WorkspaceSettingsEditor = ({
         </div>
       </div>
 
+      <div className="my-10">
+        <div className="flex items-center gap-2 text-lg font-semibold">
+          <BellRing className="size-5 text-orange-500" />
+          <h2>Workspace Automations</h2>
+        </div>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Configure rule-based notifications for this workspace. These settings
+          apply to all administrators of the workspace.
+        </p>
+        <Separator className="mt-4" />
+      </div>
+
+      <div className="grid gap-8 lg:grid-cols-2">
+        {/* Email Notifications */}
+        <div className="surface-subtle flex flex-col justify-between rounded-[22px] border p-6">
+          <div className="flex items-start gap-4">
+            <div className="flex size-11 shrink-0 items-center justify-center rounded-full border bg-blue-500/10 text-blue-500">
+              <Mail className="size-5" />
+            </div>
+            <div className="space-y-1">
+              <p className="font-medium">Email Notifications</p>
+              <p className="text-sm text-muted-foreground">
+                Send critical event alerts to all workspace administrators via
+                email.
+              </p>
+            </div>
+          </div>
+          <div className="mt-6 flex items-center justify-between">
+            <span className="text-sm font-medium">
+              {automationEmailEnabled ? "Enabled" : "Disabled"}
+            </span>
+            <Switch
+              checked={automationEmailEnabled}
+              onCheckedChange={setAutomationEmailEnabled}
+            />
+          </div>
+        </div>
+
+        {/* Telegram Notifications */}
+        <div className="surface-subtle flex flex-col justify-between rounded-[22px] border p-6">
+          <div className="flex items-start gap-4">
+            <div className="flex size-11 shrink-0 items-center justify-center rounded-full border bg-sky-500/10 text-sky-500">
+              <Send className="size-5" />
+            </div>
+            <div className="space-y-1">
+              <p className="font-medium">Telegram Notifications</p>
+              <p className="text-sm text-muted-foreground">
+                Get real-time updates directly in a Telegram chat or group.
+              </p>
+            </div>
+          </div>
+          <div className="mt-6 flex items-center justify-between">
+            <span className="text-sm font-medium">
+              {automationTelegramEnabled ? "Enabled" : "Disabled"}
+            </span>
+            <Switch
+              checked={automationTelegramEnabled}
+              onCheckedChange={setAutomationTelegramEnabled}
+            />
+          </div>
+        </div>
+      </div>
+
+      {automationTelegramEnabled && (
+        <div className="animate-in fade-in slide-in-from-top-2 mt-6 grid gap-6 rounded-[22px] border bg-card/50 p-6 duration-300 lg:grid-cols-2">
+          <div className="space-y-2">
+            <Label htmlFor="telegram-bot-token">Telegram Bot Token</Label>
+            <Input
+              id="telegram-bot-token"
+              placeholder="123456789:ABC..."
+              value={automationTelegramBotToken}
+              onChange={(e) => setAutomationTelegramBotToken(e.target.value)}
+            />
+            <p className="text-[11px] text-muted-foreground">
+              Create a bot via <b>@BotFather</b> to get a token.
+            </p>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="telegram-chat-id">Telegram Chat ID</Label>
+            <Input
+              id="telegram-chat-id"
+              placeholder="-100..."
+              value={automationTelegramChatId}
+              onChange={(e) => setAutomationTelegramChatId(e.target.value)}
+            />
+            <p className="text-[11px] text-muted-foreground">
+              Use <b>@userinfobot</b> or check your group ID.
+            </p>
+          </div>
+        </div>
+      )}
+
+      <Separator className="my-8" />
+
       <div className="flex justify-end">
         <Button
           type="button"
@@ -126,6 +230,10 @@ const WorkspaceSettingsEditor = ({
               name,
               slug,
               defaultTimezone: timezone,
+              automationEmailEnabled,
+              automationTelegramEnabled,
+              automationTelegramBotToken: automationTelegramBotToken || undefined,
+              automationTelegramChatId: automationTelegramChatId || undefined,
             })
           }
         >

@@ -478,6 +478,10 @@ export interface WorkspaceDto {
   createdByUserId: string | null;
   isArchived: boolean;
   isDefault: boolean;
+  automationEmailEnabled: boolean;
+  automationTelegramEnabled: boolean;
+  automationTelegramBotToken: string | null;
+  automationTelegramChatId: string | null;
   currentUserRole?: WorkspaceMembershipRole | null;
   createdAt: string;
   updatedAt: string;
@@ -632,6 +636,10 @@ export interface CreateWorkspacePayload {
   defaultTimezone?: string;
   isArchived?: boolean;
   isDefault?: boolean;
+  automationEmailEnabled?: boolean;
+  automationTelegramEnabled?: boolean;
+  automationTelegramBotToken?: string;
+  automationTelegramChatId?: string;
 }
 
 export interface UpdateWorkspacePayload {
@@ -640,6 +648,10 @@ export interface UpdateWorkspacePayload {
   defaultTimezone?: string;
   isArchived?: boolean;
   isDefault?: boolean;
+  automationEmailEnabled?: boolean;
+  automationTelegramEnabled?: boolean;
+  automationTelegramBotToken?: string;
+  automationTelegramChatId?: string;
 }
 
 export interface CreateWorkspaceMemberPayload {
