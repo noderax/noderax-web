@@ -6,6 +6,7 @@ import { ClipboardList, Search } from "lucide-react";
 import { AppShell } from "@/components/layout/app-shell";
 import { EmptyState } from "@/components/empty-state";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SectionPanel } from "@/components/ui/section-panel";
 import {
@@ -32,6 +33,8 @@ const formatTarget = (
   targetId: string | null,
 ) => targetLabel ?? targetId ?? targetType;
 
+const PAGE_SIZE = 50;
+
 export const AuditPageView = ({
   scope,
 }: {
@@ -41,14 +44,21 @@ export const AuditPageView = ({
   const [actorFilter, setActorFilter] = useState("");
   const [actionFilter, setActionFilter] = useState("");
   const [targetTypeFilter, setTargetTypeFilter] = useState("");
+  const [pageState, setPageState] = useState({
+    scope: "",
+    index: 0,
+  });
+  const pageScope = `${scope}:${actorFilter.trim()}:${actionFilter.trim()}:${targetTypeFilter.trim()}`;
+  const page = pageState.scope === pageScope ? pageState.index : 0;
   const filters = useMemo(
     () => ({
       actor: actorFilter.trim() || undefined,
       action: actionFilter.trim() || undefined,
       targetType: targetTypeFilter.trim() || undefined,
-      limit: 100,
+      limit: PAGE_SIZE,
+      offset: page * PAGE_SIZE,
     }),
-    [actionFilter, actorFilter, targetTypeFilter],
+    [actionFilter, actorFilter, page, targetTypeFilter],
   );
 
   const platformLogsQuery = usePlatformAuditLogs(
@@ -61,8 +71,42 @@ export const AuditPageView = ({
   );
   const query = scope === "platform" ? platformLogsQuery : workspaceLogsQuery;
   const logs = query.data ?? [];
+  const hasNextPage = logs.length === PAGE_SIZE;
   const uniqueActors = new Set(
     logs.map((log) => formatActor(log.actorEmailSnapshot, log.actorType)),
+  );
+  const pager = (
+    <div className="flex items-center gap-2">
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={() =>
+          setPageState({
+            index: Math.max(0, page - 1),
+            scope: pageScope,
+          })
+        }
+        disabled={page === 0}
+      >
+        Previous
+      </Button>
+      <span className="px-1 text-xs font-medium text-muted-foreground">
+        Page {page + 1}
+      </span>
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={() =>
+          setPageState({
+            index: page + 1,
+            scope: pageScope,
+          })
+        }
+        disabled={!hasNextPage}
+      >
+        Next
+      </Button>
+    </div>
   );
 
   if (scope === "platform" && !isPlatformAdmin) {
@@ -101,35 +145,41 @@ export const AuditPageView = ({
           }
           description="Review append-only admin and security activity with actor, target, and timestamp context."
           action={
-            <div className="grid gap-2 md:grid-cols-3">
-              <Input
-                value={actorFilter}
-                onChange={(event) => setActorFilter(event.target.value)}
-                placeholder="Filter actor email"
-              />
-              <Input
-                value={actionFilter}
-                onChange={(event) => setActionFilter(event.target.value)}
-                placeholder="Filter action key"
-              />
-              <Input
-                value={targetTypeFilter}
-                onChange={(event) => setTargetTypeFilter(event.target.value)}
-                placeholder="Filter target type"
-              />
-            </div>
+            <>
+              <div className="grid gap-2 md:grid-cols-3">
+                <Input
+                  value={actorFilter}
+                  onChange={(event) => setActorFilter(event.target.value)}
+                  placeholder="Filter actor email"
+                />
+                <Input
+                  value={actionFilter}
+                  onChange={(event) => setActionFilter(event.target.value)}
+                  placeholder="Filter action key"
+                />
+                <Input
+                  value={targetTypeFilter}
+                  onChange={(event) => setTargetTypeFilter(event.target.value)}
+                  placeholder="Filter target type"
+                />
+              </div>
+              {pager}
+            </>
           }
           contentClassName="space-y-4"
         >
           <div className="flex flex-wrap gap-2">
             <Badge variant="outline" className="rounded-full px-3 py-1">
-              Entries: {logs.length}
+              Entries in page: {logs.length}
             </Badge>
             <Badge variant="outline" className="rounded-full px-3 py-1">
-              Unique actors: {uniqueActors.size}
+              Unique actors in page: {uniqueActors.size}
             </Badge>
             <Badge variant="outline" className="rounded-full px-3 py-1">
               Scope: {scope}
+            </Badge>
+            <Badge variant="outline" className="rounded-full px-3 py-1">
+              Page: {page + 1}
             </Badge>
           </div>
 
@@ -148,61 +198,64 @@ export const AuditPageView = ({
               icon={ClipboardList}
             />
           ) : (
-            <div className="overflow-hidden rounded-[20px] border">
-              <Table>
-                <TableHeader>
-                  <TableRow className="hover:bg-transparent">
-                    <TableHead>When</TableHead>
-                    <TableHead>Actor</TableHead>
-                    <TableHead>Action</TableHead>
-                    <TableHead>Target</TableHead>
-                    <TableHead>Metadata</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {logs.map((log) => (
-                    <TableRow key={log.id}>
-                      <TableCell className="text-muted-foreground">
-                        <TimeDisplay value={log.createdAt} mode="datetime" />
-                      </TableCell>
-                      <TableCell>
-                        <div className="space-y-1">
-                          <p className="font-medium">
-                            {formatActor(log.actorEmailSnapshot, log.actorType)}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {log.ipAddress ?? "No IP recorded"}
-                          </p>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="outline" className="rounded-full px-2.5 py-1">
-                          {log.action}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <div className="space-y-1">
-                          <p className="font-medium">
-                            {formatTarget(log.targetType, log.targetLabel, log.targetId)}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {log.targetType}
-                          </p>
-                        </div>
-                      </TableCell>
-                      <TableCell className="max-w-[24rem]">
-                        <pre className="line-clamp-4 whitespace-pre-wrap break-words text-xs text-muted-foreground">
-                          {JSON.stringify(
-                            log.changes ?? log.metadata ?? {},
-                            null,
-                            2,
-                          )}
-                        </pre>
-                      </TableCell>
+            <div className="space-y-3">
+              <div className="overflow-hidden rounded-[20px] border">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="hover:bg-transparent">
+                      <TableHead>When</TableHead>
+                      <TableHead>Actor</TableHead>
+                      <TableHead>Action</TableHead>
+                      <TableHead>Target</TableHead>
+                      <TableHead>Metadata</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {logs.map((log) => (
+                      <TableRow key={log.id}>
+                        <TableCell className="text-muted-foreground">
+                          <TimeDisplay value={log.createdAt} mode="datetime" />
+                        </TableCell>
+                        <TableCell>
+                          <div className="space-y-1">
+                            <p className="font-medium">
+                              {formatActor(log.actorEmailSnapshot, log.actorType)}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {log.ipAddress ?? "No IP recorded"}
+                            </p>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className="rounded-full px-2.5 py-1">
+                            {log.action}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <div className="space-y-1">
+                            <p className="font-medium">
+                              {formatTarget(log.targetType, log.targetLabel, log.targetId)}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {log.targetType}
+                            </p>
+                          </div>
+                        </TableCell>
+                        <TableCell className="max-w-[24rem]">
+                          <pre className="line-clamp-4 whitespace-pre-wrap break-words text-xs text-muted-foreground">
+                            {JSON.stringify(
+                              log.changes ?? log.metadata ?? {},
+                              null,
+                              2,
+                            )}
+                          </pre>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+              {pager}
             </div>
           )}
         </SectionPanel>

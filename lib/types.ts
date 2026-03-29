@@ -979,6 +979,7 @@ export interface AuditLogFilters {
   from?: string;
   to?: string;
   limit?: number;
+  offset?: number;
 }
 
 export interface DashboardOverview {

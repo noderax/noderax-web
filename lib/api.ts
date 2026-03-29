@@ -1358,6 +1358,7 @@ export const apiClient = {
         from: filters?.from,
         to: filters?.to,
         limit: filters?.limit,
+        offset: filters?.offset,
       })}`,
     );
   },
@@ -1370,6 +1371,7 @@ export const apiClient = {
         from: filters?.from,
         to: filters?.to,
         limit: filters?.limit,
+        offset: filters?.offset,
       })}`,
     );
   },
