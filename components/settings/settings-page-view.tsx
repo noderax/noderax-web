@@ -59,7 +59,8 @@ import {
 import { useWorkspaceContext, workspacesQueryKey } from "@/lib/hooks/use-workspace-context";
 import { apiClient } from "@/lib/api";
 import { DEFAULT_TIMEZONE, getBrowserTimeZone } from "@/lib/timezone";
-import type {
+import {
+  EventSeverity,
   PlatformSettingsResponse,
   PlatformSettingsValues,
   WorkspaceDto,
@@ -218,6 +219,20 @@ function SettingsPageContent({
   const [automationTelegramEnabled, setAutomationTelegramEnabled] = useState(false);
   const [automationTelegramBotToken, setAutomationTelegramBotToken] = useState("");
   const [automationTelegramChatId, setAutomationTelegramChatId] = useState("");
+  const [automationEmailLevels, setAutomationEmailLevels] = useState<EventSeverity[]>(["critical"]);
+  const [automationTelegramLevels, setAutomationTelegramLevels] = useState<EventSeverity[]>(["critical"]);
+
+  const toggleEmailLevel = (level: EventSeverity) => {
+    setAutomationEmailLevels((prev) =>
+      prev.includes(level) ? prev.filter((l) => l !== level) : [...prev, level],
+    );
+  };
+
+  const toggleTelegramLevel = (level: EventSeverity) => {
+    setAutomationTelegramLevels((prev) =>
+      prev.includes(level) ? prev.filter((l) => l !== level) : [...prev, level],
+    );
+  };
   const [passwordForm, setPasswordForm] = useState({
     currentPassword: "",
     nextPassword: "",
@@ -248,6 +263,8 @@ function SettingsPageContent({
     setAutomationTelegramEnabled(workspace.automationTelegramEnabled);
     setAutomationTelegramBotToken(workspace.automationTelegramBotToken ?? "");
     setAutomationTelegramChatId(workspace.automationTelegramChatId ?? "");
+    setAutomationEmailLevels(workspace.automationEmailLevels ?? ["critical"]);
+    setAutomationTelegramLevels(workspace.automationTelegramLevels ?? ["critical"]);
   }, [workspace]);
 
   const platformBaseline = useMemo(
@@ -315,7 +332,9 @@ function SettingsPageContent({
         automationEmailEnabled !== workspace.automationEmailEnabled ||
         automationTelegramEnabled !== workspace.automationTelegramEnabled ||
         automationTelegramBotToken !== (workspace.automationTelegramBotToken ?? "") ||
-        automationTelegramChatId !== (workspace.automationTelegramChatId ?? "")),
+        automationTelegramChatId !== (workspace.automationTelegramChatId ?? "") ||
+        JSON.stringify(automationEmailLevels) !== JSON.stringify(workspace.automationEmailLevels ?? ["critical"]) ||
+        JSON.stringify(automationTelegramLevels) !== JSON.stringify(workspace.automationTelegramLevels ?? ["critical"])),
   );
 
   const canManageDefaultWorkspace = isPlatformAdmin;
@@ -370,6 +389,8 @@ function SettingsPageContent({
         automationTelegramEnabled,
         automationTelegramBotToken: automationTelegramBotToken || undefined,
         automationTelegramChatId: automationTelegramChatId || undefined,
+        automationEmailLevels,
+        automationTelegramLevels,
       },
       {
         onSuccess: (updatedWorkspace) => {
@@ -380,6 +401,8 @@ function SettingsPageContent({
           setAutomationTelegramEnabled(updatedWorkspace.automationTelegramEnabled);
           setAutomationTelegramBotToken(updatedWorkspace.automationTelegramBotToken ?? "");
           setAutomationTelegramChatId(updatedWorkspace.automationTelegramChatId ?? "");
+          setAutomationEmailLevels(updatedWorkspace.automationEmailLevels ?? ["critical"]);
+          setAutomationTelegramLevels(updatedWorkspace.automationTelegramLevels ?? ["critical"]);
 
           if (workspaceSlug !== updatedWorkspace.slug) {
             setActiveWorkspaceSlug(updatedWorkspace.slug);
@@ -1031,6 +1054,34 @@ function SettingsPageContent({
                           />
                         </div>
 
+                        {automationEmailEnabled && (
+                          <div className="animate-in fade-in slide-in-from-top-2 space-y-3 rounded-xl border bg-background/50 p-4 duration-300">
+                            <div className="space-y-1">
+                              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Severities to notify</p>
+                              <div className="flex flex-wrap gap-2 pt-1">
+                                {(["info", "warning", "critical"] as EventSeverity[]).map((level) => (
+                                  <Badge
+                                    key={level}
+                                    variant={automationEmailLevels.includes(level) ? "default" : "outline"}
+                                    className={cn(
+                                      "cursor-pointer rounded-full px-3 py-1 capitalize transition-all select-none",
+                                      automationEmailLevels.includes(level)
+                                        ? "tone-brand border-transparent shadow-sm"
+                                        : "hover:border-sidebar-border hover:bg-sidebar-accent"
+                                    )}
+                                    onClick={() => toggleEmailLevel(level)}
+                                  >
+                                    {level}
+                                  </Badge>
+                                ))}
+                              </div>
+                              <p className="pt-1 text-[10px] text-muted-foreground italic">
+                                Note: Critical events always trigger platform default alerts even if unselected here.
+                              </p>
+                            </div>
+                          </div>
+                        )}
+
                         <div className="surface-subtle flex items-center justify-between rounded-[18px] border px-4 py-4">
                           <div className="flex items-center gap-3 min-w-0 pr-3">
                             <Send className="size-4 text-sky-500" />
@@ -1065,6 +1116,27 @@ function SettingsPageContent({
                               value={automationTelegramChatId}
                               onChange={(e) => setAutomationTelegramChatId(e.target.value)}
                             />
+                          </div>
+
+                          <div className="space-y-2 pt-1">
+                            <Label className="text-xs uppercase tracking-wider text-muted-foreground">Severities to notify</Label>
+                            <div className="flex flex-wrap gap-2">
+                              {(["info", "warning", "critical"] as EventSeverity[]).map((level) => (
+                                <Badge
+                                  key={level}
+                                  variant={automationTelegramLevels.includes(level) ? "default" : "outline"}
+                                  className={cn(
+                                    "cursor-pointer rounded-full px-3 py-1 capitalize transition-all select-none",
+                                    automationTelegramLevels.includes(level)
+                                      ? "tone-brand border-transparent shadow-sm"
+                                      : "hover:border-sidebar-border hover:bg-sidebar-accent"
+                                  )}
+                                  onClick={() => toggleTelegramLevel(level)}
+                                >
+                                  {level}
+                                </Badge>
+                              ))}
+                            </div>
                           </div>
                         </div>
                       )}

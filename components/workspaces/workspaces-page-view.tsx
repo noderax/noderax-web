@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Archive, RotateCcw, Plus, ShieldAlert, Waypoints } from "lucide-react";
+import type { EventSeverity } from "@/lib/types";
 
 import { AppShell } from "@/components/layout/app-shell";
 import { EmptyState } from "@/components/empty-state";
@@ -41,6 +42,8 @@ const defaultFormState = {
   name: "",
   slug: "",
   defaultTimezone: "UTC",
+  automationEmailLevels: ["critical"] as EventSeverity[],
+  automationTelegramLevels: ["critical"] as EventSeverity[],
 };
 
 export const WorkspacesPageView = () => {
@@ -97,12 +100,31 @@ export const WorkspacesPageView = () => {
                     <Input
                       id="workspace-name"
                       value={formState.name}
-                      onChange={(event) =>
-                        setFormState((current) => ({
-                          ...current,
-                          name: event.target.value,
-                        }))
-                      }
+                      onChange={(event) => {
+                        const name = event.target.value;
+                        setFormState((current) => {
+                          const derivedOldSlug = current.name
+                            .toLowerCase()
+                            .replace(/[^a-z0-9-]+/g, "-")
+                            .replace(/^-+|-+$/g, "");
+
+                          const shouldUpdateSlug =
+                            !current.slug || current.slug === derivedOldSlug;
+
+                          return {
+                            ...current,
+                            name,
+                            ...(shouldUpdateSlug
+                              ? {
+                                  slug: name
+                                    .toLowerCase()
+                                    .replace(/[^a-z0-9-]+/g, "-")
+                                    .replace(/^-+|-+$/g, ""),
+                                }
+                              : {}),
+                          };
+                        });
+                      }}
                       placeholder="Acme Operations"
                     />
                   </div>

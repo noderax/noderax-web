@@ -482,6 +482,8 @@ export interface WorkspaceDto {
   automationTelegramEnabled: boolean;
   automationTelegramBotToken: string | null;
   automationTelegramChatId: string | null;
+  automationEmailLevels: EventSeverity[];
+  automationTelegramLevels: EventSeverity[];
   currentUserRole?: WorkspaceMembershipRole | null;
   createdAt: string;
   updatedAt: string;
@@ -640,6 +642,8 @@ export interface CreateWorkspacePayload {
   automationTelegramEnabled?: boolean;
   automationTelegramBotToken?: string;
   automationTelegramChatId?: string;
+  automationEmailLevels?: EventSeverity[];
+  automationTelegramLevels?: EventSeverity[];
 }
 
 export interface UpdateWorkspacePayload {
@@ -652,6 +656,8 @@ export interface UpdateWorkspacePayload {
   automationTelegramEnabled?: boolean;
   automationTelegramBotToken?: string;
   automationTelegramChatId?: string;
+  automationEmailLevels?: EventSeverity[];
+  automationTelegramLevels?: EventSeverity[];
 }
 
 export interface CreateWorkspaceMemberPayload {
