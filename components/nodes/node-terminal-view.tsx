@@ -213,13 +213,23 @@ export const NodeTerminalView = ({ id }: { id: string }) => {
       !workspace?.isArchived,
   );
 
+  const canReadSelectedTranscript = Boolean(
+    selectedSession &&
+      (!isLiveSession(selectedSession.status) ||
+        selectedSession.createdByUserId === currentUserId),
+  );
+
   const transcriptQuery = useTerminalSessionChunks(
     selectedSession?.id ?? "",
     {
       limit: HISTORY_PAGE_SIZE,
       offset: historyPage * HISTORY_PAGE_SIZE,
+      refetchIntervalMs:
+        selectedSession && isLiveSession(selectedSession.status)
+          ? 1_000
+          : false,
     },
-    Boolean(selectedSession && !isLiveSession(selectedSession.status)),
+    canReadSelectedTranscript,
   );
 
   const ensureTerminal = useEffectEvent(() => {
@@ -823,17 +833,19 @@ export const NodeTerminalView = ({ id }: { id: string }) => {
                 icon={History}
                 variant="plain"
               />
-            ) : isLiveSession(selectedSession.status) ? (
+            ) : !canReadSelectedTranscript ? (
               <EmptyState
-                title="Live transcript is streaming in the console"
-                description="Once the session closes, its persisted transcript will appear here with ordered I/O chunks."
+                title="Transcript access is restricted"
+                description="Only the creator of a live terminal session can inspect its persisted transcript while it is still active."
                 icon={SquareTerminal}
                 variant="plain"
               />
             ) : transcriptQuery.isPending ? (
               <div className="flex min-h-56 items-center justify-center text-sm text-muted-foreground">
                 <LoaderCircle className="mr-2 size-4 animate-spin" />
-                Loading transcript...
+                {selectedSession && isLiveSession(selectedSession.status)
+                  ? "Streaming transcript..."
+                  : "Loading transcript..."}
               </div>
             ) : transcriptQuery.isError ? (
               <EmptyState
@@ -877,8 +889,16 @@ export const NodeTerminalView = ({ id }: { id: string }) => {
               </ScrollArea>
             ) : (
               <EmptyState
-                title="Transcript is empty"
-                description="No persisted transcript chunks were found for the selected session page."
+                title={
+                  selectedSession && isLiveSession(selectedSession.status)
+                    ? "Waiting for transcript chunks"
+                    : "Transcript is empty"
+                }
+                description={
+                  selectedSession && isLiveSession(selectedSession.status)
+                    ? "Persisted input, output, and system chunks will appear here as the live session runs."
+                    : "No persisted transcript chunks were found for the selected session page."
+                }
                 icon={History}
                 variant="plain"
               />

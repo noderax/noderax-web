@@ -531,6 +531,7 @@ export const useTerminalSessionChunks = (
   options?: {
     limit?: number;
     offset?: number;
+    refetchIntervalMs?: number | false;
   },
   enabled = true,
 ) => {
@@ -545,6 +546,7 @@ export const useTerminalSessionChunks = (
       apiClient.getTerminalSessionChunks(sessionId, workspaceId!, options),
     enabled: enabled && Boolean(workspaceId && sessionId),
     staleTime: 5_000,
+    refetchInterval: options?.refetchIntervalMs ?? false,
     refetchOnWindowFocus: false,
   });
 };
