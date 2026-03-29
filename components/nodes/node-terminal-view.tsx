@@ -38,6 +38,7 @@ import {
   useTerminateTerminalSession,
   useTerminalSessionChunks,
 } from "@/lib/hooks/use-noderax-data";
+import { apiClient } from "@/lib/api";
 import { NoderaxTerminalClient } from "@/lib/terminal-websocket";
 import { useWorkspaceContext } from "@/lib/hooks/use-workspace-context";
 import type {
@@ -47,6 +48,7 @@ import type {
 } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/store/useAppStore";
+import { Switch } from "@/components/ui/switch";
 
 const DEFAULT_COLS = 120;
 const DEFAULT_ROWS = 34;
@@ -123,7 +125,8 @@ const directionTone = (direction: TerminalTranscriptChunk["direction"]) => {
 
 export const NodeTerminalView = ({ id }: { id: string }) => {
   const queryClient = useQueryClient();
-  const { workspace, buildWorkspaceHref, isWorkspaceAdmin } = useWorkspaceContext();
+  const { workspace, workspaceId, buildWorkspaceHref, isWorkspaceAdmin } =
+    useWorkspaceContext();
   const currentUserId = useAppStore((state) => state.session?.user.id ?? null);
 
   const nodeQuery = useNode(id);
@@ -139,6 +142,7 @@ export const NodeTerminalView = ({ id }: { id: string }) => {
   const [sessionOverrides, setSessionOverrides] = useState<
     Record<string, TerminalSession>
   >({});
+  const [transcriptTerminalMode, setTranscriptTerminalMode] = useState(false);
 
   const terminalElementRef = useRef<HTMLDivElement | null>(null);
   const terminalRef = useRef<Terminal | null>(null);
@@ -147,6 +151,8 @@ export const NodeTerminalView = ({ id }: { id: string }) => {
   const activeSessionIdRef = useRef<string | null>(null);
   const attachBannerSessionIdRef = useRef<string | null>(null);
   const renderedChunkSeqRef = useRef(0);
+  const hydratingConsoleRef = useRef(false);
+  const pendingLiveChunksRef = useRef<TerminalTranscriptChunk[]>([]);
 
   const sessions = useMemo(
     () => {
@@ -231,6 +237,67 @@ export const NodeTerminalView = ({ id }: { id: string }) => {
     },
     canReadSelectedTranscript,
   );
+
+  const renderTerminalChunk = useEffectEvent(
+    (chunk: TerminalTranscriptChunk, options?: { allowStdin?: boolean }) => {
+      if (!terminalRef.current) {
+        return;
+      }
+
+      if (chunk.seq <= renderedChunkSeqRef.current) {
+        return;
+      }
+
+      renderedChunkSeqRef.current = chunk.seq;
+
+      if (chunk.direction === "stdin" && !options?.allowStdin) {
+        return;
+      }
+
+      terminalRef.current.write(decodeBase64Bytes(chunk.payload));
+    },
+  );
+
+  const hydrateLiveConsole = useEffectEvent(async (sessionId: string) => {
+    if (!workspaceId || !terminalRef.current) {
+      hydratingConsoleRef.current = false;
+      pendingLiveChunksRef.current = [];
+      return;
+    }
+
+    try {
+      const chunks = await apiClient.getTerminalSessionChunks(sessionId, workspaceId, {
+        limit: HISTORY_PAGE_SIZE,
+        offset: 0,
+      });
+
+      chunks
+        .slice()
+        .sort((left, right) => left.seq - right.seq)
+        .forEach((chunk) => {
+          renderTerminalChunk(chunk);
+        });
+    } catch {
+      // Best-effort hydration; live websocket output continues even if this fetch fails.
+    } finally {
+      hydratingConsoleRef.current = false;
+      pendingLiveChunksRef.current
+        .slice()
+        .sort((left, right) => left.seq - right.seq)
+        .forEach((chunk) => {
+          renderTerminalChunk(chunk);
+        });
+      pendingLiveChunksRef.current = [];
+    }
+  });
+
+  const transcriptTerminalText = useMemo(() => {
+    const chunks = transcriptQuery.data ?? [];
+    return chunks
+      .filter((chunk) => chunk.direction !== "stdin")
+      .map((chunk) => decodeTranscriptText(chunk.payload))
+      .join("");
+  }, [transcriptQuery.data]);
 
   const ensureTerminal = useEffectEvent(() => {
     const container = terminalElementRef.current;
@@ -363,6 +430,8 @@ export const NodeTerminalView = ({ id }: { id: string }) => {
       attachBannerSessionIdRef.current = null;
       activeSessionIdRef.current = null;
       renderedChunkSeqRef.current = 0;
+      hydratingConsoleRef.current = false;
+      pendingLiveChunksRef.current = [];
       setTerminalStatus("idle");
       terminalClientRef.current?.disconnect();
       terminalClientRef.current = null;
@@ -379,12 +448,15 @@ export const NodeTerminalView = ({ id }: { id: string }) => {
       );
       attachBannerSessionIdRef.current = selectedSessionKey;
       renderedChunkSeqRef.current = 0;
+      hydratingConsoleRef.current = true;
+      pendingLiveChunksRef.current = [];
     }
 
     activeSessionIdRef.current = selectedSessionKey;
 
     const client = new NoderaxTerminalClient();
     terminalClientRef.current = client;
+    let disposed = false;
 
     const unsubscribeStatus = client.subscribeStatus(setTerminalStatus);
     const unsubscribeSession = client.subscribeSessionState((session) => {
@@ -402,20 +474,16 @@ export const NodeTerminalView = ({ id }: { id: string }) => {
         return;
       }
 
-      if (
-        chunk.sessionId !== activeSessionIdRef.current ||
-        chunk.seq <= renderedChunkSeqRef.current
-      ) {
+      if (chunk.sessionId !== activeSessionIdRef.current) {
         return;
       }
 
-      renderedChunkSeqRef.current = chunk.seq;
-
-      if (chunk.direction === "stdin") {
+      if (hydratingConsoleRef.current) {
+        pendingLiveChunksRef.current.push(chunk);
         return;
       }
 
-      terminalRef.current.write(decodeBase64Bytes(chunk.payload));
+      renderTerminalChunk(chunk);
     });
     const unsubscribeClosed = client.subscribeClosed((session) => {
       setSessionOverrides((current) => ({
@@ -449,7 +517,11 @@ export const NodeTerminalView = ({ id }: { id: string }) => {
 
     void client
       .connect(selectedSessionKey)
-      .then(() => {
+      .then(async () => {
+        if (disposed) {
+          return;
+        }
+        await hydrateLiveConsole(selectedSessionKey);
         fitTerminal();
       })
       .catch((error) => {
@@ -467,6 +539,7 @@ export const NodeTerminalView = ({ id }: { id: string }) => {
       unsubscribeOutput();
       unsubscribeClosed();
       unsubscribeError();
+      disposed = true;
       client.disconnect();
 
       if (terminalClientRef.current === client) {
@@ -486,6 +559,8 @@ export const NodeTerminalView = ({ id }: { id: string }) => {
       terminalRef.current = null;
       fitAddonRef.current = null;
       renderedChunkSeqRef.current = 0;
+      hydratingConsoleRef.current = false;
+      pendingLiveChunksRef.current = [];
     };
   }, []);
 
@@ -795,10 +870,19 @@ export const NodeTerminalView = ({ id }: { id: string }) => {
           <SectionPanel
             eyebrow="Transcript"
             title="Deterministic I/O timeline"
-            description="Persisted base64 transcript chunks rendered as chronological input, output, and system events."
-            action={
-              selectedSession && !isLiveSession(selectedSession.status) ? (
-                <div className="flex items-center gap-2">
+          description="Persisted base64 transcript chunks rendered as chronological input, output, and system events."
+          action={
+              selectedSession ? (
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="flex items-center gap-2 rounded-full border border-border/80 px-3 py-2 text-xs text-muted-foreground">
+                    <Switch
+                      checked={transcriptTerminalMode}
+                      onCheckedChange={setTranscriptTerminalMode}
+                    />
+                    Terminal view
+                  </div>
+                  {!isLiveSession(selectedSession.status) ? (
+                    <>
                   <Button
                     variant="outline"
                     size="sm"
@@ -821,6 +905,8 @@ export const NodeTerminalView = ({ id }: { id: string }) => {
                   >
                     Next
                   </Button>
+                    </>
+                  ) : null}
                 </div>
               ) : null
             }
@@ -858,34 +944,50 @@ export const NodeTerminalView = ({ id }: { id: string }) => {
               />
             ) : transcriptQuery.data?.length ? (
               <ScrollArea className="h-[32rem]">
-                <div className="space-y-3 px-5 py-4 sm:px-6">
-                  {transcriptQuery.data.map((chunk) => (
-                    <div
-                      key={chunk.id}
-                      className="surface-subtle rounded-2xl border px-4 py-3"
-                    >
-                      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-                        <div className="flex items-center gap-2">
-                          <Badge variant={directionTone(chunk.direction)}>
-                            {chunk.direction}
-                          </Badge>
-                          <span className="font-mono text-xs text-muted-foreground">
-                            seq {chunk.seq}
-                          </span>
-                        </div>
-                        <span className="text-xs text-muted-foreground">
-                          <TimeDisplay
-                            value={chunk.sourceTimestamp ?? chunk.createdAt}
-                            mode="relative"
-                          />
-                        </span>
-                      </div>
-                      <pre className="overflow-x-auto whitespace-pre-wrap break-words rounded-xl bg-background/60 px-3 py-2 font-mono text-xs leading-6 text-foreground">
-                        {decodeTranscriptText(chunk.payload)}
+                {transcriptTerminalMode ? (
+                  <div className="min-h-full bg-[#0e0e0e]">
+                    <div className="sticky top-0 z-10 flex items-center gap-2 border-b border-white/10 bg-[#0e0e0e]/95 px-5 py-3 backdrop-blur">
+                      <SquareTerminal className="size-4 text-emerald-400" />
+                      <span className="font-mono text-xs font-medium text-emerald-400">
+                        Terminal Window
+                      </span>
+                    </div>
+                    <div className="p-5">
+                      <pre className="whitespace-pre-wrap font-mono text-[13px] leading-relaxed text-[#a8ff60] selection:bg-emerald-900">
+                        {transcriptTerminalText}
                       </pre>
                     </div>
-                  ))}
-                </div>
+                  </div>
+                ) : (
+                  <div className="space-y-3 px-5 py-4 sm:px-6">
+                    {transcriptQuery.data.map((chunk) => (
+                      <div
+                        key={chunk.id}
+                        className="surface-subtle rounded-2xl border px-4 py-3"
+                      >
+                        <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                          <div className="flex items-center gap-2">
+                            <Badge variant={directionTone(chunk.direction)}>
+                              {chunk.direction}
+                            </Badge>
+                            <span className="font-mono text-xs text-muted-foreground">
+                              seq {chunk.seq}
+                            </span>
+                          </div>
+                          <span className="text-xs text-muted-foreground">
+                            <TimeDisplay
+                              value={chunk.sourceTimestamp ?? chunk.createdAt}
+                              mode="relative"
+                            />
+                          </span>
+                        </div>
+                        <pre className="overflow-x-auto whitespace-pre-wrap break-words rounded-xl bg-background/60 px-3 py-2 font-mono text-xs leading-6 text-foreground">
+                          {decodeTranscriptText(chunk.payload)}
+                        </pre>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </ScrollArea>
             ) : (
               <EmptyState
