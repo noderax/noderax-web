@@ -146,6 +146,7 @@ export const NodeTerminalView = ({ id }: { id: string }) => {
   const terminalClientRef = useRef<NoderaxTerminalClient | null>(null);
   const activeSessionIdRef = useRef<string | null>(null);
   const attachBannerSessionIdRef = useRef<string | null>(null);
+  const renderedChunkSeqRef = useRef(0);
 
   const sessions = useMemo(
     () => {
@@ -351,6 +352,7 @@ export const NodeTerminalView = ({ id }: { id: string }) => {
     if (!canControlSelectedLiveSession || !selectedSessionKey) {
       attachBannerSessionIdRef.current = null;
       activeSessionIdRef.current = null;
+      renderedChunkSeqRef.current = 0;
       setTerminalStatus("idle");
       terminalClientRef.current?.disconnect();
       terminalClientRef.current = null;
@@ -366,6 +368,7 @@ export const NodeTerminalView = ({ id }: { id: string }) => {
         `Connecting to ${selectedSessionNodeId?.slice(0, 8) ?? "unknown"} terminal session ${selectedSessionKey?.slice(0, 8) ?? "unknown"}...`,
       );
       attachBannerSessionIdRef.current = selectedSessionKey;
+      renderedChunkSeqRef.current = 0;
     }
 
     activeSessionIdRef.current = selectedSessionKey;
@@ -386,6 +389,19 @@ export const NodeTerminalView = ({ id }: { id: string }) => {
     });
     const unsubscribeOutput = client.subscribeOutput((chunk) => {
       if (!terminalRef.current) {
+        return;
+      }
+
+      if (
+        chunk.sessionId !== activeSessionIdRef.current ||
+        chunk.seq <= renderedChunkSeqRef.current
+      ) {
+        return;
+      }
+
+      renderedChunkSeqRef.current = chunk.seq;
+
+      if (chunk.direction === "stdin") {
         return;
       }
 
@@ -459,6 +475,7 @@ export const NodeTerminalView = ({ id }: { id: string }) => {
       terminalRef.current?.dispose();
       terminalRef.current = null;
       fitAddonRef.current = null;
+      renderedChunkSeqRef.current = 0;
     };
   }, []);
 
