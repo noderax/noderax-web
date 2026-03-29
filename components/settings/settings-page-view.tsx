@@ -72,6 +72,8 @@ import { PASSWORD_MIN_LENGTH } from "@/lib/password";
 import { toast } from "sonner";
 
 type SettingsTab = "account" | "workspace" | "platform";
+type AccountSectionTab = "preferences" | "security";
+type PlatformSectionTab = "runtime" | "infrastructure" | "identity" | "agents";
 type SmtpTestState = {
   tone: "success" | "error";
   message: string;
@@ -189,6 +191,10 @@ function SettingsPageContent({
   }, [availableTabs, initialTab, requestedTab]);
 
   const [activeTab, setActiveTab] = useState<SettingsTab>(resolvedTab);
+  const [accountSection, setAccountSection] =
+    useState<AccountSectionTab>("preferences");
+  const [platformSection, setPlatformSection] =
+    useState<PlatformSectionTab>("runtime");
   const [draftTimeZone, setDraftTimeZone] = useState<string | null>(null);
   const [workspaceName, setWorkspaceName] = useState("");
   const [workspaceSlugDraft, setWorkspaceSlugDraft] = useState("");
@@ -531,358 +537,446 @@ function SettingsPageContent({
             </TabsList>
 
             <TabsContent value="account" className="pt-6">
-              <div className="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
-                <SectionPanel
-                  eyebrow="Account"
-                  title="Appearance, session, and security"
-                  description="Local UI preferences, timezone presentation, secure session metadata, and MFA controls in one place."
-                  contentClassName="space-y-6"
+              <SectionPanel
+                eyebrow="Account"
+                title="My settings"
+                description="Group personal preferences and security controls into smaller, easier-to-scan sections."
+                contentClassName="space-y-6"
+              >
+                <div className="flex flex-wrap gap-2">
+                  <Badge variant="outline" className="rounded-full px-3 py-1">
+                    Role: {session?.user.role ?? "Platform Operator"}
+                  </Badge>
+                  <Badge variant="outline" className="rounded-full px-3 py-1">
+                    Timezone: {session?.user.timezone ?? DEFAULT_TIMEZONE}
+                  </Badge>
+                  <Badge variant="outline" className="rounded-full px-3 py-1">
+                    MFA: {(session?.user.mfaEnabled ?? false) ? "Enabled" : "Not enabled"}
+                  </Badge>
+                </div>
+
+                <Tabs
+                  value={accountSection}
+                  onValueChange={(value) =>
+                    setAccountSection(value as AccountSectionTab)
+                  }
+                  className="gap-4"
                 >
-                  <div className="flex items-start gap-3">
-                    <div className="tone-brand flex size-11 items-center justify-center rounded-full border">
-                      <Palette className="size-4.5" />
-                    </div>
-                    <div className="min-w-0">
-                      <p className="font-medium">Appearance</p>
-                      <p className="mt-1 text-sm text-muted-foreground">
-                        Theme switching is instant and follows your system
-                        preference by default.
-                      </p>
-                    </div>
-                  </div>
-                  <div className="surface-subtle flex items-center justify-between rounded-[18px] border px-4 py-4">
-                    <div>
-                      <p className="font-medium">Theme mode</p>
-                      <p className="text-sm text-muted-foreground">
-                        Toggle between light and dark manually at any time.
-                      </p>
-                    </div>
-                    <ThemeToggle />
-                  </div>
+                  <TabsList className="h-auto max-w-full flex-wrap justify-start gap-2">
+                    <TabsTrigger
+                      value="preferences"
+                      className="flex-none rounded-full px-3 py-2 text-xs sm:text-sm"
+                    >
+                      Preferences
+                    </TabsTrigger>
+                    <TabsTrigger
+                      value="security"
+                      className="flex-none rounded-full px-3 py-2 text-xs sm:text-sm"
+                    >
+                      Security
+                    </TabsTrigger>
+                  </TabsList>
 
-                  <Separator />
+                  <TabsContent value="preferences" className="pt-2">
+                    <div className="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
+                      <SectionPanel
+                        eyebrow="Preferences"
+                        title="Appearance and time"
+                        description="Keep your local visual theme and timestamp rendering aligned with how you operate day to day."
+                        contentClassName="space-y-6"
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className="tone-brand flex size-11 items-center justify-center rounded-full border">
+                            <Palette className="size-4.5" />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="font-medium">Appearance</p>
+                            <p className="mt-1 text-sm text-muted-foreground">
+                              Theme switching is instant and follows your system
+                              preference by default.
+                            </p>
+                          </div>
+                        </div>
+                        <div className="surface-subtle flex items-center justify-between rounded-[18px] border px-4 py-4">
+                          <div>
+                            <p className="font-medium">Theme mode</p>
+                            <p className="text-sm text-muted-foreground">
+                              Toggle between light and dark manually at any time.
+                            </p>
+                          </div>
+                          <ThemeToggle />
+                        </div>
 
-                  <div className="space-y-4">
-                    <div className="flex items-start gap-3">
-                      <div className="tone-brand flex size-11 items-center justify-center rounded-full border">
-                        <Clock3 className="size-4.5" />
-                      </div>
-                      <div className="min-w-0">
-                        <p className="font-medium">Timezone preference</p>
-                        <p className="mt-1 text-sm text-muted-foreground">
-                          Absolute timestamps across the workspace render in
-                          your saved timezone.
-                        </p>
-                      </div>
+                        <Separator />
+
+                        <div className="space-y-4">
+                          <div className="flex items-start gap-3">
+                            <div className="tone-brand flex size-11 items-center justify-center rounded-full border">
+                              <Clock3 className="size-4.5" />
+                            </div>
+                            <div className="min-w-0">
+                              <p className="font-medium">Timezone preference</p>
+                              <p className="mt-1 text-sm text-muted-foreground">
+                                Absolute timestamps across the workspace render
+                                in your saved timezone.
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="surface-subtle space-y-4 rounded-[18px] border p-4">
+                            <div className="space-y-2">
+                              <p className="text-sm font-medium">Saved timezone</p>
+                              <TimezonePicker
+                                value={selectedTimeZone}
+                                onValueChange={(value) =>
+                                  setDraftTimeZone(
+                                    value === savedTimeZone ? null : value,
+                                  )
+                                }
+                                disabled={updatePreferences.isPending}
+                              />
+                            </div>
+
+                            <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
+                              <Badge
+                                variant="outline"
+                                className="rounded-full px-3 py-1"
+                              >
+                                Saved: {savedTimeZone}
+                              </Badge>
+                              <Badge
+                                variant="outline"
+                                className="rounded-full px-3 py-1"
+                              >
+                                Browser: {browserTimeZone}
+                              </Badge>
+                            </div>
+
+                            <div className="flex flex-wrap items-center justify-between gap-3">
+                              <div className="flex items-start gap-2 text-sm text-muted-foreground">
+                                <Globe2 className="mt-0.5 size-4 shrink-0" />
+                                <p>
+                                  Scheduled tasks you create will follow your
+                                  saved timezone, and all absolute timestamps
+                                  will render in the same view.
+                                </p>
+                              </div>
+                              <Button
+                                type="button"
+                                disabled={
+                                  !hasTimeZoneChanges ||
+                                  updatePreferences.isPending
+                                }
+                                onClick={() =>
+                                  updatePreferences.mutate(
+                                    { timezone: selectedTimeZone },
+                                    {
+                                      onSuccess: () => setDraftTimeZone(null),
+                                    },
+                                  )
+                                }
+                              >
+                                {updatePreferences.isPending
+                                  ? "Saving..."
+                                  : "Save timezone"}
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      </SectionPanel>
+
+                      <SectionPanel
+                        eyebrow="Operator"
+                        title="Profile and notifications"
+                        description="Identity details and alert preferences grouped together for quick operator-level changes."
+                        contentClassName="space-y-6"
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className="tone-brand flex size-11 items-center justify-center rounded-full border">
+                            <UserRound className="size-4.5" />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="font-medium">Profile</p>
+                            <p className="mt-1 text-sm text-muted-foreground">
+                              Operator identity and role surfaced from the
+                              authenticated session.
+                            </p>
+                          </div>
+                        </div>
+                        <div className="space-y-4">
+                          <div>
+                            <p className="text-sm text-muted-foreground">Name</p>
+                            <p className="mt-1 font-medium">
+                              {session?.user.name ?? "Operator"}
+                            </p>
+                          </div>
+                          <Separator />
+                          <div>
+                            <p className="text-sm text-muted-foreground">Email</p>
+                            <p className="mt-1 font-medium">
+                              {session?.user.email ?? "operator@noderax.io"}
+                            </p>
+                          </div>
+                          <Separator />
+                          <div>
+                            <p className="text-sm text-muted-foreground">Role</p>
+                            <p className="mt-1 font-medium">
+                              {session?.user.role ?? "Platform Operator"}
+                            </p>
+                          </div>
+                          <Separator />
+                          <div>
+                            <p className="text-sm text-muted-foreground">
+                              Timezone
+                            </p>
+                            <p className="mt-1 font-medium">
+                              {session?.user.timezone ?? DEFAULT_TIMEZONE}
+                            </p>
+                          </div>
+                        </div>
+
+                        <Separator />
+
+                        <div className="space-y-4">
+                          <div className="flex items-start gap-3">
+                            <div className="tone-brand flex size-11 items-center justify-center rounded-full border">
+                              <Shield className="size-4.5" />
+                            </div>
+                            <div className="min-w-0">
+                              <p className="font-medium">
+                                Notification preferences
+                              </p>
+                              <p className="mt-1 text-sm text-muted-foreground">
+                                UI-only settings for how critical activity is
+                                surfaced to operators.
+                              </p>
+                            </div>
+                          </div>
+                          <div className="space-y-3 rounded-[18px] border p-4">
+                            <div className="surface-subtle flex items-center justify-between rounded-[18px] border px-4 py-4">
+                              <div>
+                                <p className="font-medium">
+                                  Critical event emails
+                                </p>
+                                <p className="text-sm text-muted-foreground">
+                                  Send operational emails for critical workspace
+                                  events.
+                                </p>
+                              </div>
+                              <Switch
+                                checked={
+                                  notificationPreferences.criticalEventEmailsEnabled
+                                }
+                                disabled={updatePreferences.isPending}
+                                onCheckedChange={(checked) =>
+                                  setNotificationPreferences((current) => ({
+                                    ...current,
+                                    criticalEventEmailsEnabled: Boolean(checked),
+                                  }))
+                                }
+                              />
+                            </div>
+                            <div className="surface-subtle flex items-center justify-between rounded-[18px] border px-4 py-4">
+                              <div>
+                                <p className="font-medium">
+                                  Enrollment request emails
+                                </p>
+                                <p className="text-sm text-muted-foreground">
+                                  Send approval emails when node enrollments need
+                                  operator action.
+                                </p>
+                              </div>
+                              <Switch
+                                checked={
+                                  notificationPreferences.enrollmentEmailsEnabled
+                                }
+                                disabled={updatePreferences.isPending}
+                                onCheckedChange={(checked) =>
+                                  setNotificationPreferences((current) => ({
+                                    ...current,
+                                    enrollmentEmailsEnabled: Boolean(checked),
+                                  }))
+                                }
+                              />
+                            </div>
+                            <div className="flex justify-end">
+                              <Button
+                                type="button"
+                                disabled={
+                                  !hasNotificationPreferenceChanges ||
+                                  updatePreferences.isPending
+                                }
+                                onClick={handleSaveNotificationPreferences}
+                              >
+                                {updatePreferences.isPending
+                                  ? "Saving..."
+                                  : "Save preferences"}
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      </SectionPanel>
                     </div>
+                  </TabsContent>
 
-                    <div className="surface-subtle space-y-4 rounded-[18px] border p-4">
-                      <div className="space-y-2">
-                        <p className="text-sm font-medium">Saved timezone</p>
-                        <TimezonePicker
-                          value={selectedTimeZone}
-                          onValueChange={(value) =>
-                            setDraftTimeZone(value === savedTimeZone ? null : value)
-                          }
-                          disabled={updatePreferences.isPending}
+                  <TabsContent value="security" className="pt-2">
+                    <div className="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
+                      <SectionPanel
+                        eyebrow="Session"
+                        title="Token management and MFA"
+                        description="Everything tied to the current authenticated session lives together here."
+                        contentClassName="space-y-6"
+                      >
+                        <div id="token-management" className="space-y-4">
+                          <div className="flex items-start gap-3">
+                            <div className="tone-brand flex size-11 items-center justify-center rounded-full border">
+                              <KeyRound className="size-4.5" />
+                            </div>
+                            <div className="min-w-0">
+                              <p className="font-medium">Token management</p>
+                              <p className="mt-1 text-sm text-muted-foreground">
+                                Display-only session metadata surfaced from the
+                                secure auth cookie.
+                              </p>
+                            </div>
+                          </div>
+                          <div className="surface-subtle rounded-[18px] border p-4">
+                            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                              Token preview
+                            </p>
+                            <p className="mt-2 font-mono text-sm">
+                              {session?.tokenPreview ?? "Unavailable"}
+                            </p>
+                            <p className="mt-4 text-sm text-muted-foreground">
+                              Expires{" "}
+                              <TimeDisplay
+                                value={session?.expiresAt}
+                                mode="datetime"
+                                emptyLabel="unknown"
+                              />
+                            </p>
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            {session?.scopes.map((scope) => (
+                              <Badge
+                                key={scope}
+                                variant="outline"
+                                className="rounded-full px-3 py-1"
+                              >
+                                {scope}
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
+
+                        <Separator />
+
+                        <AccountSecurityPanel
+                          mfaEnabled={session?.user.mfaEnabled ?? false}
+                          embedded
                         />
-                      </div>
+                      </SectionPanel>
 
-                      <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
-                        <Badge variant="outline" className="rounded-full px-3 py-1">
-                          Saved: {savedTimeZone}
-                        </Badge>
-                        <Badge variant="outline" className="rounded-full px-3 py-1">
-                          Browser: {browserTimeZone}
-                        </Badge>
-                      </div>
-
-                      <div className="flex flex-wrap items-center justify-between gap-3">
-                        <div className="flex items-start gap-2 text-sm text-muted-foreground">
-                          <Globe2 className="mt-0.5 size-4 shrink-0" />
-                          <p>
-                            Scheduled tasks you create will follow your saved
-                            timezone, and all absolute timestamps will render in
-                            the same view.
-                          </p>
+                      <SectionPanel
+                        eyebrow="Credentials"
+                        title="Change password"
+                        description="Rotate your password without digging through the broader account preferences view."
+                        contentClassName="space-y-4"
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className="tone-brand flex size-11 items-center justify-center rounded-full border">
+                            <KeyRound className="size-4.5" />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="font-medium">Password update</p>
+                            <p className="mt-1 text-sm text-muted-foreground">
+                              Updating your password invalidates the current
+                              session version and signs this browser out.
+                            </p>
+                          </div>
                         </div>
-                        <Button
-                          type="button"
-                          disabled={!hasTimeZoneChanges || updatePreferences.isPending}
-                          onClick={() =>
-                            updatePreferences.mutate(
-                              { timezone: selectedTimeZone },
-                              {
-                                onSuccess: () => setDraftTimeZone(null),
-                              },
-                            )
-                          }
-                        >
-                          {updatePreferences.isPending ? "Saving..." : "Save timezone"}
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
 
-                  <Separator />
-
-                  <div id="token-management" className="space-y-4">
-                    <div className="flex items-start gap-3">
-                      <div className="tone-brand flex size-11 items-center justify-center rounded-full border">
-                        <KeyRound className="size-4.5" />
-                      </div>
-                      <div className="min-w-0">
-                        <p className="font-medium">Token management</p>
-                        <p className="mt-1 text-sm text-muted-foreground">
-                          Display-only session metadata surfaced from the secure
-                          auth cookie.
-                        </p>
-                      </div>
-                    </div>
-                    <div className="surface-subtle rounded-[18px] border p-4">
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-                        Token preview
-                      </p>
-                      <p className="mt-2 font-mono text-sm">
-                        {session?.tokenPreview ?? "Unavailable"}
-                      </p>
-                      <p className="mt-4 text-sm text-muted-foreground">
-                        Expires{" "}
-                        <TimeDisplay
-                          value={session?.expiresAt}
-                          mode="datetime"
-                          emptyLabel="unknown"
-                        />
-                      </p>
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      {session?.scopes.map((scope) => (
-                        <Badge
-                          key={scope}
-                          variant="outline"
-                          className="rounded-full px-3 py-1"
-                        >
-                          {scope}
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-
-                  <Separator />
-
-                  <AccountSecurityPanel
-                    mfaEnabled={session?.user.mfaEnabled ?? false}
-                    embedded
-                  />
-                </SectionPanel>
-
-                <SectionPanel
-                  eyebrow="Operator"
-                  title="Profile and notifications"
-                  description="Identity details and alert presentation preferences for the current operator."
-                  contentClassName="space-y-6"
-                >
-                  <div className="flex items-start gap-3">
-                    <div className="tone-brand flex size-11 items-center justify-center rounded-full border">
-                      <UserRound className="size-4.5" />
-                    </div>
-                    <div className="min-w-0">
-                      <p className="font-medium">Profile</p>
-                      <p className="mt-1 text-sm text-muted-foreground">
-                        Operator identity and role surfaced from the authenticated
-                        session.
-                      </p>
-                    </div>
-                  </div>
-                  <div className="space-y-4">
-                    <div>
-                      <p className="text-sm text-muted-foreground">Name</p>
-                      <p className="mt-1 font-medium">
-                        {session?.user.name ?? "Operator"}
-                      </p>
-                    </div>
-                    <Separator />
-                    <div>
-                      <p className="text-sm text-muted-foreground">Email</p>
-                      <p className="mt-1 font-medium">
-                        {session?.user.email ?? "operator@noderax.io"}
-                      </p>
-                    </div>
-                    <Separator />
-                    <div>
-                      <p className="text-sm text-muted-foreground">Role</p>
-                      <p className="mt-1 font-medium">
-                        {session?.user.role ?? "Platform Operator"}
-                      </p>
-                    </div>
-                    <Separator />
-                    <div>
-                      <p className="text-sm text-muted-foreground">Timezone</p>
-                      <p className="mt-1 font-medium">
-                        {session?.user.timezone ?? DEFAULT_TIMEZONE}
-                      </p>
-                    </div>
-                  </div>
-
-                  <Separator />
-
-                  <div className="space-y-4">
-                    <div className="flex items-start gap-3">
-                      <div className="tone-brand flex size-11 items-center justify-center rounded-full border">
-                        <Shield className="size-4.5" />
-                      </div>
-                      <div className="min-w-0">
-                        <p className="font-medium">Notification preferences</p>
-                        <p className="mt-1 text-sm text-muted-foreground">
-                          UI-only settings for how critical activity is surfaced
-                          to operators.
-                        </p>
-                      </div>
-                    </div>
-                    <div className="space-y-3 rounded-[18px] border p-4">
-                      <div className="surface-subtle flex items-center justify-between rounded-[18px] border px-4 py-4">
-                        <div>
-                          <p className="font-medium">Critical event emails</p>
-                          <p className="text-sm text-muted-foreground">
-                            Send operational emails for critical workspace events.
-                          </p>
-                        </div>
-                        <Switch
-                          checked={notificationPreferences.criticalEventEmailsEnabled}
-                          disabled={updatePreferences.isPending}
-                          onCheckedChange={(checked) =>
-                            setNotificationPreferences((current) => ({
-                              ...current,
-                              criticalEventEmailsEnabled: Boolean(checked),
-                            }))
-                          }
-                        />
-                      </div>
-                      <div className="surface-subtle flex items-center justify-between rounded-[18px] border px-4 py-4">
-                        <div>
-                          <p className="font-medium">Enrollment request emails</p>
-                          <p className="text-sm text-muted-foreground">
-                            Send approval emails when node enrollments need operator action.
-                          </p>
-                        </div>
-                        <Switch
-                          checked={notificationPreferences.enrollmentEmailsEnabled}
-                          disabled={updatePreferences.isPending}
-                          onCheckedChange={(checked) =>
-                            setNotificationPreferences((current) => ({
-                              ...current,
-                              enrollmentEmailsEnabled: Boolean(checked),
-                            }))
-                          }
-                        />
-                      </div>
-                      <div className="flex justify-end">
-                        <Button
-                          type="button"
-                          disabled={
-                            !hasNotificationPreferenceChanges ||
-                            updatePreferences.isPending
-                          }
-                          onClick={handleSaveNotificationPreferences}
-                        >
-                          {updatePreferences.isPending ? "Saving..." : "Save preferences"}
-                        </Button>
-                      </div>
-                    </div>
-
-                    <Separator />
-
-                    <div className="space-y-4">
-                      <div className="flex items-start gap-3">
-                        <div className="tone-brand flex size-11 items-center justify-center rounded-full border">
-                          <KeyRound className="size-4.5" />
-                        </div>
-                        <div className="min-w-0">
-                          <p className="font-medium">Change password</p>
-                          <p className="mt-1 text-sm text-muted-foreground">
-                            Updating your password invalidates the current session
-                            version and signs this browser out.
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="space-y-3 rounded-[18px] border p-4">
-                        <div className="space-y-2">
-                          <Label htmlFor="settings-current-password">Current password</Label>
-                          <Input
-                            id="settings-current-password"
-                            type="password"
-                            autoComplete="current-password"
-                            value={passwordForm.currentPassword}
-                            onChange={(event) =>
-                              {
+                        <div className="space-y-3 rounded-[18px] border p-4">
+                          <div className="space-y-2">
+                            <Label htmlFor="settings-current-password">
+                              Current password
+                            </Label>
+                            <Input
+                              id="settings-current-password"
+                              type="password"
+                              autoComplete="current-password"
+                              value={passwordForm.currentPassword}
+                              onChange={(event) => {
                                 setPasswordForm((current) => ({
                                   ...current,
                                   currentPassword: event.target.value,
                                 }));
                                 setPasswordError(null);
-                              }
-                            }
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="settings-next-password">New password</Label>
-                          <Input
-                            id="settings-next-password"
-                            type="password"
-                            autoComplete="new-password"
-                            value={passwordForm.nextPassword}
-                            onChange={(event) =>
-                              {
+                              }}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="settings-next-password">
+                              New password
+                            </Label>
+                            <Input
+                              id="settings-next-password"
+                              type="password"
+                              autoComplete="new-password"
+                              value={passwordForm.nextPassword}
+                              onChange={(event) => {
                                 setPasswordForm((current) => ({
                                   ...current,
                                   nextPassword: event.target.value,
                                 }));
                                 setPasswordError(null);
-                              }
-                            }
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="settings-confirm-password">Confirm new password</Label>
-                          <Input
-                            id="settings-confirm-password"
-                            type="password"
-                            autoComplete="new-password"
-                            value={passwordForm.confirmPassword}
-                            onChange={(event) =>
-                              {
+                              }}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="settings-confirm-password">
+                              Confirm new password
+                            </Label>
+                            <Input
+                              id="settings-confirm-password"
+                              type="password"
+                              autoComplete="new-password"
+                              value={passwordForm.confirmPassword}
+                              onChange={(event) => {
                                 setPasswordForm((current) => ({
                                   ...current,
                                   confirmPassword: event.target.value,
                                 }));
                                 setPasswordError(null);
-                              }
-                            }
+                              }}
+                            />
+                          </div>
+                          <PasswordFeedback
+                            password={passwordForm.nextPassword}
+                            confirmPassword={passwordForm.confirmPassword}
                           />
+                          {passwordError ? (
+                            <p className="text-sm text-tone-danger">
+                              {passwordError}
+                            </p>
+                          ) : null}
+                          <div className="flex justify-end">
+                            <Button
+                              type="button"
+                              disabled={!canSubmitPasswordChange}
+                              onClick={() => void handlePasswordChange()}
+                            >
+                              {changePassword.isPending
+                                ? "Updating..."
+                                : "Update password"}
+                            </Button>
+                          </div>
                         </div>
-                        <PasswordFeedback
-                          password={passwordForm.nextPassword}
-                          confirmPassword={passwordForm.confirmPassword}
-                        />
-                        {passwordError ? (
-                          <p className="text-sm text-tone-danger">{passwordError}</p>
-                        ) : null}
-                        <div className="flex justify-end">
-                          <Button
-                            type="button"
-                            disabled={!canSubmitPasswordChange}
-                            onClick={() => void handlePasswordChange()}
-                          >
-                            {changePassword.isPending ? "Updating..." : "Update password"}
-                          </Button>
-                        </div>
-                      </div>
+                      </SectionPanel>
                     </div>
-
-                  </div>
-                </SectionPanel>
-              </div>
+                  </TabsContent>
+                </Tabs>
+              </SectionPanel>
             </TabsContent>
 
             <TabsContent value="workspace" className="pt-6">
@@ -1313,833 +1407,975 @@ function SettingsPageContent({
                         </div>
                       ) : null}
 
-                      <div className="grid gap-6 xl:grid-cols-2">
-                        <SectionPanel
-                          title="Application"
-                          description="Surface-level HTTP and documentation behavior."
-                          eyebrow="App"
-                          contentClassName="space-y-4"
-                        >
-                          <div className="space-y-2">
-                            <Label htmlFor="platform-cors-origin">CORS origin</Label>
-                            <Input
-                              id="platform-cors-origin"
-                              value={platformDraft.app.corsOrigin}
-                              disabled={!platformEditable}
-                              onChange={(event) =>
-                                updatePlatformField(
-                                  "app",
-                                  "corsOrigin",
-                                  event.target.value,
-                                )
-                              }
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label htmlFor="platform-swagger-path">Swagger path</Label>
-                            <Input
-                              id="platform-swagger-path"
-                              value={platformDraft.app.swaggerPath}
-                              disabled={!platformEditable}
-                              onChange={(event) =>
-                                updatePlatformField(
-                                  "app",
-                                  "swaggerPath",
-                                  event.target.value,
-                                )
-                              }
-                            />
-                          </div>
-                          <div className="surface-subtle flex items-center justify-between rounded-[16px] border px-4 py-3">
-                            <div>
-                              <p className="font-medium">Swagger enabled</p>
-                              <p className="text-sm text-muted-foreground">
-                                Exposes the OpenAPI UI for the API container.
-                              </p>
-                            </div>
-                            <Switch
-                              checked={platformDraft.app.swaggerEnabled}
-                              disabled={!platformEditable}
-                              onCheckedChange={(checked) =>
-                                updatePlatformField("app", "swaggerEnabled", checked)
-                              }
-                            />
-                          </div>
-                        </SectionPanel>
-
-                        <SectionPanel
-                          title="Authentication"
-                          description="JWT and password hashing behavior for operators."
-                          eyebrow="Auth"
-                          contentClassName="space-y-4"
-                        >
-                          <div className="space-y-2">
-                            <Label htmlFor="platform-jwt-secret">JWT secret</Label>
-                            <Input
-                              id="platform-jwt-secret"
-                              type="password"
-                              value={platformDraft.auth.jwtSecret}
-                              disabled={!platformEditable}
-                              onChange={(event) =>
-                                updatePlatformField(
-                                  "auth",
-                                  "jwtSecret",
-                                  event.target.value,
-                                )
-                              }
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label htmlFor="platform-jwt-expires-in">
-                              JWT expires in
-                            </Label>
-                            <Input
-                              id="platform-jwt-expires-in"
-                              value={platformDraft.auth.jwtExpiresIn}
-                              disabled={!platformEditable}
-                              onChange={(event) =>
-                                updatePlatformField(
-                                  "auth",
-                                  "jwtExpiresIn",
-                                  event.target.value,
-                                )
-                              }
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label htmlFor="platform-bcrypt-rounds">
-                              Bcrypt salt rounds
-                            </Label>
-                            <Input
-                              id="platform-bcrypt-rounds"
-                              type="number"
-                              min={10}
-                              value={String(platformDraft.auth.bcryptSaltRounds)}
-                              disabled={!platformEditable}
-                              onChange={(event) =>
-                                updatePlatformField(
-                                  "auth",
-                                  "bcryptSaltRounds",
-                                  parseIntegerInput(
-                                    event.target.value,
-                                    platformDraft.auth.bcryptSaltRounds,
-                                  ),
-                                )
-                              }
-                            />
-                          </div>
-                        </SectionPanel>
-
-                        <SectionPanel
-                          title="Mail"
-                          description="Installer-managed SMTP settings for invitations, password resets, and operational email delivery."
-                          eyebrow="SMTP"
-                          contentClassName="space-y-4"
-                        >
-                          <div className="rounded-[18px] border bg-muted/20 px-4 py-3 text-sm text-muted-foreground">
-                            Leave the SMTP host blank to keep email delivery disabled.
-                            Sender details and the public web app URL remain editable
-                            either way.
-                          </div>
-                          <div className="grid gap-4 sm:grid-cols-2">
-                            <div className="space-y-2">
-                              <Label htmlFor="platform-smtp-host">SMTP host</Label>
-                              <Input
-                                id="platform-smtp-host"
-                                value={platformDraft.mail.smtpHost}
-                                disabled={!platformEditable}
-                                onChange={(event) =>
-                                  updatePlatformField(
-                                    "mail",
-                                    "smtpHost",
-                                    event.target.value,
-                                  )
-                                }
-                              />
-                            </div>
-                            <div className="space-y-2">
-                              <Label htmlFor="platform-smtp-port">SMTP port</Label>
-                              <Input
-                                id="platform-smtp-port"
-                                type="number"
-                                min={1}
-                                value={String(platformDraft.mail.smtpPort)}
-                                disabled={!platformEditable}
-                                onChange={(event) =>
-                                  updatePlatformField(
-                                    "mail",
-                                    "smtpPort",
-                                    parseIntegerInput(
-                                      event.target.value,
-                                      platformDraft.mail.smtpPort,
-                                    ),
-                                  )
-                                }
-                              />
-                            </div>
-                            <div className="space-y-2">
-                              <Label htmlFor="platform-smtp-username">
-                                SMTP username
-                              </Label>
-                              <Input
-                                id="platform-smtp-username"
-                                value={platformDraft.mail.smtpUsername}
-                                disabled={!platformEditable}
-                                onChange={(event) =>
-                                  updatePlatformField(
-                                    "mail",
-                                    "smtpUsername",
-                                    event.target.value,
-                                  )
-                                }
-                              />
-                            </div>
-                            <div className="space-y-2">
-                              <Label htmlFor="platform-smtp-password">
-                                SMTP password
-                              </Label>
-                              <Input
-                                id="platform-smtp-password"
-                                type="password"
-                                value={platformDraft.mail.smtpPassword}
-                                disabled={!platformEditable}
-                                onChange={(event) =>
-                                  updatePlatformField(
-                                    "mail",
-                                    "smtpPassword",
-                                    event.target.value,
-                                  )
-                                }
-                              />
-                            </div>
-                            <div className="space-y-2">
-                              <Label htmlFor="platform-mail-from-email">
-                                From email
-                              </Label>
-                              <Input
-                                id="platform-mail-from-email"
-                                type="email"
-                                value={platformDraft.mail.fromEmail}
-                                disabled={!platformEditable}
-                                onChange={(event) =>
-                                  updatePlatformField(
-                                    "mail",
-                                    "fromEmail",
-                                    event.target.value,
-                                  )
-                                }
-                              />
-                            </div>
-                            <div className="space-y-2">
-                              <Label htmlFor="platform-mail-from-name">
-                                From name
-                              </Label>
-                              <Input
-                                id="platform-mail-from-name"
-                                value={platformDraft.mail.fromName}
-                                disabled={!platformEditable}
-                                onChange={(event) =>
-                                  updatePlatformField(
-                                    "mail",
-                                    "fromName",
-                                    event.target.value,
-                                  )
-                                }
-                              />
-                            </div>
-                            <div className="space-y-2 sm:col-span-2">
-                              <Label htmlFor="platform-mail-web-app-url">
-                                Public web app URL
-                              </Label>
-                              <Input
-                                id="platform-mail-web-app-url"
-                                value={platformDraft.mail.webAppUrl}
-                                disabled={!platformEditable}
-                                onChange={(event) =>
-                                  updatePlatformField(
-                                    "mail",
-                                    "webAppUrl",
-                                    event.target.value,
-                                  )
-                                }
-                              />
-                            </div>
-                          </div>
-                          <div className="surface-subtle flex items-center justify-between rounded-[16px] border px-4 py-3">
-                            <div>
-                              <p className="font-medium">Use implicit TLS</p>
-                              <p className="text-sm text-muted-foreground">
-                                Enable this for providers that expect secure SMTP
-                                from the initial connection, such as port 465.
-                              </p>
-                            </div>
-                            <Switch
-                              checked={platformDraft.mail.smtpSecure}
-                              disabled={!platformEditable}
-                              onCheckedChange={(checked) =>
-                                updatePlatformField("mail", "smtpSecure", checked)
-                              }
-                            />
-                          </div>
-                          <div className="flex items-center justify-between gap-3 rounded-[16px] border bg-background/70 px-4 py-3">
-                            <div className="min-w-0">
-                              <p className="font-medium">Connection test</p>
-                              <p className="text-sm text-muted-foreground">
-                                Uses the current draft values without saving them
-                                first.
-                              </p>
-                              {platformMailTestStatus ? (
-                                <p
-                                  className={cn(
-                                    "mt-2 text-sm",
-                                    getSmtpStatusClassName(
-                                      platformMailTestStatus.tone,
-                                    ),
-                                  )}
-                                >
-                                  {platformMailTestStatus.message}
-                                </p>
-                              ) : null}
-                            </div>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              onClick={() => void handleValidatePlatformSmtp()}
-                              disabled={validatePlatformSmtp.isPending}
-                            >
-                              {validatePlatformSmtp.isPending
-                                ? "Testing..."
-                                : "Test SMTP"}
-                            </Button>
-                          </div>
-                        </SectionPanel>
-
-                        <SectionPanel
-                          title="Database"
-                          description="Primary PostgreSQL connectivity for the API."
-                          eyebrow="Postgres"
-                          contentClassName="space-y-4"
-                        >
-                          <div className="grid gap-4 sm:grid-cols-2">
-                            <div className="space-y-2">
-                              <Label htmlFor="platform-db-host">Host</Label>
-                              <Input
-                                id="platform-db-host"
-                                value={platformDraft.database.host}
-                                disabled={!platformEditable}
-                                onChange={(event) =>
-                                  updatePlatformField(
-                                    "database",
-                                    "host",
-                                    event.target.value,
-                                  )
-                                }
-                              />
-                            </div>
-                            <div className="space-y-2">
-                              <Label htmlFor="platform-db-port">Port</Label>
-                              <Input
-                                id="platform-db-port"
-                                type="number"
-                                min={1}
-                                value={String(platformDraft.database.port)}
-                                disabled={!platformEditable}
-                                onChange={(event) =>
-                                  updatePlatformField(
-                                    "database",
-                                    "port",
-                                    parseIntegerInput(
-                                      event.target.value,
-                                      platformDraft.database.port,
-                                    ),
-                                  )
-                                }
-                              />
-                            </div>
-                            <div className="space-y-2">
-                              <Label htmlFor="platform-db-username">Username</Label>
-                              <Input
-                                id="platform-db-username"
-                                value={platformDraft.database.username}
-                                disabled={!platformEditable}
-                                onChange={(event) =>
-                                  updatePlatformField(
-                                    "database",
-                                    "username",
-                                    event.target.value,
-                                  )
-                                }
-                              />
-                            </div>
-                            <div className="space-y-2">
-                              <Label htmlFor="platform-db-password">Password</Label>
-                              <Input
-                                id="platform-db-password"
-                                type="password"
-                                value={platformDraft.database.password}
-                                disabled={!platformEditable}
-                                onChange={(event) =>
-                                  updatePlatformField(
-                                    "database",
-                                    "password",
-                                    event.target.value,
-                                  )
-                                }
-                              />
-                            </div>
-                            <div className="space-y-2 sm:col-span-2">
-                              <Label htmlFor="platform-db-name">Database name</Label>
-                              <Input
-                                id="platform-db-name"
-                                value={platformDraft.database.database}
-                                disabled={!platformEditable}
-                                onChange={(event) =>
-                                  updatePlatformField(
-                                    "database",
-                                    "database",
-                                    event.target.value,
-                                  )
-                                }
-                              />
-                            </div>
-                          </div>
-                          <div className="grid gap-3">
-                            <div className="surface-subtle flex items-center justify-between rounded-[16px] border px-4 py-3">
-                              <div>
-                                <p className="font-medium">Synchronize schema</p>
-                                <p className="text-sm text-muted-foreground">
-                                  Enable TypeORM schema synchronization on boot.
-                                </p>
-                              </div>
-                              <Switch
-                                checked={platformDraft.database.synchronize}
-                                disabled={!platformEditable}
-                                onCheckedChange={(checked) =>
-                                  updatePlatformField(
-                                    "database",
-                                    "synchronize",
-                                    checked,
-                                  )
-                                }
-                              />
-                            </div>
-                            <div className="surface-subtle flex items-center justify-between rounded-[16px] border px-4 py-3">
-                              <div>
-                                <p className="font-medium">Query logging</p>
-                                <p className="text-sm text-muted-foreground">
-                                  Prints SQL activity to API logs.
-                                </p>
-                              </div>
-                              <Switch
-                                checked={platformDraft.database.logging}
-                                disabled={!platformEditable}
-                                onCheckedChange={(checked) =>
-                                  updatePlatformField("database", "logging", checked)
-                                }
-                              />
-                            </div>
-                            <div className="surface-subtle flex items-center justify-between rounded-[16px] border px-4 py-3">
-                              <div>
-                                <p className="font-medium">SSL</p>
-                                <p className="text-sm text-muted-foreground">
-                                  Uses TLS for the PostgreSQL connection.
-                                </p>
-                              </div>
-                              <Switch
-                                checked={platformDraft.database.ssl}
-                                disabled={!platformEditable}
-                                onCheckedChange={(checked) =>
-                                  updatePlatformField("database", "ssl", checked)
-                                }
-                              />
-                            </div>
-                          </div>
-                        </SectionPanel>
-
-                        <SectionPanel
-                          title="Redis"
-                          description="Pubsub, realtime fanout, and cache wiring."
-                          eyebrow="Redis"
-                          contentClassName="space-y-4"
-                        >
-                          <div className="grid gap-4 sm:grid-cols-2">
-                            <div className="space-y-2 sm:col-span-2">
-                              <Label htmlFor="platform-redis-url">Redis URL</Label>
-                              <Input
-                                id="platform-redis-url"
-                                value={platformDraft.redis.url}
-                                disabled={!platformEditable}
-                                onChange={(event) =>
-                                  updatePlatformField(
-                                    "redis",
-                                    "url",
-                                    event.target.value,
-                                  )
-                                }
-                              />
-                            </div>
-                            <div className="space-y-2">
-                              <Label htmlFor="platform-redis-host">Host</Label>
-                              <Input
-                                id="platform-redis-host"
-                                value={platformDraft.redis.host}
-                                disabled={!platformEditable}
-                                onChange={(event) =>
-                                  updatePlatformField(
-                                    "redis",
-                                    "host",
-                                    event.target.value,
-                                  )
-                                }
-                              />
-                            </div>
-                            <div className="space-y-2">
-                              <Label htmlFor="platform-redis-port">Port</Label>
-                              <Input
-                                id="platform-redis-port"
-                                type="number"
-                                min={0}
-                                value={String(platformDraft.redis.port)}
-                                disabled={!platformEditable}
-                                onChange={(event) =>
-                                  updatePlatformField(
-                                    "redis",
-                                    "port",
-                                    parseIntegerInput(
-                                      event.target.value,
-                                      platformDraft.redis.port,
-                                    ),
-                                  )
-                                }
-                              />
-                            </div>
-                            <div className="space-y-2">
-                              <Label htmlFor="platform-redis-password">Password</Label>
-                              <Input
-                                id="platform-redis-password"
-                                type="password"
-                                value={platformDraft.redis.password}
-                                disabled={!platformEditable}
-                                onChange={(event) =>
-                                  updatePlatformField(
-                                    "redis",
-                                    "password",
-                                    event.target.value,
-                                  )
-                                }
-                              />
-                            </div>
-                            <div className="space-y-2">
-                              <Label htmlFor="platform-redis-db">DB index</Label>
-                              <Input
-                                id="platform-redis-db"
-                                type="number"
-                                min={0}
-                                value={String(platformDraft.redis.db)}
-                                disabled={!platformEditable}
-                                onChange={(event) =>
-                                  updatePlatformField(
-                                    "redis",
-                                    "db",
-                                    parseIntegerInput(
-                                      event.target.value,
-                                      platformDraft.redis.db,
-                                    ),
-                                  )
-                                }
-                              />
-                            </div>
-                            <div className="space-y-2 sm:col-span-2">
-                              <Label htmlFor="platform-redis-prefix">Key prefix</Label>
-                              <Input
-                                id="platform-redis-prefix"
-                                value={platformDraft.redis.keyPrefix}
-                                disabled={!platformEditable}
-                                onChange={(event) =>
-                                  updatePlatformField(
-                                    "redis",
-                                    "keyPrefix",
-                                    event.target.value,
-                                  )
-                                }
-                              />
-                            </div>
-                          </div>
-                          <div className="grid gap-3">
-                            <div className="surface-subtle flex items-center justify-between rounded-[16px] border px-4 py-3">
-                              <div>
-                                <p className="font-medium">Redis enabled</p>
-                                <p className="text-sm text-muted-foreground">
-                                  Enables realtime pubsub and redis-backed state.
-                                </p>
-                              </div>
-                              <Switch
-                                checked={platformDraft.redis.enabled}
-                                disabled={!platformEditable}
-                                onCheckedChange={(checked) =>
-                                  updatePlatformField("redis", "enabled", checked)
-                                }
-                              />
-                            </div>
-                          </div>
-                        </SectionPanel>
-                      </div>
-
-                      <PlatformIdentityPanel />
-
-                      <SectionPanel
-                        eyebrow="Agents"
-                        title="Agent orchestration"
-                        description="Heartbeat, task-claim, and realtime delivery thresholds for nodes and agents."
-                        contentClassName="space-y-4"
+                      <Tabs
+                        value={platformSection}
+                        onValueChange={(value) =>
+                          setPlatformSection(value as PlatformSectionTab)
+                        }
+                        className="gap-4"
                       >
-                        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                          <div className="space-y-2">
-                            <Label htmlFor="platform-agent-heartbeat-timeout">
-                              Heartbeat timeout seconds
-                            </Label>
-                            <Input
-                              id="platform-agent-heartbeat-timeout"
-                              type="number"
-                              min={1}
-                              value={String(platformDraft.agents.heartbeatTimeoutSeconds)}
-                              disabled={!platformEditable}
-                              onChange={(event) =>
-                                updatePlatformField(
-                                  "agents",
-                                  "heartbeatTimeoutSeconds",
-                                  parseIntegerInput(
-                                    event.target.value,
-                                    platformDraft.agents.heartbeatTimeoutSeconds,
-                                  ),
-                                )
-                              }
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label htmlFor="platform-agent-offline-check">
-                              Offline check interval
-                            </Label>
-                            <Input
-                              id="platform-agent-offline-check"
-                              type="number"
-                              min={1}
-                              value={String(platformDraft.agents.offlineCheckIntervalSeconds)}
-                              disabled={!platformEditable}
-                              onChange={(event) =>
-                                updatePlatformField(
-                                  "agents",
-                                  "offlineCheckIntervalSeconds",
-                                  parseIntegerInput(
-                                    event.target.value,
-                                    platformDraft.agents.offlineCheckIntervalSeconds,
-                                  ),
-                                )
-                              }
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label htmlFor="platform-agent-claim-lease">
-                              Task claim lease seconds
-                            </Label>
-                            <Input
-                              id="platform-agent-claim-lease"
-                              type="number"
-                              min={15}
-                              value={String(platformDraft.agents.taskClaimLeaseSeconds)}
-                              disabled={!platformEditable}
-                              onChange={(event) =>
-                                updatePlatformField(
-                                  "agents",
-                                  "taskClaimLeaseSeconds",
-                                  parseIntegerInput(
-                                    event.target.value,
-                                    platformDraft.agents.taskClaimLeaseSeconds,
-                                  ),
-                                )
-                              }
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label htmlFor="platform-agent-realtime-timeout">
-                              Realtime ping timeout
-                            </Label>
-                            <Input
-                              id="platform-agent-realtime-timeout"
-                              type="number"
-                              min={15}
-                              value={String(platformDraft.agents.realtimePingTimeoutSeconds)}
-                              disabled={!platformEditable}
-                              onChange={(event) =>
-                                updatePlatformField(
-                                  "agents",
-                                  "realtimePingTimeoutSeconds",
-                                  parseIntegerInput(
-                                    event.target.value,
-                                    platformDraft.agents.realtimePingTimeoutSeconds,
-                                  ),
-                                )
-                              }
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label htmlFor="platform-agent-realtime-interval">
-                              Realtime check interval
-                            </Label>
-                            <Input
-                              id="platform-agent-realtime-interval"
-                              type="number"
-                              min={1}
-                              value={String(
-                                platformDraft.agents.realtimePingCheckIntervalSeconds,
-                              )}
-                              disabled={!platformEditable}
-                              onChange={(event) =>
-                                updatePlatformField(
-                                  "agents",
-                                  "realtimePingCheckIntervalSeconds",
-                                  parseIntegerInput(
-                                    event.target.value,
-                                    platformDraft.agents.realtimePingCheckIntervalSeconds,
-                                  ),
-                                )
-                              }
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label htmlFor="platform-agent-high-cpu">
-                              High CPU threshold
-                            </Label>
-                            <Input
-                              id="platform-agent-high-cpu"
-                              type="number"
-                              min={0}
-                              max={100}
-                              step="0.1"
-                              value={String(platformDraft.agents.highCpuThreshold)}
-                              disabled={!platformEditable}
-                              onChange={(event) =>
-                                updatePlatformField(
-                                  "agents",
-                                  "highCpuThreshold",
-                                  parseNumberInput(
-                                    event.target.value,
-                                    platformDraft.agents.highCpuThreshold,
-                                  ),
-                                )
-                              }
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label htmlFor="platform-agent-stale-check">
-                              Stale task check interval
-                            </Label>
-                            <Input
-                              id="platform-agent-stale-check"
-                              type="number"
-                              min={1}
-                              value={String(platformDraft.agents.staleTaskCheckIntervalSeconds)}
-                              disabled={!platformEditable}
-                              onChange={(event) =>
-                                updatePlatformField(
-                                  "agents",
-                                  "staleTaskCheckIntervalSeconds",
-                                  parseIntegerInput(
-                                    event.target.value,
-                                    platformDraft.agents.staleTaskCheckIntervalSeconds,
-                                  ),
-                                )
-                              }
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label htmlFor="platform-agent-stale-queued">
-                              Stale queued timeout
-                            </Label>
-                            <Input
-                              id="platform-agent-stale-queued"
-                              type="number"
-                              min={5}
-                              value={String(platformDraft.agents.staleQueuedTaskTimeoutSeconds)}
-                              disabled={!platformEditable}
-                              onChange={(event) =>
-                                updatePlatformField(
-                                  "agents",
-                                  "staleQueuedTaskTimeoutSeconds",
-                                  parseIntegerInput(
-                                    event.target.value,
-                                    platformDraft.agents.staleQueuedTaskTimeoutSeconds,
-                                  ),
-                                )
-                              }
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label htmlFor="platform-agent-stale-running">
-                              Stale running timeout
-                            </Label>
-                            <Input
-                              id="platform-agent-stale-running"
-                              type="number"
-                              min={10}
-                              value={String(platformDraft.agents.staleRunningTaskTimeoutSeconds)}
-                              disabled={!platformEditable}
-                              onChange={(event) =>
-                                updatePlatformField(
-                                  "agents",
-                                  "staleRunningTaskTimeoutSeconds",
-                                  parseIntegerInput(
-                                    event.target.value,
-                                    platformDraft.agents.staleRunningTaskTimeoutSeconds,
-                                  ),
-                                )
-                              }
-                            />
-                          </div>
-                          <div className="space-y-2 md:col-span-2 xl:col-span-3">
-                            <Label htmlFor="platform-agent-enrollment-token">
-                              Agent enrollment token
-                            </Label>
-                            <Input
-                              id="platform-agent-enrollment-token"
-                              type="password"
-                              value={platformDraft.agents.enrollmentToken}
-                              disabled={!platformEditable}
-                              onChange={(event) =>
-                                updatePlatformField(
-                                  "agents",
-                                  "enrollmentToken",
-                                  event.target.value,
-                                )
-                              }
-                            />
-                          </div>
-                        </div>
+                        <TabsList className="h-auto max-w-full flex-wrap justify-start gap-2">
+                          <TabsTrigger
+                            value="runtime"
+                            className="flex-none rounded-full px-3 py-2 text-xs sm:text-sm"
+                          >
+                            Runtime
+                          </TabsTrigger>
+                          <TabsTrigger
+                            value="infrastructure"
+                            className="flex-none rounded-full px-3 py-2 text-xs sm:text-sm"
+                          >
+                            Infrastructure
+                          </TabsTrigger>
+                          <TabsTrigger
+                            value="identity"
+                            className="flex-none rounded-full px-3 py-2 text-xs sm:text-sm"
+                          >
+                            Identity
+                          </TabsTrigger>
+                          <TabsTrigger
+                            value="agents"
+                            className="flex-none rounded-full px-3 py-2 text-xs sm:text-sm"
+                          >
+                            Agents
+                          </TabsTrigger>
+                        </TabsList>
 
-                        <div className="surface-subtle flex items-center justify-between rounded-[16px] border px-4 py-3">
-                          <div>
-                            <p className="font-medium">Enable realtime task dispatch</p>
-                            <p className="text-sm text-muted-foreground">
-                              Pushes task delivery through realtime sockets instead
-                              of HTTP polling only.
-                            </p>
+                        <TabsContent value="runtime" className="pt-2">
+                          <div className="grid gap-6 xl:grid-cols-2">
+                            <SectionPanel
+                              title="Application"
+                              description="Surface-level HTTP and documentation behavior."
+                              eyebrow="App"
+                              contentClassName="space-y-4"
+                            >
+                              <div className="space-y-2">
+                                <Label htmlFor="platform-cors-origin">
+                                  CORS origin
+                                </Label>
+                                <Input
+                                  id="platform-cors-origin"
+                                  value={platformDraft.app.corsOrigin}
+                                  disabled={!platformEditable}
+                                  onChange={(event) =>
+                                    updatePlatformField(
+                                      "app",
+                                      "corsOrigin",
+                                      event.target.value,
+                                    )
+                                  }
+                                />
+                              </div>
+                              <div className="space-y-2">
+                                <Label htmlFor="platform-swagger-path">
+                                  Swagger path
+                                </Label>
+                                <Input
+                                  id="platform-swagger-path"
+                                  value={platformDraft.app.swaggerPath}
+                                  disabled={!platformEditable}
+                                  onChange={(event) =>
+                                    updatePlatformField(
+                                      "app",
+                                      "swaggerPath",
+                                      event.target.value,
+                                    )
+                                  }
+                                />
+                              </div>
+                              <div className="surface-subtle flex items-center justify-between rounded-[16px] border px-4 py-3">
+                                <div>
+                                  <p className="font-medium">Swagger enabled</p>
+                                  <p className="text-sm text-muted-foreground">
+                                    Exposes the OpenAPI UI for the API container.
+                                  </p>
+                                </div>
+                                <Switch
+                                  checked={platformDraft.app.swaggerEnabled}
+                                  disabled={!platformEditable}
+                                  onCheckedChange={(checked) =>
+                                    updatePlatformField(
+                                      "app",
+                                      "swaggerEnabled",
+                                      checked,
+                                    )
+                                  }
+                                />
+                              </div>
+                            </SectionPanel>
+
+                            <SectionPanel
+                              title="Authentication"
+                              description="JWT and password hashing behavior for operators."
+                              eyebrow="Auth"
+                              contentClassName="space-y-4"
+                            >
+                              <div className="space-y-2">
+                                <Label htmlFor="platform-jwt-secret">
+                                  JWT secret
+                                </Label>
+                                <Input
+                                  id="platform-jwt-secret"
+                                  type="password"
+                                  value={platformDraft.auth.jwtSecret}
+                                  disabled={!platformEditable}
+                                  onChange={(event) =>
+                                    updatePlatformField(
+                                      "auth",
+                                      "jwtSecret",
+                                      event.target.value,
+                                    )
+                                  }
+                                />
+                              </div>
+                              <div className="space-y-2">
+                                <Label htmlFor="platform-jwt-expires-in">
+                                  JWT expires in
+                                </Label>
+                                <Input
+                                  id="platform-jwt-expires-in"
+                                  value={platformDraft.auth.jwtExpiresIn}
+                                  disabled={!platformEditable}
+                                  onChange={(event) =>
+                                    updatePlatformField(
+                                      "auth",
+                                      "jwtExpiresIn",
+                                      event.target.value,
+                                    )
+                                  }
+                                />
+                              </div>
+                              <div className="space-y-2">
+                                <Label htmlFor="platform-bcrypt-rounds">
+                                  Bcrypt salt rounds
+                                </Label>
+                                <Input
+                                  id="platform-bcrypt-rounds"
+                                  type="number"
+                                  min={10}
+                                  value={String(
+                                    platformDraft.auth.bcryptSaltRounds,
+                                  )}
+                                  disabled={!platformEditable}
+                                  onChange={(event) =>
+                                    updatePlatformField(
+                                      "auth",
+                                      "bcryptSaltRounds",
+                                      parseIntegerInput(
+                                        event.target.value,
+                                        platformDraft.auth.bcryptSaltRounds,
+                                      ),
+                                    )
+                                  }
+                                />
+                              </div>
+                            </SectionPanel>
                           </div>
-                          <Switch
-                            checked={platformDraft.agents.enableRealtimeTaskDispatch}
-                            disabled={!platformEditable}
-                            onCheckedChange={(checked) =>
-                              updatePlatformField(
-                                "agents",
-                                "enableRealtimeTaskDispatch",
-                                checked,
-                              )
-                            }
-                          />
-                        </div>
-                      </SectionPanel>
+                        </TabsContent>
+
+                        <TabsContent value="infrastructure" className="pt-2">
+                          <div className="grid gap-6 xl:grid-cols-2">
+                            <SectionPanel
+                              title="Mail"
+                              description="Installer-managed SMTP settings for invitations, password resets, and operational email delivery."
+                              eyebrow="SMTP"
+                              contentClassName="space-y-4"
+                            >
+                              <div className="rounded-[18px] border bg-muted/20 px-4 py-3 text-sm text-muted-foreground">
+                                Leave the SMTP host blank to keep email delivery
+                                disabled. Sender details and the public web app
+                                URL remain editable either way.
+                              </div>
+                              <div className="grid gap-4 sm:grid-cols-2">
+                                <div className="space-y-2">
+                                  <Label htmlFor="platform-smtp-host">
+                                    SMTP host
+                                  </Label>
+                                  <Input
+                                    id="platform-smtp-host"
+                                    value={platformDraft.mail.smtpHost}
+                                    disabled={!platformEditable}
+                                    onChange={(event) =>
+                                      updatePlatformField(
+                                        "mail",
+                                        "smtpHost",
+                                        event.target.value,
+                                      )
+                                    }
+                                  />
+                                </div>
+                                <div className="space-y-2">
+                                  <Label htmlFor="platform-smtp-port">
+                                    SMTP port
+                                  </Label>
+                                  <Input
+                                    id="platform-smtp-port"
+                                    type="number"
+                                    min={1}
+                                    value={String(platformDraft.mail.smtpPort)}
+                                    disabled={!platformEditable}
+                                    onChange={(event) =>
+                                      updatePlatformField(
+                                        "mail",
+                                        "smtpPort",
+                                        parseIntegerInput(
+                                          event.target.value,
+                                          platformDraft.mail.smtpPort,
+                                        ),
+                                      )
+                                    }
+                                  />
+                                </div>
+                                <div className="space-y-2">
+                                  <Label htmlFor="platform-smtp-username">
+                                    SMTP username
+                                  </Label>
+                                  <Input
+                                    id="platform-smtp-username"
+                                    value={platformDraft.mail.smtpUsername}
+                                    disabled={!platformEditable}
+                                    onChange={(event) =>
+                                      updatePlatformField(
+                                        "mail",
+                                        "smtpUsername",
+                                        event.target.value,
+                                      )
+                                    }
+                                  />
+                                </div>
+                                <div className="space-y-2">
+                                  <Label htmlFor="platform-smtp-password">
+                                    SMTP password
+                                  </Label>
+                                  <Input
+                                    id="platform-smtp-password"
+                                    type="password"
+                                    value={platformDraft.mail.smtpPassword}
+                                    disabled={!platformEditable}
+                                    onChange={(event) =>
+                                      updatePlatformField(
+                                        "mail",
+                                        "smtpPassword",
+                                        event.target.value,
+                                      )
+                                    }
+                                  />
+                                </div>
+                                <div className="space-y-2">
+                                  <Label htmlFor="platform-mail-from-email">
+                                    From email
+                                  </Label>
+                                  <Input
+                                    id="platform-mail-from-email"
+                                    type="email"
+                                    value={platformDraft.mail.fromEmail}
+                                    disabled={!platformEditable}
+                                    onChange={(event) =>
+                                      updatePlatformField(
+                                        "mail",
+                                        "fromEmail",
+                                        event.target.value,
+                                      )
+                                    }
+                                  />
+                                </div>
+                                <div className="space-y-2">
+                                  <Label htmlFor="platform-mail-from-name">
+                                    From name
+                                  </Label>
+                                  <Input
+                                    id="platform-mail-from-name"
+                                    value={platformDraft.mail.fromName}
+                                    disabled={!platformEditable}
+                                    onChange={(event) =>
+                                      updatePlatformField(
+                                        "mail",
+                                        "fromName",
+                                        event.target.value,
+                                      )
+                                    }
+                                  />
+                                </div>
+                                <div className="space-y-2 sm:col-span-2">
+                                  <Label htmlFor="platform-mail-web-app-url">
+                                    Public web app URL
+                                  </Label>
+                                  <Input
+                                    id="platform-mail-web-app-url"
+                                    value={platformDraft.mail.webAppUrl}
+                                    disabled={!platformEditable}
+                                    onChange={(event) =>
+                                      updatePlatformField(
+                                        "mail",
+                                        "webAppUrl",
+                                        event.target.value,
+                                      )
+                                    }
+                                  />
+                                </div>
+                              </div>
+                              <div className="surface-subtle flex items-center justify-between rounded-[16px] border px-4 py-3">
+                                <div>
+                                  <p className="font-medium">Use implicit TLS</p>
+                                  <p className="text-sm text-muted-foreground">
+                                    Enable this for providers that expect secure
+                                    SMTP from the initial connection, such as
+                                    port 465.
+                                  </p>
+                                </div>
+                                <Switch
+                                  checked={platformDraft.mail.smtpSecure}
+                                  disabled={!platformEditable}
+                                  onCheckedChange={(checked) =>
+                                    updatePlatformField(
+                                      "mail",
+                                      "smtpSecure",
+                                      checked,
+                                    )
+                                  }
+                                />
+                              </div>
+                              <div className="flex items-center justify-between gap-3 rounded-[16px] border bg-background/70 px-4 py-3">
+                                <div className="min-w-0">
+                                  <p className="font-medium">Connection test</p>
+                                  <p className="text-sm text-muted-foreground">
+                                    Uses the current draft values without saving
+                                    them first.
+                                  </p>
+                                  {platformMailTestStatus ? (
+                                    <p
+                                      className={cn(
+                                        "mt-2 text-sm",
+                                        getSmtpStatusClassName(
+                                          platformMailTestStatus.tone,
+                                        ),
+                                      )}
+                                    >
+                                      {platformMailTestStatus.message}
+                                    </p>
+                                  ) : null}
+                                </div>
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  onClick={() => void handleValidatePlatformSmtp()}
+                                  disabled={validatePlatformSmtp.isPending}
+                                >
+                                  {validatePlatformSmtp.isPending
+                                    ? "Testing..."
+                                    : "Test SMTP"}
+                                </Button>
+                              </div>
+                            </SectionPanel>
+
+                            <div className="space-y-6">
+                              <SectionPanel
+                                title="Database"
+                                description="Primary PostgreSQL connectivity for the API."
+                                eyebrow="Postgres"
+                                contentClassName="space-y-4"
+                              >
+                                <div className="grid gap-4 sm:grid-cols-2">
+                                  <div className="space-y-2">
+                                    <Label htmlFor="platform-db-host">Host</Label>
+                                    <Input
+                                      id="platform-db-host"
+                                      value={platformDraft.database.host}
+                                      disabled={!platformEditable}
+                                      onChange={(event) =>
+                                        updatePlatformField(
+                                          "database",
+                                          "host",
+                                          event.target.value,
+                                        )
+                                      }
+                                    />
+                                  </div>
+                                  <div className="space-y-2">
+                                    <Label htmlFor="platform-db-port">Port</Label>
+                                    <Input
+                                      id="platform-db-port"
+                                      type="number"
+                                      min={1}
+                                      value={String(platformDraft.database.port)}
+                                      disabled={!platformEditable}
+                                      onChange={(event) =>
+                                        updatePlatformField(
+                                          "database",
+                                          "port",
+                                          parseIntegerInput(
+                                            event.target.value,
+                                            platformDraft.database.port,
+                                          ),
+                                        )
+                                      }
+                                    />
+                                  </div>
+                                  <div className="space-y-2">
+                                    <Label htmlFor="platform-db-username">
+                                      Username
+                                    </Label>
+                                    <Input
+                                      id="platform-db-username"
+                                      value={platformDraft.database.username}
+                                      disabled={!platformEditable}
+                                      onChange={(event) =>
+                                        updatePlatformField(
+                                          "database",
+                                          "username",
+                                          event.target.value,
+                                        )
+                                      }
+                                    />
+                                  </div>
+                                  <div className="space-y-2">
+                                    <Label htmlFor="platform-db-password">
+                                      Password
+                                    </Label>
+                                    <Input
+                                      id="platform-db-password"
+                                      type="password"
+                                      value={platformDraft.database.password}
+                                      disabled={!platformEditable}
+                                      onChange={(event) =>
+                                        updatePlatformField(
+                                          "database",
+                                          "password",
+                                          event.target.value,
+                                        )
+                                      }
+                                    />
+                                  </div>
+                                  <div className="space-y-2 sm:col-span-2">
+                                    <Label htmlFor="platform-db-name">
+                                      Database name
+                                    </Label>
+                                    <Input
+                                      id="platform-db-name"
+                                      value={platformDraft.database.database}
+                                      disabled={!platformEditable}
+                                      onChange={(event) =>
+                                        updatePlatformField(
+                                          "database",
+                                          "database",
+                                          event.target.value,
+                                        )
+                                      }
+                                    />
+                                  </div>
+                                </div>
+                                <div className="grid gap-3">
+                                  <div className="surface-subtle flex items-center justify-between rounded-[16px] border px-4 py-3">
+                                    <div>
+                                      <p className="font-medium">
+                                        Synchronize schema
+                                      </p>
+                                      <p className="text-sm text-muted-foreground">
+                                        Enable TypeORM schema synchronization on
+                                        boot.
+                                      </p>
+                                    </div>
+                                    <Switch
+                                      checked={platformDraft.database.synchronize}
+                                      disabled={!platformEditable}
+                                      onCheckedChange={(checked) =>
+                                        updatePlatformField(
+                                          "database",
+                                          "synchronize",
+                                          checked,
+                                        )
+                                      }
+                                    />
+                                  </div>
+                                  <div className="surface-subtle flex items-center justify-between rounded-[16px] border px-4 py-3">
+                                    <div>
+                                      <p className="font-medium">
+                                        Query logging
+                                      </p>
+                                      <p className="text-sm text-muted-foreground">
+                                        Prints SQL activity to API logs.
+                                      </p>
+                                    </div>
+                                    <Switch
+                                      checked={platformDraft.database.logging}
+                                      disabled={!platformEditable}
+                                      onCheckedChange={(checked) =>
+                                        updatePlatformField(
+                                          "database",
+                                          "logging",
+                                          checked,
+                                        )
+                                      }
+                                    />
+                                  </div>
+                                  <div className="surface-subtle flex items-center justify-between rounded-[16px] border px-4 py-3">
+                                    <div>
+                                      <p className="font-medium">SSL</p>
+                                      <p className="text-sm text-muted-foreground">
+                                        Uses TLS for the PostgreSQL connection.
+                                      </p>
+                                    </div>
+                                    <Switch
+                                      checked={platformDraft.database.ssl}
+                                      disabled={!platformEditable}
+                                      onCheckedChange={(checked) =>
+                                        updatePlatformField(
+                                          "database",
+                                          "ssl",
+                                          checked,
+                                        )
+                                      }
+                                    />
+                                  </div>
+                                </div>
+                              </SectionPanel>
+
+                              <SectionPanel
+                                title="Redis"
+                                description="Pubsub, realtime fanout, and cache wiring."
+                                eyebrow="Redis"
+                                contentClassName="space-y-4"
+                              >
+                                <div className="grid gap-4 sm:grid-cols-2">
+                                  <div className="space-y-2 sm:col-span-2">
+                                    <Label htmlFor="platform-redis-url">
+                                      Redis URL
+                                    </Label>
+                                    <Input
+                                      id="platform-redis-url"
+                                      value={platformDraft.redis.url}
+                                      disabled={!platformEditable}
+                                      onChange={(event) =>
+                                        updatePlatformField(
+                                          "redis",
+                                          "url",
+                                          event.target.value,
+                                        )
+                                      }
+                                    />
+                                  </div>
+                                  <div className="space-y-2">
+                                    <Label htmlFor="platform-redis-host">
+                                      Host
+                                    </Label>
+                                    <Input
+                                      id="platform-redis-host"
+                                      value={platformDraft.redis.host}
+                                      disabled={!platformEditable}
+                                      onChange={(event) =>
+                                        updatePlatformField(
+                                          "redis",
+                                          "host",
+                                          event.target.value,
+                                        )
+                                      }
+                                    />
+                                  </div>
+                                  <div className="space-y-2">
+                                    <Label htmlFor="platform-redis-port">
+                                      Port
+                                    </Label>
+                                    <Input
+                                      id="platform-redis-port"
+                                      type="number"
+                                      min={0}
+                                      value={String(platformDraft.redis.port)}
+                                      disabled={!platformEditable}
+                                      onChange={(event) =>
+                                        updatePlatformField(
+                                          "redis",
+                                          "port",
+                                          parseIntegerInput(
+                                            event.target.value,
+                                            platformDraft.redis.port,
+                                          ),
+                                        )
+                                      }
+                                    />
+                                  </div>
+                                  <div className="space-y-2">
+                                    <Label htmlFor="platform-redis-password">
+                                      Password
+                                    </Label>
+                                    <Input
+                                      id="platform-redis-password"
+                                      type="password"
+                                      value={platformDraft.redis.password}
+                                      disabled={!platformEditable}
+                                      onChange={(event) =>
+                                        updatePlatformField(
+                                          "redis",
+                                          "password",
+                                          event.target.value,
+                                        )
+                                      }
+                                    />
+                                  </div>
+                                  <div className="space-y-2">
+                                    <Label htmlFor="platform-redis-db">
+                                      DB index
+                                    </Label>
+                                    <Input
+                                      id="platform-redis-db"
+                                      type="number"
+                                      min={0}
+                                      value={String(platformDraft.redis.db)}
+                                      disabled={!platformEditable}
+                                      onChange={(event) =>
+                                        updatePlatformField(
+                                          "redis",
+                                          "db",
+                                          parseIntegerInput(
+                                            event.target.value,
+                                            platformDraft.redis.db,
+                                          ),
+                                        )
+                                      }
+                                    />
+                                  </div>
+                                  <div className="space-y-2 sm:col-span-2">
+                                    <Label htmlFor="platform-redis-prefix">
+                                      Key prefix
+                                    </Label>
+                                    <Input
+                                      id="platform-redis-prefix"
+                                      value={platformDraft.redis.keyPrefix}
+                                      disabled={!platformEditable}
+                                      onChange={(event) =>
+                                        updatePlatformField(
+                                          "redis",
+                                          "keyPrefix",
+                                          event.target.value,
+                                        )
+                                      }
+                                    />
+                                  </div>
+                                </div>
+                                <div className="grid gap-3">
+                                  <div className="surface-subtle flex items-center justify-between rounded-[16px] border px-4 py-3">
+                                    <div>
+                                      <p className="font-medium">
+                                        Redis enabled
+                                      </p>
+                                      <p className="text-sm text-muted-foreground">
+                                        Enables realtime pubsub and redis-backed
+                                        state.
+                                      </p>
+                                    </div>
+                                    <Switch
+                                      checked={platformDraft.redis.enabled}
+                                      disabled={!platformEditable}
+                                      onCheckedChange={(checked) =>
+                                        updatePlatformField(
+                                          "redis",
+                                          "enabled",
+                                          checked,
+                                        )
+                                      }
+                                    />
+                                  </div>
+                                </div>
+                              </SectionPanel>
+                            </div>
+                          </div>
+                        </TabsContent>
+
+                        <TabsContent value="identity" className="pt-2">
+                          <PlatformIdentityPanel />
+                        </TabsContent>
+
+                        <TabsContent value="agents" className="pt-2">
+                          <div className="space-y-6">
+                            <SectionPanel
+                              eyebrow="Agents"
+                              title="Agent orchestration"
+                              description="Heartbeat, task-claim, and realtime delivery thresholds for nodes and agents."
+                              contentClassName="space-y-4"
+                            >
+                              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                                <div className="space-y-2">
+                                  <Label htmlFor="platform-agent-heartbeat-timeout">
+                                    Heartbeat timeout seconds
+                                  </Label>
+                                  <Input
+                                    id="platform-agent-heartbeat-timeout"
+                                    type="number"
+                                    min={1}
+                                    value={String(
+                                      platformDraft.agents.heartbeatTimeoutSeconds,
+                                    )}
+                                    disabled={!platformEditable}
+                                    onChange={(event) =>
+                                      updatePlatformField(
+                                        "agents",
+                                        "heartbeatTimeoutSeconds",
+                                        parseIntegerInput(
+                                          event.target.value,
+                                          platformDraft.agents
+                                            .heartbeatTimeoutSeconds,
+                                        ),
+                                      )
+                                    }
+                                  />
+                                </div>
+                                <div className="space-y-2">
+                                  <Label htmlFor="platform-agent-offline-check">
+                                    Offline check interval
+                                  </Label>
+                                  <Input
+                                    id="platform-agent-offline-check"
+                                    type="number"
+                                    min={1}
+                                    value={String(
+                                      platformDraft.agents
+                                        .offlineCheckIntervalSeconds,
+                                    )}
+                                    disabled={!platformEditable}
+                                    onChange={(event) =>
+                                      updatePlatformField(
+                                        "agents",
+                                        "offlineCheckIntervalSeconds",
+                                        parseIntegerInput(
+                                          event.target.value,
+                                          platformDraft.agents
+                                            .offlineCheckIntervalSeconds,
+                                        ),
+                                      )
+                                    }
+                                  />
+                                </div>
+                                <div className="space-y-2">
+                                  <Label htmlFor="platform-agent-claim-lease">
+                                    Task claim lease seconds
+                                  </Label>
+                                  <Input
+                                    id="platform-agent-claim-lease"
+                                    type="number"
+                                    min={15}
+                                    value={String(
+                                      platformDraft.agents.taskClaimLeaseSeconds,
+                                    )}
+                                    disabled={!platformEditable}
+                                    onChange={(event) =>
+                                      updatePlatformField(
+                                        "agents",
+                                        "taskClaimLeaseSeconds",
+                                        parseIntegerInput(
+                                          event.target.value,
+                                          platformDraft.agents
+                                            .taskClaimLeaseSeconds,
+                                        ),
+                                      )
+                                    }
+                                  />
+                                </div>
+                                <div className="space-y-2">
+                                  <Label htmlFor="platform-agent-realtime-timeout">
+                                    Realtime ping timeout
+                                  </Label>
+                                  <Input
+                                    id="platform-agent-realtime-timeout"
+                                    type="number"
+                                    min={15}
+                                    value={String(
+                                      platformDraft.agents
+                                        .realtimePingTimeoutSeconds,
+                                    )}
+                                    disabled={!platformEditable}
+                                    onChange={(event) =>
+                                      updatePlatformField(
+                                        "agents",
+                                        "realtimePingTimeoutSeconds",
+                                        parseIntegerInput(
+                                          event.target.value,
+                                          platformDraft.agents
+                                            .realtimePingTimeoutSeconds,
+                                        ),
+                                      )
+                                    }
+                                  />
+                                </div>
+                                <div className="space-y-2">
+                                  <Label htmlFor="platform-agent-realtime-interval">
+                                    Realtime check interval
+                                  </Label>
+                                  <Input
+                                    id="platform-agent-realtime-interval"
+                                    type="number"
+                                    min={1}
+                                    value={String(
+                                      platformDraft.agents
+                                        .realtimePingCheckIntervalSeconds,
+                                    )}
+                                    disabled={!platformEditable}
+                                    onChange={(event) =>
+                                      updatePlatformField(
+                                        "agents",
+                                        "realtimePingCheckIntervalSeconds",
+                                        parseIntegerInput(
+                                          event.target.value,
+                                          platformDraft.agents
+                                            .realtimePingCheckIntervalSeconds,
+                                        ),
+                                      )
+                                    }
+                                  />
+                                </div>
+                                <div className="space-y-2">
+                                  <Label htmlFor="platform-agent-high-cpu">
+                                    High CPU threshold
+                                  </Label>
+                                  <Input
+                                    id="platform-agent-high-cpu"
+                                    type="number"
+                                    min={0}
+                                    max={100}
+                                    step="0.1"
+                                    value={String(
+                                      platformDraft.agents.highCpuThreshold,
+                                    )}
+                                    disabled={!platformEditable}
+                                    onChange={(event) =>
+                                      updatePlatformField(
+                                        "agents",
+                                        "highCpuThreshold",
+                                        parseNumberInput(
+                                          event.target.value,
+                                          platformDraft.agents.highCpuThreshold,
+                                        ),
+                                      )
+                                    }
+                                  />
+                                </div>
+                                <div className="space-y-2">
+                                  <Label htmlFor="platform-agent-stale-check">
+                                    Stale task check interval
+                                  </Label>
+                                  <Input
+                                    id="platform-agent-stale-check"
+                                    type="number"
+                                    min={1}
+                                    value={String(
+                                      platformDraft.agents
+                                        .staleTaskCheckIntervalSeconds,
+                                    )}
+                                    disabled={!platformEditable}
+                                    onChange={(event) =>
+                                      updatePlatformField(
+                                        "agents",
+                                        "staleTaskCheckIntervalSeconds",
+                                        parseIntegerInput(
+                                          event.target.value,
+                                          platformDraft.agents
+                                            .staleTaskCheckIntervalSeconds,
+                                        ),
+                                      )
+                                    }
+                                  />
+                                </div>
+                                <div className="space-y-2">
+                                  <Label htmlFor="platform-agent-stale-queued">
+                                    Stale queued timeout
+                                  </Label>
+                                  <Input
+                                    id="platform-agent-stale-queued"
+                                    type="number"
+                                    min={5}
+                                    value={String(
+                                      platformDraft.agents
+                                        .staleQueuedTaskTimeoutSeconds,
+                                    )}
+                                    disabled={!platformEditable}
+                                    onChange={(event) =>
+                                      updatePlatformField(
+                                        "agents",
+                                        "staleQueuedTaskTimeoutSeconds",
+                                        parseIntegerInput(
+                                          event.target.value,
+                                          platformDraft.agents
+                                            .staleQueuedTaskTimeoutSeconds,
+                                        ),
+                                      )
+                                    }
+                                  />
+                                </div>
+                                <div className="space-y-2">
+                                  <Label htmlFor="platform-agent-stale-running">
+                                    Stale running timeout
+                                  </Label>
+                                  <Input
+                                    id="platform-agent-stale-running"
+                                    type="number"
+                                    min={10}
+                                    value={String(
+                                      platformDraft.agents
+                                        .staleRunningTaskTimeoutSeconds,
+                                    )}
+                                    disabled={!platformEditable}
+                                    onChange={(event) =>
+                                      updatePlatformField(
+                                        "agents",
+                                        "staleRunningTaskTimeoutSeconds",
+                                        parseIntegerInput(
+                                          event.target.value,
+                                          platformDraft.agents
+                                            .staleRunningTaskTimeoutSeconds,
+                                        ),
+                                      )
+                                    }
+                                  />
+                                </div>
+                                <div className="space-y-2 md:col-span-2 xl:col-span-3">
+                                  <Label htmlFor="platform-agent-enrollment-token">
+                                    Agent enrollment token
+                                  </Label>
+                                  <Input
+                                    id="platform-agent-enrollment-token"
+                                    type="password"
+                                    value={platformDraft.agents.enrollmentToken}
+                                    disabled={!platformEditable}
+                                    onChange={(event) =>
+                                      updatePlatformField(
+                                        "agents",
+                                        "enrollmentToken",
+                                        event.target.value,
+                                      )
+                                    }
+                                  />
+                                </div>
+                              </div>
+
+                              <div className="surface-subtle flex items-center justify-between rounded-[16px] border px-4 py-3">
+                                <div>
+                                  <p className="font-medium">
+                                    Enable realtime task dispatch
+                                  </p>
+                                  <p className="text-sm text-muted-foreground">
+                                    Pushes task delivery through realtime sockets
+                                    instead of HTTP polling only.
+                                  </p>
+                                </div>
+                                <Switch
+                                  checked={
+                                    platformDraft.agents.enableRealtimeTaskDispatch
+                                  }
+                                  disabled={!platformEditable}
+                                  onCheckedChange={(checked) =>
+                                    updatePlatformField(
+                                      "agents",
+                                      "enableRealtimeTaskDispatch",
+                                      checked,
+                                    )
+                                  }
+                                />
+                              </div>
+                            </SectionPanel>
+
+                            <TaskFlowDiagnostics />
+                          </div>
+                        </TabsContent>
+                      </Tabs>
                     </SectionPanel>
-
-                    <TaskFlowDiagnostics />
                   </div>
                 )}
               </TabsContent>
