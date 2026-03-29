@@ -40,8 +40,8 @@ Current product surface:
   - workspace timezone control
   - default-workspace selection
   - dangerous workspace deletion flow
-- Node detail with live telemetry, packages, running tasks, and event history
-- Node interactive terminal route with live xterm.js console and persisted transcript history
+- Linux node detail with live telemetry, packages, running tasks, and event history
+- Linux node interactive terminal route with live xterm.js console and persisted transcript history
 - Task detail with live lifecycle and logs
 - Platform-admin workspaces page
 - User-centric membership management:
@@ -128,7 +128,7 @@ The top-level non-workspace pages continue to exist as convenience or fallback s
 - Workspace member and team management built on top of the global user directory
 - Task templates with prefill/save UX in task creation flows
 - Team-targeted task runs and schedule targeting
-- Node maintenance UX and node telemetry visibility
+- Linux node maintenance UX and node telemetry visibility
 - Interactive terminal UX with:
   - xterm.js live console tunneled through the agent
   - recent session history
