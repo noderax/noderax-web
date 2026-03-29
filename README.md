@@ -41,6 +41,7 @@ Current product surface:
   - default-workspace selection
   - dangerous workspace deletion flow
 - Node detail with live telemetry, packages, running tasks, and event history
+- Node interactive terminal route with live xterm.js console and persisted transcript history
 - Task detail with live lifecycle and logs
 - Platform-admin workspaces page
 - User-centric membership management:
@@ -78,7 +79,8 @@ Browser traffic is session-based and proxied through Next.js.
 4. Browser-side REST calls go through `app/api/proxy/[...path]`.
 5. The proxy forwards the access token upstream.
 6. Workspace selection is persisted via the `noderax_workspace` cookie.
-7. Realtime access uses `app/api/auth/realtime-token` and connects to `/realtime`.
+7. General realtime access uses `app/api/auth/realtime-token` and connects to `/realtime`.
+8. Interactive terminal access uses the same auth token flow but connects to the dedicated `/terminal` namespace.
 
 ## Route Model
 
@@ -88,6 +90,7 @@ The current primary UI uses workspace-scoped routes:
 - `/w/[workspaceSlug]/dashboard`
 - `/w/[workspaceSlug]/nodes`
 - `/w/[workspaceSlug]/nodes/[id]`
+- `/w/[workspaceSlug]/nodes/[id]/terminal`
 - `/w/[workspaceSlug]/nodes/[id]/packages`
 - `/w/[workspaceSlug]/tasks`
 - `/w/[workspaceSlug]/tasks/[id]`
@@ -126,6 +129,13 @@ The top-level non-workspace pages continue to exist as convenience or fallback s
 - Task templates with prefill/save UX in task creation flows
 - Team-targeted task runs and schedule targeting
 - Node maintenance UX and node telemetry visibility
+- Interactive terminal UX with:
+  - xterm.js live console tunneled through the agent
+  - recent session history
+  - persisted transcript timeline
+  - transcript "Terminal view" rendering
+  - live-session status messaging and termination feedback
+  - 5-minute reattach grace window after leaving the page
 - Platform and workspace audit surfaces
 - Workspace-scoped topbar search with grouped suggestions and `?q=` route handoff
 - Unified settings page:
@@ -216,8 +226,16 @@ Surfaces kept fresh by realtime:
 - workspace dashboard
 - workspace node list
 - node detail
+- node terminal
 - task detail
 - recent event views
+
+Terminal-specific notes:
+
+- Live terminal traffic uses the separate `/terminal` namespace rather than the general `/realtime` stream
+- Only the session creator can attach to and control a live terminal session
+- Persisted transcript chunks are polled while a session is active so the history panel stays current
+- Leaving the page no longer closes the shell immediately; the UI advertises the 5-minute reattach window
 
 ## API Surface Used By The Web App
 
@@ -258,6 +276,11 @@ Primary upstream routes:
 - `GET /workspaces/:workspaceId/task-templates`
 - `POST /workspaces/:workspaceId/task-templates`
 - `PATCH /workspaces/:workspaceId/task-templates/:id`
+- `POST /workspaces/:workspaceId/nodes/:nodeId/terminal-sessions`
+- `GET /workspaces/:workspaceId/nodes/:nodeId/terminal-sessions`
+- `GET /workspaces/:workspaceId/terminal-sessions/:sessionId`
+- `GET /workspaces/:workspaceId/terminal-sessions/:sessionId/chunks`
+- `POST /workspaces/:workspaceId/terminal-sessions/:sessionId/terminate`
 - `DELETE /workspaces/:workspaceId/task-templates/:id`
 - `GET /workspaces/:workspaceId/nodes`
 - `POST /workspaces/:workspaceId/nodes/:id/team`
