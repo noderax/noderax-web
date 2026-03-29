@@ -10,7 +10,6 @@ import {
   ChevronRight,
   ClipboardList,
   Home,
-  Rocket,
   Settings,
   Siren,
   Users,
@@ -140,7 +139,6 @@ const SidebarContent = ({
           ? [
               { href: "/workspaces", label: "Workspaces", icon: Workflow },
               { href: "/users", label: "Users", icon: Users },
-              { href: "/fleet", label: "Fleet", icon: Rocket },
               { href: "/audit", label: "Platform Audit", icon: ClipboardList },
               {
                 href: platformSettingsHref,

@@ -159,7 +159,7 @@ export const NodesTable = ({
       <SectionPanel
         eyebrow="Directory"
         title="Node inventory"
-        description="Filter the fleet, page through nodes, and open node-level detail."
+        description="Filter nodes, page through results, and open node-level detail."
         action={
           <>
             {filterControl}
@@ -181,7 +181,7 @@ export const NodesTable = ({
       <SectionPanel
         eyebrow="Directory"
         title="Node inventory"
-        description="Filter the fleet, page through nodes, and open node-level detail."
+        description="Filter nodes, page through results, and open node-level detail."
         action={
           <>
             {filterControl}
@@ -206,7 +206,7 @@ export const NodesTable = ({
       <SectionPanel
         eyebrow="Directory"
         title="Node inventory"
-        description="Filter the fleet, page through nodes, and open node-level detail."
+        description="Filter nodes, page through results, and open node-level detail."
         action={
           <>
             {filterControl}
@@ -228,7 +228,7 @@ export const NodesTable = ({
     <SectionPanel
       eyebrow="Directory"
       title="Node inventory"
-      description="Filter the fleet, page through nodes, and open node-level detail."
+      description="Filter nodes, page through results, and open node-level detail."
       action={
         <>
           {filterControl}

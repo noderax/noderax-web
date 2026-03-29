@@ -102,14 +102,6 @@ export const queryKeys = {
   taskTemplates: {
     all: (workspaceId: string) => ["task-templates", workspaceId] as const,
   },
-  fleet: {
-    nodes: (filters?: {
-      workspaceId?: string;
-      teamId?: string;
-      status?: string;
-      maintenanceMode?: boolean;
-    }) => ["fleet", "nodes", filters ?? {}] as const,
-  },
   oidcProviders: {
     all: ["auth", "oidc-providers"] as const,
   },
@@ -391,22 +383,6 @@ export const useTaskTemplates = (enabled = true) => {
     staleTime: 15_000,
   });
 };
-
-export const useFleetNodes = (
-  filters?: {
-    workspaceId?: string;
-    teamId?: string;
-    status?: "online" | "offline";
-    maintenanceMode?: boolean;
-  },
-  enabled = true,
-) =>
-  useQuery({
-    queryKey: queryKeys.fleet.nodes(filters),
-    queryFn: () => apiClient.getFleetNodes(filters),
-    enabled,
-    staleTime: 10_000,
-  });
 
 export const useOidcProviders = (enabled = true) =>
   useQuery({

@@ -42,7 +42,6 @@ import type {
   EventDto,
   EventFilters,
   EventRecord,
-  FleetNodeDto,
   FinalizeEnrollmentPayload,
   FinalizeEnrollmentResponse,
   ForgotPasswordPayload,
@@ -1306,24 +1305,6 @@ export const apiClient = {
         from: filters?.from,
         to: filters?.to,
         limit: filters?.limit,
-      })}`,
-    );
-  },
-  getFleetNodes(filters?: {
-    workspaceId?: string;
-    teamId?: string;
-    status?: NodeStatus;
-    maintenanceMode?: boolean;
-  }) {
-    return request<FleetNodeDto[]>(
-      `/api/proxy/fleet/nodes${buildQueryString({
-        workspaceId: filters?.workspaceId,
-        teamId: filters?.teamId,
-        status: filters?.status,
-        maintenanceMode:
-          typeof filters?.maintenanceMode === "boolean"
-            ? String(filters.maintenanceMode)
-            : undefined,
       })}`,
     );
   },

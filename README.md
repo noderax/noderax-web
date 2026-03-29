@@ -53,7 +53,6 @@ Current product surface:
   - archive / restore actions
   - read-only operator controls while archived
 - Workspace-scoped topbar search with grouped suggestions for nodes, tasks, schedules, events, members, and teams
-- Fleet inventory page for agent version, platform telemetry, team ownership, and maintenance visibility
 
 ## Tech Stack
 
@@ -109,7 +108,6 @@ Additional top-level routes:
 - `/setup`
 - `/users`
 - `/audit`
-- `/fleet`
 
 The top-level non-workspace pages continue to exist as convenience or fallback surfaces, but the workspace-scoped routes are the main operator path.
 
@@ -127,7 +125,7 @@ The top-level non-workspace pages continue to exist as convenience or fallback s
 - Workspace member and team management built on top of the global user directory
 - Task templates with prefill/save UX in task creation flows
 - Team-targeted task runs and schedule targeting
-- Node maintenance UX and fleet telemetry visibility
+- Node maintenance UX and node telemetry visibility
 - Platform and workspace audit surfaces
 - Workspace-scoped topbar search with grouped suggestions and `?q=` route handoff
 - Unified settings page:
@@ -272,7 +270,6 @@ Primary upstream routes:
 - `GET /workspaces/:workspaceId/metrics`
 - `GET /workspaces/:workspaceId/audit-logs`
 - `GET /audit-logs`
-- `GET /fleet/nodes`
 - `GET /platform-settings`
 - `PATCH /platform-settings`
 - `POST /platform-settings/validate/smtp`
@@ -365,7 +362,6 @@ store/
 - Dashboard totals are still operational snapshots, not a full analytics product.
 - Text search on some list views remains client-side.
 - Interactive terminal or SSH sessions are not implemented.
-- Fleet is intentionally an inventory/telemetry view right now; agent release rollout orchestration is not part of the current web surface.
 - The UI assumes the API is the source of truth for role enforcement and workspace access.
 
 ## Notes

@@ -90,7 +90,7 @@ export const DashboardView = () => {
             <RecentEventsFeed events={overviewQuery.data.recentEvents} />
 
             <SectionPanel
-              eyebrow="Fleet Snapshot"
+              eyebrow="Node Snapshot"
               title="Recent node activity"
               description="A concise view of the nodes contributing the most recent telemetry."
               contentClassName="p-0"

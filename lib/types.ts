@@ -930,25 +930,6 @@ export interface AuditLogFilters {
   limit?: number;
 }
 
-export interface FleetNodeDto {
-  id: string;
-  workspaceId: string;
-  name: string;
-  hostname: string;
-  os: string;
-  arch: string;
-  status: NodeStatus;
-  teamId: string | null;
-  teamName: string | null;
-  maintenanceMode: boolean;
-  maintenanceReason: string | null;
-  agentVersion: string | null;
-  platformVersion: string | null;
-  kernelVersion: string | null;
-  lastVersionReportedAt: string | null;
-  platformFamily: "linux" | "darwin";
-}
-
 export interface DashboardOverview {
   totals: {
     totalNodes: number;
