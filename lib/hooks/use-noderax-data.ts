@@ -933,8 +933,8 @@ export const useTerminateTerminalSession = () => {
         requireWorkspaceId(workspaceId),
       ),
     onSuccess: async (session, variables) => {
-      toast.success("Terminal session terminated", {
-        description: `Session ${session.id.slice(0, 8)} was stopped.`,
+      toast.success("Termination requested", {
+        description: `Session ${session.id.slice(0, 8)} is shutting down and will close after the remote shell exits.`,
       });
 
       await Promise.all([

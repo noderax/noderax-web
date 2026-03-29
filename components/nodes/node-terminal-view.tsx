@@ -53,6 +53,7 @@ import { Switch } from "@/components/ui/switch";
 const DEFAULT_COLS = 120;
 const DEFAULT_ROWS = 34;
 const HISTORY_PAGE_SIZE = 200;
+const TERMINAL_DETACH_GRACE_SECONDS = 300;
 
 const LIVE_SESSION_STATUSES = new Set<TerminalSessionStatus>([
   "pending",
@@ -121,6 +122,15 @@ const directionTone = (direction: TerminalTranscriptChunk["direction"]) => {
     default:
       return "outline";
   }
+};
+
+const formatGraceWindowLabel = (seconds: number) => {
+  if (seconds % 60 === 0) {
+    const minutes = seconds / 60;
+    return `${minutes} minute${minutes === 1 ? "" : "s"}`;
+  }
+
+  return `${seconds} second${seconds === 1 ? "" : "s"}`;
 };
 
 export const NodeTerminalView = ({ id }: { id: string }) => {
@@ -224,6 +234,19 @@ export const NodeTerminalView = ({ id }: { id: string }) => {
       (!isLiveSession(selectedSession.status) ||
         selectedSession.createdByUserId === currentUserId),
   );
+  const detachGraceLabel = formatGraceWindowLabel(
+    TERMINAL_DETACH_GRACE_SECONDS,
+  );
+  const terminateRequested = selectedSession?.status === "terminating";
+  const liveSessionNotice = selectedSession
+    ? selectedSession.status === "pending"
+      ? "Starting the remote shell. The first prompt can take a few seconds."
+      : selectedSession.status === "terminating"
+        ? "Termination requested. Waiting for the remote shell to exit and persist the final transcript."
+        : canControlSelectedLiveSession
+          ? `Interactive session is live. If you leave without terminating, it stays available for ${detachGraceLabel} so you can reattach.`
+          : null
+    : null;
 
   const transcriptQuery = useTerminalSessionChunks(
     selectedSession?.id ?? "",
@@ -685,9 +708,17 @@ export const NodeTerminalView = ({ id }: { id: string }) => {
             <Button
               variant="destructive"
               onClick={() => void handleTerminateSession()}
-              disabled={!canControlSelectedLiveSession || terminateTerminalSession.isPending}
+              disabled={
+                !canControlSelectedLiveSession ||
+                terminateTerminalSession.isPending ||
+                terminateRequested
+              }
             >
-              {terminateTerminalSession.isPending ? "Stopping..." : "Terminate"}
+              {terminateTerminalSession.isPending
+                ? "Requesting stop..."
+                : terminateRequested
+                  ? "Termination requested"
+                  : "Terminate"}
             </Button>
           </div>
         </div>
@@ -730,12 +761,37 @@ export const NodeTerminalView = ({ id }: { id: string }) => {
                   Session: {selectedSession.status}
                 </Badge>
               ) : null}
+              {selectedSession && canControlSelectedLiveSession ? (
+                <Badge variant="outline">
+                  Reattach window: {detachGraceLabel}
+                </Badge>
+              ) : null}
             </div>
           }
           contentClassName="space-y-4"
         >
           {selectedSession && canControlSelectedLiveSession ? (
             <>
+              {liveSessionNotice ? (
+                <div
+                  className={cn(
+                    "rounded-2xl border px-4 py-3 text-sm",
+                    terminateRequested
+                      ? "border-amber-500/30 bg-amber-500/10 text-amber-100"
+                      : "surface-subtle text-muted-foreground",
+                  )}
+                >
+                  <div className="flex items-start gap-3">
+                    {terminateRequested ? (
+                      <LoaderCircle className="mt-0.5 size-4 shrink-0 animate-spin" />
+                    ) : (
+                      <Clock3 className="mt-0.5 size-4 shrink-0" />
+                    )}
+                    <p>{liveSessionNotice}</p>
+                  </div>
+                </div>
+              ) : null}
+
               <div className="grid gap-3 md:grid-cols-3">
                 <div className="surface-subtle rounded-2xl border px-4 py-3">
                   <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
