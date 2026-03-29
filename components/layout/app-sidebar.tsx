@@ -4,15 +4,21 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  Boxes,
+  BellRing,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
   ClipboardList,
-  Home,
+  CirclePlay,
+  Clock3,
+  FolderTree,
+  LayoutDashboard,
+  MonitorCog,
   Settings,
-  Siren,
+  ServerCog,
+  UserRound,
   Users,
+  Users2,
   Workflow,
   type LucideIcon,
 } from "lucide-react";
@@ -52,6 +58,7 @@ type NavGroupItem = {
   children: Array<{
     href: string;
     label: string;
+    icon: LucideIcon;
   }>;
   href?: never;
 };
@@ -96,25 +103,29 @@ const SidebarContent = ({
   const navigation = [
     {
       label: "Overview",
-      items: [{ href: dashboardHref, label: "Dashboard", icon: Home }],
+      items: [{ href: dashboardHref, label: "Dashboard", icon: LayoutDashboard }],
     },
     {
       label: "Operations",
       items: [
-        { href: nodesHref, label: "Nodes", icon: Boxes },
+        { href: nodesHref, label: "Nodes", icon: MonitorCog },
         ...(isWorkspaceAdmin
           ? [
               {
                 label: "Tasks",
                 icon: Workflow,
                 children: [
-                  { href: tasksHref, label: "Task runs" },
-                  { href: scheduledTasksHref, label: "Scheduled tasks" },
+                  { href: tasksHref, label: "Task runs", icon: CirclePlay },
+                  {
+                    href: scheduledTasksHref,
+                    label: "Scheduled tasks",
+                    icon: Clock3,
+                  },
                 ],
               },
             ]
-          : [{ href: tasksHref, label: "Tasks", icon: Workflow }]),
-        { href: eventsHref, label: "Events", icon: Siren },
+          : [{ href: tasksHref, label: "Tasks", icon: CirclePlay }]),
+        { href: eventsHref, label: "Events", icon: BellRing },
       ],
     },
     {
@@ -122,8 +133,8 @@ const SidebarContent = ({
       items: [
         ...(workspace
           ? [
-              { href: membersHref, label: "Members", icon: Users },
-              { href: teamsHref, label: "Teams", icon: Users },
+              { href: membersHref, label: "Members", icon: UserRound },
+              { href: teamsHref, label: "Teams", icon: Users2 },
               ...(isWorkspaceAdmin
                 ? [{ href: workspaceAuditHref, label: "Audit", icon: ClipboardList }]
                 : []),
@@ -137,13 +148,13 @@ const SidebarContent = ({
       items: [
         ...(isPlatformAdmin
           ? [
-              { href: "/workspaces", label: "Workspaces", icon: Workflow },
+              { href: "/workspaces", label: "Workspaces", icon: FolderTree },
               { href: "/users", label: "Users", icon: Users },
               { href: "/audit", label: "Platform Audit", icon: ClipboardList },
               {
                 href: platformSettingsHref,
                 label: "Platform Settings",
-                icon: Settings,
+                icon: ServerCog,
               },
             ]
           : []),
@@ -153,6 +164,7 @@ const SidebarContent = ({
     label: string;
     items: NavigationItem[];
   }>;
+  const visibleNavigation = navigation.filter((group) => group.items.length > 0);
 
   return (
     <div className="flex h-full flex-col">
@@ -175,7 +187,7 @@ const SidebarContent = ({
 
       <div className="flex-1 overflow-y-auto px-3 py-4">
         <div className="space-y-6">
-          {navigation.map((group) => (
+          {visibleNavigation.map((group) => (
             <div key={group.label} className="space-y-1.5">
               {!collapsed ? (
                 <p className="px-3 text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
@@ -254,12 +266,20 @@ const SidebarContent = ({
                                   href={child.href}
                                   onClick={onNavigate}
                                   className={cn(
-                                    "flex h-9 items-center rounded-lg border border-transparent px-3 text-sm transition-colors",
+                                    "flex h-9 items-center gap-2 rounded-lg border border-transparent px-3 text-sm transition-colors",
                                     childActive
                                       ? "tone-brand shadow-sm"
                                       : "text-sidebar-foreground/72 hover:border-sidebar-border hover:bg-sidebar-accent hover:text-sidebar-foreground",
                                   )}
                                 >
+                                  <child.icon
+                                    className={cn(
+                                      "size-3.5 shrink-0",
+                                      childActive
+                                        ? "text-tone-brand"
+                                        : "text-muted-foreground",
+                                    )}
+                                  />
                                   {child.label}
                                 </Link>
                               );
