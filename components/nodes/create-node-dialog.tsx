@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { ArrowLeft, CheckCircle2, Plus, ShieldCheck } from "lucide-react";
+import { ArrowLeft, Check, CheckCircle2, Copy, Plus, ShieldCheck } from "lucide-react";
+import { AnimatePresence, motion } from "motion/react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 
@@ -34,6 +35,7 @@ import {
   useWorkspaceTeams,
 } from "@/lib/hooks/use-noderax-data";
 import { useWorkspaceContext } from "@/lib/hooks/use-workspace-context";
+import { toast } from "sonner";
 
 const verifyEnrollmentSchema = z.object({
   email: z.string().email("Enter a valid email address."),
@@ -65,6 +67,7 @@ export const CreateNodeDialog = () => {
   const [step, setStep] = useState<"verify" | "details">("verify");
   const [teamId, setTeamId] = useState<"none" | string>("none");
   const [completionError, setCompletionError] = useState<string | null>(null);
+  const [isCopied, setIsCopied] = useState(false);
   const finalizeEnrollmentMutation = useFinalizeEnrollment();
   const updateNodeTeamMutation = useUpdateNodeTeam();
   const teamsQuery = useWorkspaceTeams();
@@ -140,6 +143,7 @@ export const CreateNodeDialog = () => {
         setOpen(nextOpen);
         if (!nextOpen) {
           resetDialog();
+          setIsCopied(false);
         }
       }}
     >
@@ -190,6 +194,59 @@ export const CreateNodeDialog = () => {
 
         {step === "verify" ? (
           <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Agent API URL</Label>
+              <div className="flex items-center gap-2">
+                <Input
+                  readOnly
+                  value={(process.env.NEXT_PUBLIC_NODERAX_API_URL ?? "").replace(/\/v1$/, "")}
+                  className="cursor-default bg-muted/40 font-mono text-xs focus-visible:border-border focus-visible:ring-0"
+                />
+                <Button
+                  size="icon"
+                  variant="outline"
+                  type="button"
+                  onClick={() => {
+                    const value = (process.env.NEXT_PUBLIC_NODERAX_API_URL ?? "").replace(/\/v1$/, "");
+                    if (value) {
+                      navigator.clipboard.writeText(value);
+                      setIsCopied(true);
+                      toast.success("API URL copied to clipboard.");
+                      setTimeout(() => setIsCopied(false), 2000);
+                    }
+                  }}
+                  className="relative shrink-0 overflow-hidden"
+                >
+                  <AnimatePresence mode="wait" initial={false}>
+                    {isCopied ? (
+                      <motion.div
+                        key="check"
+                        initial={{ opacity: 0, scale: 0.8 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.8 }}
+                        transition={{ duration: 0.15 }}
+                      >
+                        <Check className="size-4 text-tone-success" />
+                      </motion.div>
+                    ) : (
+                      <motion.div
+                        key="copy"
+                        initial={{ opacity: 0, scale: 0.8 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.8 }}
+                        transition={{ duration: 0.15 }}
+                      >
+                        <Copy className="size-4" />
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Provide this URL to your node agent during initialization.
+              </p>
+            </div>
+
             <div className="space-y-2">
               <Label htmlFor="enrollment-email">Operator email</Label>
               <Input
