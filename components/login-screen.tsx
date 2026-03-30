@@ -752,9 +752,9 @@ export const LoginScreen = ({
                   ))}
                 </div>
 
-                <div className="pt-2">
+                {/* <div className="pt-2">
                   <InfraTelemetry />
-                </div>
+                </div> */}
               </div>
 
               <div className="pt-2">
