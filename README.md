@@ -193,8 +193,9 @@ The unified `/settings` page now contains:
   - token management
   - QR-based MFA enrollment, recovery-code regeneration, and disable flow
 - `Workspace`
-  - workspace name and slug
+  - workspace name and slug with automatic slug generation
   - workspace timezone
+  - notification levels (INFO, WARNING, CRITICAL) for Email and Telegram
   - archive / restore
   - default-workspace status and selection
   - danger zone with typed confirmation for deletion
