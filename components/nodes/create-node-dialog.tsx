@@ -27,8 +27,21 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { useCreateNodeInstall, useWorkspaceTeams } from "@/lib/hooks/use-noderax-data";
-import type { CreateNodeInstallResponse } from "@/lib/types";
+import { Badge } from "@/components/ui/badge";
+import {
+  Progress,
+  ProgressLabel,
+} from "@/components/ui/progress";
+import {
+  useCreateNodeInstall,
+  useNodeInstallStatus,
+  useWorkspaceTeams,
+} from "@/lib/hooks/use-noderax-data";
+import type {
+  CreateNodeInstallResponse,
+  NodeInstallDto,
+  NodeInstallStatus,
+} from "@/lib/types";
 import { toast } from "sonner";
 
 const createNodeInstallSchema = z.object({
@@ -63,6 +76,8 @@ export const CreateNodeDialog = () => {
       ? null
       : (teamsQuery.data ?? []).find((team) => team.id === teamId) ?? null;
   const currentStep = installData ? 2 : 1;
+  const installStatusQuery = useNodeInstallStatus(installData?.installId, installData);
+  const activeInstall = installStatusQuery.data ?? installData;
 
   const clearCopyTimeout = () => {
     if (copyTimeoutRef.current) {
@@ -255,6 +270,13 @@ export const CreateNodeDialog = () => {
               </div>
 
               <div className="space-y-3 rounded-[20px] border bg-muted/20 p-4">
+                {activeInstall ? (
+                  <InstallProgressCard
+                    install={activeInstall}
+                    syncing={installStatusQuery.isFetching}
+                  />
+                ) : null}
+
                 <div className="space-y-2">
                   <Label>Install command</Label>
                   <div className="flex items-start gap-2">
@@ -305,9 +327,16 @@ export const CreateNodeDialog = () => {
                 </div>
 
                 <p className="text-xs text-muted-foreground">
-                  Expires at {new Date(installData.expiresAt).toLocaleString()}. Run the
-                  command on the target Ubuntu or Debian host with `sudo`.
+                  Expires at{" "}
+                  {new Date((activeInstall ?? installData).expiresAt).toLocaleString()}.
+                  Run the command on the target Ubuntu or Debian host with `sudo`.
                 </p>
+
+                {installStatusQuery.error instanceof Error ? (
+                  <p className="text-xs text-tone-danger">
+                    Live status refresh failed: {installStatusQuery.error.message}
+                  </p>
+                ) : null}
               </div>
             </div>
           ) : null}
@@ -346,6 +375,116 @@ export const CreateNodeDialog = () => {
     </Dialog>
   );
 };
+
+const INSTALL_STATUS_LABELS: Record<NodeInstallStatus, string> = {
+  pending: "Waiting",
+  installing: "Installing",
+  completed: "Completed",
+  failed: "Failed",
+  expired: "Expired",
+};
+
+const INSTALL_STAGE_LABELS: Record<string, string> = {
+  command_generated: "Waiting for installer start",
+  installer_started: "Installer started",
+  dependencies_installing: "Installing system packages",
+  dependencies_ready: "Dependencies ready",
+  service_user_ready: "Preparing noderax service account",
+  binary_download_started: "Downloading agent binary",
+  binary_downloaded: "Agent binary downloaded",
+  agent_bootstrapping: "Bootstrapping node credentials",
+  bootstrap_token_consumed: "Node created in control plane",
+  service_started: "Starting background service",
+  completed: "Installation completed",
+  failed: "Installation failed",
+  expired: "Install token expired",
+};
+
+const installStatusVariant = (status: NodeInstallStatus) => {
+  switch (status) {
+    case "completed":
+      return "default";
+    case "failed":
+      return "destructive";
+    case "installing":
+      return "secondary";
+    case "expired":
+      return "outline";
+    default:
+      return "outline";
+  }
+};
+
+const formatInstallStage = (stage: string) =>
+  INSTALL_STAGE_LABELS[stage] ??
+  stage
+    .split("_")
+    .filter(Boolean)
+    .map((part) => `${part.slice(0, 1).toUpperCase()}${part.slice(1)}`)
+    .join(" ");
+
+const InstallProgressCard = ({
+  install,
+  syncing,
+}: {
+  install: NodeInstallDto;
+  syncing: boolean;
+}) => (
+  <div className="rounded-[18px] border bg-background/80 p-4">
+    <div className="flex flex-wrap items-start justify-between gap-3">
+      <div className="space-y-1">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+          Live install status
+        </p>
+        <p className="text-sm font-semibold text-foreground">
+          {formatInstallStage(install.stage)}
+        </p>
+      </div>
+      <Badge
+        variant={installStatusVariant(install.status)}
+        className="rounded-full px-3 py-1"
+      >
+        {INSTALL_STATUS_LABELS[install.status]}
+      </Badge>
+    </div>
+
+    <Progress value={install.progressPercent} className="mt-3">
+      <div className="flex w-full items-center gap-3">
+        <ProgressLabel className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+          Realtime progress
+        </ProgressLabel>
+        <span className="ml-auto text-xs font-semibold text-foreground tabular-nums">
+          {Math.round(install.progressPercent)}%
+        </span>
+      </div>
+    </Progress>
+
+    <p className="mt-3 text-sm leading-6 text-muted-foreground">
+      {install.statusMessage ?? "Waiting for the installer to report progress."}
+    </p>
+
+    <div className="mt-3 flex flex-wrap gap-2 text-[11px] font-medium text-muted-foreground">
+      <span className="rounded-full border bg-muted/30 px-2.5 py-1">
+        Updated {new Date(install.updatedAt).toLocaleTimeString()}
+      </span>
+      {syncing ? (
+        <span className="rounded-full border bg-muted/30 px-2.5 py-1">
+          Live sync active
+        </span>
+      ) : null}
+      {install.hostname ? (
+        <span className="rounded-full border bg-muted/30 px-2.5 py-1">
+          Host {install.hostname}
+        </span>
+      ) : null}
+      {install.nodeId ? (
+        <span className="rounded-full border bg-muted/30 px-2.5 py-1">
+          Node created
+        </span>
+      ) : null}
+    </div>
+  </div>
+);
 
 const StepCard = ({
   step,

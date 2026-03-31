@@ -59,6 +59,7 @@ import type {
   NodeDetail,
   NodeDto,
   NodeFilters,
+  NodeInstallDto,
   NodeStatus,
   OidcProviderDto,
   NodeSummary,
@@ -1181,6 +1182,14 @@ export const apiClient = {
         method: "POST",
         body: JSON.stringify(payload),
       },
+    );
+  },
+  getNodeInstallStatus(installId: string, workspaceId: string) {
+    return request<NodeInstallDto>(
+      buildWorkspaceApiPath(
+        workspaceId,
+        `/node-installs/${encodeURIComponent(installId)}`,
+      ),
     );
   },
   checkEnrollmentStatus(token: string) {

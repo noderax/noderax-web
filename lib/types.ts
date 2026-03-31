@@ -20,6 +20,12 @@ export type WorkspaceMembershipRole =
   | "member"
   | "viewer";
 export type EnrollmentStatus = "pending" | "approved" | "revoked";
+export type NodeInstallStatus =
+  | "pending"
+  | "installing"
+  | "completed"
+  | "failed"
+  | "expired";
 export type RealtimeStatus =
   | "idle"
   | "connecting"
@@ -153,6 +159,25 @@ export interface EventDto {
   message: string;
   metadata: Record<string, unknown> | null;
   createdAt: string;
+}
+
+export interface NodeInstallDto {
+  installId: string;
+  workspaceId: string;
+  teamId?: string | null;
+  nodeName: string;
+  description?: string | null;
+  hostname?: string | null;
+  nodeId?: string | null;
+  status: NodeInstallStatus;
+  stage: string;
+  progressPercent: number;
+  statusMessage?: string | null;
+  startedAt?: string | null;
+  consumedAt?: string | null;
+  expiresAt: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface MetricDto {
@@ -955,12 +980,10 @@ export interface CreateNodeInstallPayload {
   teamId?: string;
 }
 
-export interface CreateNodeInstallResponse {
-  installId: string;
+export interface CreateNodeInstallResponse extends NodeInstallDto {
   installCommand: string;
   scriptUrl: string;
   apiUrl: string;
-  expiresAt: string;
 }
 
 export interface EnrollmentStatusResponse {

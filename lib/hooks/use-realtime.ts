@@ -9,10 +9,13 @@ import { getRealtimeClient, type RealtimeMessage } from "@/lib/websocket";
 import type {
   DashboardOverview,
   EventRecord,
+  NodeInstallDto,
   NodeDetail,
   NodeSummary,
   TaskDetail,
 } from "@/lib/types";
+import { queryKeys } from "@/lib/hooks/use-noderax-data";
+import { useWorkspaceContext } from "@/lib/hooks/use-workspace-context";
 import { useAppStore } from "@/store/useAppStore";
 
 const METRIC_FLUSH_MS = 300;
@@ -167,6 +170,7 @@ const collectTrackedNodeIds = (queryClient: QueryClient) => {
 export const useRealtimeBridge = () => {
   const queryClient = useQueryClient();
   const session = useAppStore((state) => state.session);
+  const { workspaceId } = useWorkspaceContext();
   const setRealtimeStatus = useAppStore((state) => state.setRealtimeStatus);
   const patchRealtimeHealth = useAppStore((state) => state.patchRealtimeHealth);
   const bumpRealtimeCounter = useAppStore((state) => state.bumpRealtimeCounter);
@@ -560,6 +564,80 @@ export const useRealtimeBridge = () => {
       return;
     }
 
+    if (message.type === "node-install.updated") {
+      if (
+        !shouldAcceptMessage(
+          `node-install:${message.data.workspaceId}:${message.data.installId}`,
+          message,
+        )
+      ) {
+        return;
+      }
+
+      const cacheKey = queryKeys.nodeInstalls.status(
+        message.data.workspaceId,
+        message.data.installId,
+      );
+      const previousInstall = queryClient.getQueryData<NodeInstallDto>(cacheKey);
+
+      queryClient.setQueryData<NodeInstallDto>(cacheKey, message.data);
+
+      const nodeJustCreated =
+        Boolean(message.data.nodeId) && previousInstall?.nodeId !== message.data.nodeId;
+      const becameCompleted =
+        message.data.status === "completed" && previousInstall?.status !== "completed";
+      const becameFailed =
+        message.data.status === "failed" && previousInstall?.status !== "failed";
+      const installerStarted =
+        message.data.status === "installing" &&
+        previousInstall?.status !== "installing" &&
+        message.data.stage === "installer_started";
+
+      if (installerStarted) {
+        toast.message("Installer started", {
+          description: `${message.data.nodeName} is now bootstrapping on the target server.`,
+        });
+      }
+
+      if (nodeJustCreated || becameCompleted || becameFailed) {
+        queryClient.invalidateQueries({
+          queryKey: ["nodes", message.data.workspaceId],
+          refetchType: "active",
+        });
+
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.dashboard.overview(message.data.workspaceId),
+          refetchType: "active",
+        });
+
+        if (message.data.nodeId) {
+          queryClient.invalidateQueries({
+            queryKey: queryKeys.nodes.detail(
+              message.data.workspaceId,
+              message.data.nodeId,
+            ),
+            refetchType: "active",
+          });
+        }
+      }
+
+      if (becameCompleted) {
+        toast.success("Node installed", {
+          description: `${message.data.nodeName} is ready in the control plane.`,
+        });
+      }
+
+      if (becameFailed) {
+        toast.error("Node install failed", {
+          description:
+            message.data.statusMessage ??
+            `${message.data.nodeName} reported a bootstrap failure.`,
+        });
+      }
+
+      return;
+    }
+
     performance.mark("realtime:store-updated");
     performance.measure(
       "realtime:socket-to-store",
@@ -626,6 +704,15 @@ export const useRealtimeBridge = () => {
     setRealtimeCounter,
     setRealtimeStatus,
   ]);
+
+  useEffect(() => {
+    if (!session?.user.id || !workspaceId) {
+      return;
+    }
+
+    const client = getRealtimeClient();
+    return client.subscribeWorkspace(workspaceId);
+  }, [session?.user.id, workspaceId]);
 
   useEffect(() => {
     if (!session?.user.id) {

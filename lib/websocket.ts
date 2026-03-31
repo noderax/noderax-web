@@ -6,6 +6,7 @@ import { apiClient } from "@/lib/api";
 import type {
   EventDto,
   MetricDto,
+  NodeInstallDto,
   NodeStatus,
   RealtimeEventMeta,
   RealtimeStatus,
@@ -41,6 +42,12 @@ export type RealtimeMessage =
       timestamp: string;
       meta?: RealtimeEventMeta;
       data: EventDto;
+    }
+  | {
+      type: "node-install.updated";
+      timestamp: string;
+      meta?: RealtimeEventMeta;
+      data: NodeInstallDto;
     };
 
 type MessageListener = (message: RealtimeMessage) => void;
@@ -51,6 +58,11 @@ type NodeStatusUpdatedPayload = {
   hostname?: string;
   status: NodeStatus;
   lastSeenAt?: string | null;
+  sequence?: number;
+  sourceInstance?: string;
+};
+
+type NodeInstallUpdatedPayload = NodeInstallDto & {
   sequence?: number;
   sourceInstance?: string;
 };
@@ -159,6 +171,7 @@ class NoderaxRealtimeClient {
   private listeners = new Set<MessageListener>();
   private statusListeners = new Set<StatusListener>();
   private nodeSubscriptionCounts = new Map<string, number>();
+  private workspaceSubscriptionCounts = new Map<string, number>();
   private status: RealtimeStatus = "idle";
   private connectPromise: Promise<void> | null = null;
   private wantsConnection = false;
@@ -222,6 +235,27 @@ class NoderaxRealtimeClient {
     };
   }
 
+  subscribeWorkspace(workspaceId: string) {
+    if (!workspaceId) {
+      return () => {};
+    }
+
+    const currentCount = this.workspaceSubscriptionCounts.get(workspaceId) ?? 0;
+    this.clearDisconnectTimer();
+    this.workspaceSubscriptionCounts.set(workspaceId, currentCount + 1);
+    this.wantsConnection = true;
+
+    if (currentCount === 0 && this.socket?.connected) {
+      this.socket.emit("subscribe.workspace", { workspaceId });
+    }
+
+    void this.connect();
+
+    return () => {
+      this.unsubscribeWorkspace(workspaceId);
+    };
+  }
+
   unsubscribeNode(nodeId: string) {
     const currentCount = this.nodeSubscriptionCounts.get(nodeId);
     if (!currentCount) {
@@ -236,6 +270,27 @@ class NoderaxRealtimeClient {
       }
     } else {
       this.nodeSubscriptionCounts.set(nodeId, currentCount - 1);
+    }
+
+    if (!this.shouldMaintainConnection()) {
+      this.scheduleAutoDisconnect();
+    }
+  }
+
+  unsubscribeWorkspace(workspaceId: string) {
+    const currentCount = this.workspaceSubscriptionCounts.get(workspaceId);
+    if (!currentCount) {
+      return;
+    }
+
+    if (currentCount === 1) {
+      this.workspaceSubscriptionCounts.delete(workspaceId);
+
+      if (this.socket?.connected) {
+        this.socket.emit("unsubscribe.workspace", { workspaceId });
+      }
+    } else {
+      this.workspaceSubscriptionCounts.set(workspaceId, currentCount - 1);
     }
 
     if (!this.shouldMaintainConnection()) {
@@ -271,7 +326,11 @@ class NoderaxRealtimeClient {
   }
 
   private shouldMaintainConnection() {
-    return this.listeners.size > 0 || this.nodeSubscriptionCounts.size > 0;
+    return (
+      this.listeners.size > 0 ||
+      this.nodeSubscriptionCounts.size > 0 ||
+      this.workspaceSubscriptionCounts.size > 0
+    );
   }
 
   private async syncNodeSubscriptions() {
@@ -286,9 +345,25 @@ class NoderaxRealtimeClient {
     );
   }
 
+  private async syncWorkspaceSubscriptions() {
+    if (!this.socket?.connected) {
+      return;
+    }
+
+    await Promise.all(
+      Array.from(this.workspaceSubscriptionCounts.keys()).map(async (workspaceId) => {
+        await this.emitWithAck("subscribe.workspace", { workspaceId });
+      }),
+    );
+  }
+
   private readonly emitWithAck = async (
-    eventName: "subscribe.node" | "unsubscribe.node",
-    payload: { nodeId: string },
+    eventName:
+      | "subscribe.node"
+      | "unsubscribe.node"
+      | "subscribe.workspace"
+      | "unsubscribe.workspace",
+    payload: { nodeId: string } | { workspaceId: string },
   ) => {
     if (!this.socket?.connected) {
       return;
@@ -306,6 +381,7 @@ class NoderaxRealtimeClient {
     this.markSignal();
     this.setStatus("connected");
     await this.syncNodeSubscriptions();
+    await this.syncWorkspaceSubscriptions();
   };
 
   private readonly handleConnectError = (error: RealtimeConnectError) => {
@@ -433,6 +509,20 @@ class NoderaxRealtimeClient {
     });
   };
 
+  private readonly handleNodeInstallUpdated = (
+    payload: NodeInstallUpdatedPayload,
+  ) => {
+    this.emit({
+      type: "node-install.updated",
+      timestamp: asTimestamp(payload.updatedAt),
+      meta: {
+        sequence: payload.sequence,
+        sourceInstance: payload.sourceInstance,
+      },
+      data: payload,
+    });
+  };
+
   private attachSocketListeners(socket: Socket) {
     socket.on("connect", this.handleConnect);
     socket.on("connect_error", this.handleConnectError);
@@ -446,6 +536,7 @@ class NoderaxRealtimeClient {
     socket.on("task.created", this.handleTaskCreated);
     socket.on("task.updated", this.handleTaskUpdated);
     socket.on("event.created", this.handleEventCreated);
+    socket.on("node-install.updated", this.handleNodeInstallUpdated);
   }
 
   private detachSocketListeners(socket: Socket) {
@@ -461,6 +552,7 @@ class NoderaxRealtimeClient {
     socket.off("task.created", this.handleTaskCreated);
     socket.off("task.updated", this.handleTaskUpdated);
     socket.off("event.created", this.handleEventCreated);
+    socket.off("node-install.updated", this.handleNodeInstallUpdated);
   }
 
   private async retryConnectionWithFreshToken() {

@@ -16,6 +16,7 @@ import type {
   CancelTaskResponse,
   CreateNodeInstallPayload,
   CreateNodeInstallResponse,
+  NodeInstallDto,
   CreateBatchScheduledTaskPayload,
   CreateBatchTaskPayload,
   CreateScheduledTaskPayload,
@@ -148,6 +149,10 @@ export const queryKeys = {
   },
   enrollments: {
     status: (token: string) => ["enrollments", "status", token] as const,
+  },
+  nodeInstalls: {
+    status: (workspaceId: string, installId: string) =>
+      ["node-installs", workspaceId, "status", installId] as const,
   },
   packages: {
     installed: (workspaceId: string, nodeId: string) =>
@@ -1580,12 +1585,19 @@ export const useFinalizeEnrollment = () => {
 };
 
 export const useCreateNodeInstall = () => {
+  const queryClient = useQueryClient();
   const { workspaceId } = useWorkspaceContext();
 
   return useMutation({
     mutationFn: (payload: CreateNodeInstallMutationInput) =>
       apiClient.createNodeInstall(payload, requireWorkspaceId(workspaceId)),
     onSuccess: (install: CreateNodeInstallResponse, variables) => {
+      const resolvedWorkspaceId = requireWorkspaceId(workspaceId);
+      queryClient.setQueryData(
+        queryKeys.nodeInstalls.status(resolvedWorkspaceId, install.installId),
+        install,
+      );
+
       toast.success("Install command generated", {
         description: `${variables.nodeName} is ready for one-click bootstrap.`,
       });
@@ -1597,6 +1609,41 @@ export const useCreateNodeInstall = () => {
         description: readMutationError(error),
       });
     },
+  });
+};
+
+export const useNodeInstallStatus = (
+  installId: string | null | undefined,
+  initialData?: NodeInstallDto | null,
+) => {
+  const { workspaceId } = useWorkspaceContext();
+
+  return useQuery({
+    queryKey:
+      workspaceId && installId
+        ? queryKeys.nodeInstalls.status(workspaceId, installId)
+        : ["node-installs", "idle"],
+    queryFn: () =>
+      apiClient.getNodeInstallStatus(
+        installId ?? "",
+        requireWorkspaceId(workspaceId),
+      ),
+    enabled: Boolean(workspaceId && installId),
+    initialData: initialData ?? undefined,
+    refetchInterval: (query) => {
+      const current = query.state.data as NodeInstallDto | undefined;
+      if (
+        !current ||
+        current.status === "completed" ||
+        current.status === "failed" ||
+        current.status === "expired"
+      ) {
+        return false;
+      }
+
+      return 5_000;
+    },
+    refetchIntervalInBackground: true,
   });
 };
 
