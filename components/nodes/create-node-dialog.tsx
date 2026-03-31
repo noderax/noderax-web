@@ -1,9 +1,8 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRef, useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { ArrowLeft, Check, CheckCircle2, Copy, Plus, ShieldCheck } from "lucide-react";
+import { Check, Copy, Plus, ShieldCheck } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -14,7 +13,6 @@ import {
   DialogClose,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -29,109 +27,99 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  useFinalizeEnrollment,
-  useUpdateNodeTeam,
-  useWorkspaceTeams,
-} from "@/lib/hooks/use-noderax-data";
-import { useWorkspaceContext } from "@/lib/hooks/use-workspace-context";
+import { useCreateNodeInstall, useWorkspaceTeams } from "@/lib/hooks/use-noderax-data";
+import type { CreateNodeInstallResponse } from "@/lib/types";
 import { toast } from "sonner";
 
-const verifyEnrollmentSchema = z.object({
-  email: z.string().email("Enter a valid email address."),
-  token: z.string().trim().min(8, "Token must be at least 8 characters."),
-});
-
-const completeEnrollmentSchema = z.object({
+const createNodeInstallSchema = z.object({
   nodeName: z.string().trim().min(2, "Node name must be at least 2 characters."),
   description: z.string(),
 });
 
-type VerifyEnrollmentValues = z.infer<typeof verifyEnrollmentSchema>;
-type CompleteEnrollmentValues = z.infer<typeof completeEnrollmentSchema>;
+type CreateNodeInstallValues = z.infer<typeof createNodeInstallSchema>;
 
-const verifyDefaultValues: VerifyEnrollmentValues = {
-  email: "",
-  token: "",
-};
-
-const completeDefaultValues: CompleteEnrollmentValues = {
+const createNodeInstallDefaultValues: CreateNodeInstallValues = {
   nodeName: "",
   description: "",
 };
 
+type CopyField = "command" | "api" | "script" | null;
+
 export const CreateNodeDialog = () => {
-  const router = useRouter();
-  const { buildWorkspaceHref } = useWorkspaceContext();
   const [open, setOpen] = useState(false);
-  const [step, setStep] = useState<"verify" | "details">("verify");
   const [teamId, setTeamId] = useState<"none" | string>("none");
-  const [completionError, setCompletionError] = useState<string | null>(null);
-  const [isCopied, setIsCopied] = useState(false);
-  const finalizeEnrollmentMutation = useFinalizeEnrollment();
-  const updateNodeTeamMutation = useUpdateNodeTeam();
+  const [generationError, setGenerationError] = useState<string | null>(null);
+  const [copiedField, setCopiedField] = useState<CopyField>(null);
+  const [installData, setInstallData] = useState<CreateNodeInstallResponse | null>(null);
+  const copyTimeoutRef = useRef<number | null>(null);
+  const createNodeInstallMutation = useCreateNodeInstall();
   const teamsQuery = useWorkspaceTeams();
-  const verifyForm = useForm<VerifyEnrollmentValues>({
-    resolver: zodResolver(verifyEnrollmentSchema),
-    defaultValues: verifyDefaultValues,
+  const form = useForm<CreateNodeInstallValues>({
+    resolver: zodResolver(createNodeInstallSchema),
+    defaultValues: createNodeInstallDefaultValues,
   });
-  const completeForm = useForm<CompleteEnrollmentValues>({
-    resolver: zodResolver(completeEnrollmentSchema),
-    defaultValues: completeDefaultValues,
-  });
+  const selectedTeam =
+    teamId === "none"
+      ? null
+      : (teamsQuery.data ?? []).find((team) => team.id === teamId) ?? null;
+  const currentStep = installData ? 2 : 1;
 
-  const getVerificationSummary = () => {
-    const values = verifyForm.getValues();
-
-    return {
-      email: values.email.trim(),
-      token: values.token.trim(),
-    };
+  const clearCopyTimeout = () => {
+    if (copyTimeoutRef.current) {
+      window.clearTimeout(copyTimeoutRef.current);
+      copyTimeoutRef.current = null;
+    }
   };
-  const verificationSummary = getVerificationSummary();
 
   const resetDialog = () => {
-    verifyForm.reset(verifyDefaultValues);
-    completeForm.reset(completeDefaultValues);
-    setStep("verify");
-    setCompletionError(null);
+    clearCopyTimeout();
+    form.reset(createNodeInstallDefaultValues);
     setTeamId("none");
+    setGenerationError(null);
+    setCopiedField(null);
+    setInstallData(null);
   };
 
-  const handleVerify = verifyForm.handleSubmit(async () => {
-    setCompletionError(null);
-    setStep("details");
-  });
+  const copyValue = async (
+    field: Exclude<CopyField, null>,
+    value: string,
+    successMessage: string,
+  ) => {
+    if (!value) {
+      return;
+    }
 
-  const handleComplete = completeForm.handleSubmit(async (values) => {
-    setCompletionError(null);
+    await navigator.clipboard.writeText(value);
+    clearCopyTimeout();
+    setCopiedField(field);
+    toast.success(successMessage);
+    copyTimeoutRef.current = window.setTimeout(() => {
+      setCopiedField(null);
+    }, 2000);
+  };
+
+  const handleBackToDetails = () => {
+    clearCopyTimeout();
+    setCopiedField(null);
+    setGenerationError(null);
+    setInstallData(null);
+  };
+
+  const handleGenerate = form.handleSubmit(async (values) => {
+    setGenerationError(null);
 
     try {
-      const verificationSummary = getVerificationSummary();
-      const enrollment = await finalizeEnrollmentMutation.mutateAsync({
-        token: verificationSummary.token,
-        payload: {
-          email: verificationSummary.email,
-          nodeName: values.nodeName.trim(),
-          description: values.description.trim() || undefined,
-        },
+      const install = await createNodeInstallMutation.mutateAsync({
+        nodeName: values.nodeName.trim(),
+        description: values.description.trim() || undefined,
+        teamId: teamId !== "none" ? teamId : undefined,
       });
-
-      if (teamId !== "none") {
-        await updateNodeTeamMutation.mutateAsync({
-          nodeId: enrollment.nodeId,
-          payload: { teamId },
-        });
-      }
-
-      setOpen(false);
-      resetDialog();
-      router.push(buildWorkspaceHref(`nodes/${enrollment.nodeId}`) ?? "/workspaces");
+      setInstallData(install);
     } catch (error) {
-      setCompletionError(
+      setGenerationError(
         error instanceof Error
           ? error.message
-          : "Node enrollment could not be completed right now.",
+          : "Install command could not be generated right now.",
       );
     }
   });
@@ -143,7 +131,6 @@ export const CreateNodeDialog = () => {
         setOpen(nextOpen);
         if (!nextOpen) {
           resetDialog();
-          setIsCopied(false);
         }
       }}
     >
@@ -151,241 +138,324 @@ export const CreateNodeDialog = () => {
         <Plus className="size-4" />
         Add node
       </DialogTrigger>
-      <DialogContent className="sm:max-w-xl">
-        <DialogHeader>
-          <DialogTitle>Node enrollment</DialogTitle>
+      <DialogContent className="max-h-[calc(100svh-1rem)] !max-w-[min(72rem,calc(100vw-1rem))] grid-rows-[auto,auto,auto,auto] gap-0 overflow-hidden p-0">
+        <DialogHeader className="border-b px-6 py-5">
+          <DialogTitle>Add node</DialogTitle>
           <DialogDescription>
-            Enter the agent enrollment token and operator email, then finalize the
-            node record from the next step.
+            {currentStep === 1
+              ? "Prepare the node details, then generate a one-click install command."
+              : "Copy the generated command and run it on the target server to enroll the node automatically."}
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex items-center gap-3 rounded-[18px] border bg-muted/30 px-4 py-3">
-          <div className="flex min-w-0 items-center gap-2">
-            <div className="tone-brand flex size-8 items-center justify-center rounded-full border">
-              <ShieldCheck className="size-4" />
-            </div>
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-                Step 1
-              </p>
-              <p className="text-sm font-medium">Enter token and email</p>
-            </div>
-          </div>
-          <div className="ml-auto h-px flex-1 bg-border/70" />
-          <div className="flex min-w-0 items-center gap-2">
-            <div
-              className={
-                step === "details"
-                  ? "tone-success flex size-8 items-center justify-center rounded-full border"
-                  : "flex size-8 items-center justify-center rounded-full border text-muted-foreground"
-              }
-            >
-              <CheckCircle2 className="size-4" />
-            </div>
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-                Step 2
-              </p>
-              <p className="text-sm font-medium">Finalize node enrollment</p>
-            </div>
+        <div className="border-b px-6 py-3.5">
+          <div className="grid gap-2 sm:grid-cols-2">
+            <StepCard
+              step={1}
+              title="Configure node"
+              description="Choose the node name, team, and optional notes."
+              active={currentStep === 1}
+              complete={currentStep > 1}
+            />
+            <StepCard
+              step={2}
+              title="Install agent"
+              description="Copy the command and run it on the target server."
+              active={currentStep === 2}
+            />
           </div>
         </div>
 
-        {step === "verify" ? (
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>Agent API URL</Label>
-              <div className="flex items-center gap-2">
+        <div className="px-6 py-4">
+          {currentStep === 1 ? (
+            <div className="grid gap-4 lg:grid-cols-2">
+              <div className="flex items-center gap-3 rounded-[18px] border bg-muted/30 px-4 py-3 lg:col-span-2">
+                <div className="tone-brand flex size-8 items-center justify-center rounded-full border">
+                  <ShieldCheck className="size-4" />
+                </div>
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                    One-click install
+                  </p>
+                  <p className="text-sm font-medium">
+                    Noderax will create the node record when the installer consumes
+                    the bootstrap token.
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="node-display-name">Node name</Label>
                 <Input
-                  readOnly
-                  value={(process.env.NEXT_PUBLIC_NODERAX_API_URL ?? "").replace(/\/v1$/, "")}
-                  className="cursor-default bg-muted/40 font-mono text-xs focus-visible:border-border focus-visible:ring-0"
+                  id="node-display-name"
+                  placeholder="Production Node EU-1"
+                  aria-invalid={Boolean(form.formState.errors.nodeName)}
+                  {...form.register("nodeName")}
                 />
-                <Button
-                  size="icon"
-                  variant="outline"
-                  type="button"
-                  onClick={() => {
-                    const value = (process.env.NEXT_PUBLIC_NODERAX_API_URL ?? "").replace(/\/v1$/, "");
-                    if (value) {
-                      navigator.clipboard.writeText(value);
-                      setIsCopied(true);
-                      toast.success("API URL copied to clipboard.");
-                      setTimeout(() => setIsCopied(false), 2000);
+                {form.formState.errors.nodeName ? (
+                  <p className="text-sm text-tone-danger">
+                    {form.formState.errors.nodeName.message}
+                  </p>
+                ) : null}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="node-team">Team ownership</Label>
+                <Select value={teamId} onValueChange={(value) => setTeamId(value ?? "none")}>
+                  <SelectTrigger id="node-team" className="w-full">
+                    <SelectValue placeholder="Select a team">
+                      {selectedTeam?.name ?? null}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">No team</SelectItem>
+                    {(teamsQuery.data ?? []).map((team) => (
+                      <SelectItem key={team.id} value={team.id}>
+                        {team.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  The selected team will be assigned automatically after the server
+                  finishes bootstrapping.
+                </p>
+              </div>
+
+              <div className="space-y-2 lg:col-span-2">
+                <Label htmlFor="node-description">Description</Label>
+                <Textarea
+                  id="node-description"
+                  placeholder="Optional notes about where this node belongs or how it will be used."
+                  className="min-h-24"
+                  {...form.register("description")}
+                />
+              </div>
+
+              {generationError ? (
+                <p className="text-sm text-tone-danger">{generationError}</p>
+              ) : null}
+            </div>
+          ) : installData ? (
+            <div className="grid gap-4 xl:grid-cols-[minmax(16rem,0.8fr)_minmax(0,1.45fr)]">
+              <div className="space-y-4">
+                <div className="rounded-[20px] border bg-muted/20 p-4">
+                  <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
+                    <SummaryField label="Node name" value={form.getValues("nodeName").trim()} />
+                    <SummaryField
+                      label="Team ownership"
+                      value={selectedTeam?.name ?? "No team"}
+                    />
+                    <SummaryField
+                      label="Description"
+                      value={form.getValues("description").trim() || "No description"}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-3 rounded-[20px] border bg-muted/20 p-4">
+                <div className="space-y-2">
+                  <Label>Install command</Label>
+                  <div className="flex items-start gap-2">
+                    <Textarea
+                      readOnly
+                      value={installData.installCommand}
+                      className="min-h-24 bg-muted/40 font-mono text-xs"
+                    />
+                    <CopyButton
+                      copied={copiedField === "command"}
+                      onClick={() =>
+                        void copyValue(
+                          "command",
+                          installData.installCommand,
+                          "Install command copied to clipboard.",
+                        )
+                      }
+                    />
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-3">
+                  <ReadOnlyCopyField
+                    label="Agent API URL"
+                    value={installData.apiUrl}
+                    copied={copiedField === "api"}
+                    onCopy={() =>
+                      void copyValue(
+                        "api",
+                        installData.apiUrl,
+                        "API URL copied to clipboard.",
+                      )
                     }
-                  }}
-                  className="relative shrink-0 overflow-hidden"
-                >
-                  <AnimatePresence mode="wait" initial={false}>
-                    {isCopied ? (
-                      <motion.div
-                        key="check"
-                        initial={{ opacity: 0, scale: 0.8 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        exit={{ opacity: 0, scale: 0.8 }}
-                        transition={{ duration: 0.15 }}
-                      >
-                        <Check className="size-4 text-tone-success" />
-                      </motion.div>
-                    ) : (
-                      <motion.div
-                        key="copy"
-                        initial={{ opacity: 0, scale: 0.8 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        exit={{ opacity: 0, scale: 0.8 }}
-                        transition={{ duration: 0.15 }}
-                      >
-                        <Copy className="size-4" />
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </Button>
+                  />
+
+                  <ReadOnlyCopyField
+                    label="Installer script URL"
+                    value={installData.scriptUrl}
+                    copied={copiedField === "script"}
+                    onCopy={() =>
+                      void copyValue(
+                        "script",
+                        installData.scriptUrl,
+                        "Installer script URL copied to clipboard.",
+                      )
+                    }
+                  />
+                </div>
+
+                <p className="text-xs text-muted-foreground">
+                  Expires at {new Date(installData.expiresAt).toLocaleString()}. Run the
+                  command on the target Ubuntu or Debian host with `sudo`.
+                </p>
               </div>
-              <p className="text-xs text-muted-foreground">
-                Provide this URL to your node agent during initialization.
-              </p>
             </div>
+          ) : null}
+        </div>
+        <div className="flex flex-col gap-2 border-t bg-[var(--surface-dialog)] px-6 py-3.5 sm:flex-row sm:items-center sm:justify-between">
+          {currentStep === 2 ? (
+            <Button variant="outline" type="button" onClick={handleBackToDetails}>
+              Back to details
+            </Button>
+          ) : (
+            <DialogClose render={<Button variant="outline" type="button" />}>
+              Close
+            </DialogClose>
+          )}
 
-            <div className="space-y-2">
-              <Label htmlFor="enrollment-email">Operator email</Label>
-              <Input
-                id="enrollment-email"
-                placeholder="admin@noderax.dev"
-                aria-invalid={Boolean(verifyForm.formState.errors.email)}
-                {...verifyForm.register("email")}
-              />
-              {verifyForm.formState.errors.email ? (
-                <p className="text-sm text-tone-danger">
-                  {verifyForm.formState.errors.email.message}
-                </p>
-              ) : null}
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="enrollment-token">Enrollment token</Label>
-              <Input
-                id="enrollment-token"
-                placeholder="Paste the agent enrollment token"
-                aria-invalid={Boolean(verifyForm.formState.errors.token)}
-                {...verifyForm.register("token")}
-              />
-              {verifyForm.formState.errors.token ? (
-                <p className="text-sm text-tone-danger">
-                  {verifyForm.formState.errors.token.message}
-                </p>
-              ) : null}
-            </div>
-
-            <DialogFooter>
+          <div className="flex flex-col-reverse gap-2 sm:flex-row">
+            {currentStep === 2 ? (
               <DialogClose render={<Button variant="outline" type="button" />}>
-                Cancel
+                Close
               </DialogClose>
-              <Button type="button" onClick={() => void handleVerify()}>
-                Continue
-              </Button>
-            </DialogFooter>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            <div className="surface-subtle rounded-[18px] border px-4 py-3">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-                Enrollment request
-              </p>
-              <p className="mt-2 text-sm font-medium">{verificationSummary.email}</p>
-              <p className="mt-1 text-sm text-muted-foreground">
-                The final admin request will be sent when you save this node.
-              </p>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="node-display-name">Node name</Label>
-              <Input
-                id="node-display-name"
-                placeholder="Production Node EU-1"
-                aria-invalid={Boolean(completeForm.formState.errors.nodeName)}
-                {...completeForm.register("nodeName")}
-              />
-              {completeForm.formState.errors.nodeName ? (
-                <p className="text-sm text-tone-danger">
-                  {completeForm.formState.errors.nodeName.message}
-                </p>
-              ) : null}
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="node-description">Description</Label>
-              <Textarea
-                id="node-description"
-                placeholder="Optional notes about where this node belongs or how it will be used."
-                className="min-h-28"
-                {...completeForm.register("description")}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="node-team">Team ownership</Label>
-              <Select value={teamId} onValueChange={(value) => setTeamId(value ?? "none")}>
-                <SelectTrigger id="node-team" className="w-full">
-                  <SelectValue placeholder="Select a team" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">No team</SelectItem>
-                  {(teamsQuery.data ?? []).map((team) => (
-                    <SelectItem key={team.id} value={team.id}>
-                      {team.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-muted-foreground">
-                Team-owned nodes are eligible for team-targeted tasks and
-                schedules as soon as enrollment finishes.
-              </p>
-            </div>
-
-            {completionError ? (
-              <p className="text-sm text-tone-danger">{completionError}</p>
             ) : null}
-
-            <DialogFooter className="sm:justify-between">
-              <Button
-                variant="outline"
-                type="button"
-                onClick={() => {
-                  setCompletionError(null);
-                  setStep("verify");
-                }}
-                disabled={
-                  finalizeEnrollmentMutation.isPending ||
-                  updateNodeTeamMutation.isPending
-                }
-              >
-                <ArrowLeft className="size-4" />
-                Back
-              </Button>
-              <div className="flex flex-col-reverse gap-2 sm:flex-row">
-                <DialogClose render={<Button variant="outline" type="button" />}>
-                  Cancel
-                </DialogClose>
-                <Button
-                  type="button"
-                  onClick={() => void handleComplete()}
-                  disabled={
-                    finalizeEnrollmentMutation.isPending ||
-                    updateNodeTeamMutation.isPending
-                  }
-                >
-                  {finalizeEnrollmentMutation.isPending ||
-                  updateNodeTeamMutation.isPending
-                    ? "Saving..."
-                    : "Save node"}
-                </Button>
-              </div>
-            </DialogFooter>
+            <Button
+              type="button"
+              onClick={() => void handleGenerate()}
+              disabled={createNodeInstallMutation.isPending}
+            >
+              {createNodeInstallMutation.isPending
+                ? "Generating..."
+                : installData
+                  ? "Regenerate command"
+                  : "Generate install command"}
+            </Button>
           </div>
-        )}
+        </div>
       </DialogContent>
     </Dialog>
   );
 };
+
+const StepCard = ({
+  step,
+  title,
+  description,
+  active,
+  complete = false,
+}: {
+  step: number;
+  title: string;
+  description: string;
+  active: boolean;
+  complete?: boolean;
+}) => (
+  <div
+    className={`rounded-[18px] border px-4 py-3 transition-colors ${
+      active
+        ? "border-[var(--tone-brand-border)] bg-[var(--tone-brand-soft)]"
+        : complete
+          ? "border-border bg-muted/20"
+          : "border-dashed border-border/80 bg-background/40"
+    }`}
+  >
+    <div className="mb-2 flex items-center gap-2">
+      <div
+        className={`flex size-6 items-center justify-center rounded-full text-xs font-semibold ${
+          active
+            ? "tone-brand border"
+            : complete
+              ? "border bg-muted text-foreground"
+              : "border border-dashed text-muted-foreground"
+        }`}
+      >
+        {complete ? <Check className="size-3.5" /> : step}
+      </div>
+      <p className="text-sm font-semibold">{title}</p>
+    </div>
+    <p className="text-xs leading-5 text-muted-foreground">{description}</p>
+  </div>
+);
+
+const SummaryField = ({ label, value }: { label: string; value: string }) => (
+  <div className="space-y-1 rounded-2xl border bg-background/70 px-4 py-3">
+    <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+      {label}
+    </p>
+    <p className="text-sm font-medium leading-6 text-foreground">{value}</p>
+  </div>
+);
+
+const ReadOnlyCopyField = ({
+  label,
+  value,
+  copied,
+  onCopy,
+}: {
+  label: string;
+  value: string;
+  copied: boolean;
+  onCopy: () => void;
+}) => (
+  <div className="space-y-2">
+    <Label>{label}</Label>
+    <div className="flex items-center gap-2">
+      <Input
+        readOnly
+        value={value}
+        className="cursor-default bg-muted/40 font-mono text-xs focus-visible:border-border focus-visible:ring-0"
+      />
+      <CopyButton copied={copied} onClick={onCopy} />
+    </div>
+  </div>
+);
+
+const CopyButton = ({
+  copied,
+  onClick,
+}: {
+  copied: boolean;
+  onClick: () => void;
+}) => (
+  <Button
+    size="icon"
+    variant="outline"
+    type="button"
+    onClick={onClick}
+    className="relative shrink-0 overflow-hidden"
+  >
+    <AnimatePresence mode="wait" initial={false}>
+      {copied ? (
+        <motion.div
+          key="check"
+          initial={{ opacity: 0, scale: 0.8 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0, scale: 0.8 }}
+          transition={{ duration: 0.15 }}
+        >
+          <Check className="size-4 text-tone-success" />
+        </motion.div>
+      ) : (
+        <motion.div
+          key="copy"
+          initial={{ opacity: 0, scale: 0.8 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0, scale: 0.8 }}
+          transition={{ duration: 0.15 }}
+        >
+          <Copy className="size-4" />
+        </motion.div>
+      )}
+    </AnimatePresence>
+  </Button>
+);

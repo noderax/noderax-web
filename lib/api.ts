@@ -22,6 +22,8 @@ import type {
   ChangePasswordPayload,
   CreateBatchScheduledTaskPayload,
   CreateBatchTaskPayload,
+  CreateNodeInstallPayload,
+  CreateNodeInstallResponse,
   CreateScheduledTaskPayload,
   CreateNodePayload,
   CreateOidcProviderPayload,
@@ -1166,6 +1168,15 @@ export const apiClient = {
             `/enrollments/${encodeURIComponent(token)}/finalize`,
           )
         : `/api/proxy/enrollments/${encodeURIComponent(token)}/finalize`,
+      {
+        method: "POST",
+        body: JSON.stringify(payload),
+      },
+    );
+  },
+  createNodeInstall(payload: CreateNodeInstallPayload, workspaceId: string) {
+    return request<CreateNodeInstallResponse>(
+      buildWorkspaceApiPath(workspaceId, "/node-installs"),
       {
         method: "POST",
         body: JSON.stringify(payload),

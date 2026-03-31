@@ -949,6 +949,20 @@ export interface FinalizeEnrollmentResponse {
   agentToken: string;
 }
 
+export interface CreateNodeInstallPayload {
+  nodeName: string;
+  description?: string;
+  teamId?: string;
+}
+
+export interface CreateNodeInstallResponse {
+  installId: string;
+  installCommand: string;
+  scriptUrl: string;
+  apiUrl: string;
+  expiresAt: string;
+}
+
 export interface EnrollmentStatusResponse {
   status: EnrollmentStatus;
   nodeId?: string | null;

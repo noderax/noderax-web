@@ -14,6 +14,8 @@ import type {
   AuthSession,
   CancelTaskPayload,
   CancelTaskResponse,
+  CreateNodeInstallPayload,
+  CreateNodeInstallResponse,
   CreateBatchScheduledTaskPayload,
   CreateBatchTaskPayload,
   CreateScheduledTaskPayload,
@@ -733,6 +735,8 @@ type FinalizeEnrollmentMutationInput = {
   token: string;
   payload: FinalizeEnrollmentPayload;
 };
+
+type CreateNodeInstallMutationInput = CreateNodeInstallPayload;
 
 type CancelTaskMutationInput = {
   taskId: string;
@@ -1571,6 +1575,27 @@ export const useFinalizeEnrollment = () => {
       ]);
 
       return enrollment;
+    },
+  });
+};
+
+export const useCreateNodeInstall = () => {
+  const { workspaceId } = useWorkspaceContext();
+
+  return useMutation({
+    mutationFn: (payload: CreateNodeInstallMutationInput) =>
+      apiClient.createNodeInstall(payload, requireWorkspaceId(workspaceId)),
+    onSuccess: (install: CreateNodeInstallResponse, variables) => {
+      toast.success("Install command generated", {
+        description: `${variables.nodeName} is ready for one-click bootstrap.`,
+      });
+
+      return install;
+    },
+    onError: (error) => {
+      toast.error("Unable to generate install command", {
+        description: readMutationError(error),
+      });
     },
   });
 };

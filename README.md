@@ -41,6 +41,7 @@ Current product surface:
   - default-workspace selection
   - dangerous workspace deletion flow
 - Linux node detail with live telemetry, packages, running tasks, and event history
+- Two-step `Add node` onboarding that collects node metadata first, then generates a one-click agent install command
 - Linux node interactive terminal route with live xterm.js console and persisted transcript history
 - Task detail with live lifecycle and logs
 - Platform-admin workspaces page
@@ -129,6 +130,7 @@ The top-level non-workspace pages continue to exist as convenience or fallback s
 - Task templates with prefill/save UX in task creation flows
 - Team-targeted task runs and schedule targeting
 - Linux node maintenance UX and node telemetry visibility
+- Two-step node install command generation with copyable bootstrap command, API URL, and installer script URL
 - Interactive terminal UX with:
   - xterm.js live console tunneled through the agent
   - recent session history
@@ -285,6 +287,7 @@ Primary upstream routes:
 - `DELETE /workspaces/:workspaceId/task-templates/:id`
 - `GET /workspaces/:workspaceId/nodes`
 - `POST /workspaces/:workspaceId/nodes/:id/team`
+- `POST /workspaces/:workspaceId/node-installs`
 - `POST /workspaces/:workspaceId/nodes/:id/maintenance/enable`
 - `POST /workspaces/:workspaceId/nodes/:id/maintenance/disable`
 - `GET /workspaces/:workspaceId/tasks`
@@ -385,7 +388,7 @@ store/
 
 - Dashboard totals are still operational snapshots, not a full analytics product.
 - Text search on some list views remains client-side.
-- Interactive terminal or SSH sessions are not implemented.
+- Direct SSH passthrough is not implemented; terminal access is provided through the managed agent session.
 - The UI assumes the API is the source of truth for role enforcement and workspace access.
 
 ## Notes
