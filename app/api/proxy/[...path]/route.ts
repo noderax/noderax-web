@@ -4,6 +4,7 @@ import {
   API_BASE_URL_COOKIE,
   AUTH_TOKEN_COOKIE,
   getApiRequestUrls,
+  resolveApiBaseUrl,
 } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
@@ -15,6 +16,7 @@ async function forwardRequest(
   const { path } = await context.params;
   const apiUrlOverride = request.cookies.get(API_BASE_URL_COOKIE)?.value;
   const upstreamUrls = getApiRequestUrls(`/${path.join("/")}`, apiUrlOverride);
+  const resolvedApiBaseUrl = resolveApiBaseUrl(apiUrlOverride).apiUrl;
 
   if (!upstreamUrls.length) {
     return NextResponse.json(
@@ -38,6 +40,9 @@ async function forwardRequest(
   headers.delete("host");
   headers.delete("connection");
   headers.delete("content-length");
+  if (resolvedApiBaseUrl) {
+    headers.set("x-noderax-public-api-url", resolvedApiBaseUrl);
+  }
   const requestBody =
     request.method === "GET" || request.method === "HEAD"
       ? undefined
