@@ -518,7 +518,13 @@ export const useNodeTerminalSessions = (
   });
 };
 
-export const useTerminalSession = (sessionId: string, enabled = true) => {
+export const useTerminalSession = (
+  sessionId: string,
+  options?: {
+    enabled?: boolean;
+    refetchIntervalMs?: number | false;
+  },
+) => {
   const { workspaceId } = useWorkspaceContext();
 
   return useQuery({
@@ -527,8 +533,10 @@ export const useTerminalSession = (sessionId: string, enabled = true) => {
         ? queryKeys.nodes.terminalSession(workspaceId, sessionId)
         : ["nodes", "terminal-session", "idle", sessionId],
     queryFn: () => apiClient.getTerminalSession(sessionId, workspaceId!),
-    enabled: enabled && Boolean(workspaceId && sessionId),
+    enabled: (options?.enabled ?? true) && Boolean(workspaceId && sessionId),
     staleTime: 5_000,
+    refetchInterval: options?.refetchIntervalMs ?? false,
+    refetchIntervalInBackground: true,
     refetchOnWindowFocus: false,
   });
 };

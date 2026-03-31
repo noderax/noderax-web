@@ -381,6 +381,12 @@ export class NoderaxTerminalClient {
     );
   }
 
+  private isClosedSessionAttachError(message: string) {
+    return /terminal session .* was not found/i.test(message)
+      || /terminal session is no longer active/i.test(message)
+      || /unable to attach terminal session/i.test(message);
+  }
+
   private readonly handleConnect = () => {
     this.didRetryAuth = false;
     this.setStatus("connected");
@@ -420,6 +426,11 @@ export class NoderaxTerminalClient {
     void this.attachSession(this.sessionId).catch((error) => {
       const message =
         error instanceof Error ? error.message : "Unable to reattach terminal session.";
+      if (this.isClosedSessionAttachError(message)) {
+        this.disconnect();
+        return;
+      }
+
       this.emitError(message);
     });
   };

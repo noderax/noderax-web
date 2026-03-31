@@ -35,6 +35,7 @@ import {
   useCreateTerminalSession,
   useNode,
   useNodeTerminalSessions,
+  useTerminalSession,
   useTerminateTerminalSession,
   useTerminalSessionChunks,
 } from "@/lib/hooks/use-noderax-data";
@@ -220,6 +221,14 @@ export const NodeTerminalView = ({ id }: { id: string }) => {
   const selectedSessionKey = selectedSession?.id ?? null;
   const selectedSessionNodeId = selectedSession?.nodeId ?? null;
   const selectedSessionStatus = selectedSession?.status ?? null;
+  const selectedSessionDetailQuery = useTerminalSession(selectedSessionKey ?? "", {
+    enabled: Boolean(selectedSession && isLiveSession(selectedSession.status)),
+    refetchIntervalMs: selectedSession
+      ? selectedSession.status === "terminating"
+        ? 1_500
+        : 5_000
+      : false,
+  });
 
   const canControlSelectedLiveSession = Boolean(
     selectedSession &&
@@ -260,6 +269,44 @@ export const NodeTerminalView = ({ id }: { id: string }) => {
     },
     canReadSelectedTranscript,
   );
+
+  useEffect(() => {
+    const session = selectedSessionDetailQuery.data;
+    if (!session) {
+      return;
+    }
+
+    setSessionOverrides((current) => {
+      const existing = current[session.id];
+      if (
+        existing &&
+        existing.status === session.status &&
+        existing.updatedAt === session.updatedAt &&
+        existing.closedReason === session.closedReason &&
+        existing.exitCode === session.exitCode
+      ) {
+        return current;
+      }
+
+      return {
+        ...current,
+        [session.id]: session,
+      };
+    });
+
+    if (!isLiveSession(session.status)) {
+      void Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: ["nodes", session.workspaceId, session.nodeId, "terminal-sessions"],
+          refetchType: "active",
+        }),
+        queryClient.invalidateQueries({
+          queryKey: ["nodes", session.workspaceId, "terminal-session", session.id, "chunks"],
+          refetchType: "active",
+        }),
+      ]);
+    }
+  }, [queryClient, selectedSessionDetailQuery.data]);
 
   const renderTerminalChunk = useEffectEvent(
     (chunk: TerminalTranscriptChunk, options?: { allowStdin?: boolean }) => {
