@@ -41,7 +41,7 @@ Current product surface:
   - default-workspace selection
   - dangerous workspace deletion flow
 - Linux node detail with live telemetry, packages, running tasks, and event history
-- Two-step `Add node` onboarding that collects node metadata first, then generates a one-click agent install command
+- Two-step `Add node` onboarding that collects node metadata first, then generates a one-click agent install command and shows live bootstrap progress
 - Linux node interactive terminal route with live xterm.js console and persisted transcript history
 - Task detail with live lifecycle and logs
 - Platform-admin workspaces page
@@ -130,7 +130,7 @@ The top-level non-workspace pages continue to exist as convenience or fallback s
 - Task templates with prefill/save UX in task creation flows
 - Team-targeted task runs and schedule targeting
 - Linux node maintenance UX and node telemetry visibility
-- Two-step node install command generation with copyable bootstrap command, API URL, and installer script URL
+- Two-step node install command generation with copyable bootstrap command, API URL, installer script URL, and live bootstrap progress feedback
 - Interactive terminal UX with:
   - xterm.js live console tunneled through the agent
   - recent session history
@@ -216,6 +216,7 @@ The app consumes these realtime events:
 - `task.created`
 - `task.updated`
 - `event.created`
+- `node-install.updated`
 
 Important implementation notes:
 
@@ -228,6 +229,7 @@ Surfaces kept fresh by realtime:
 
 - workspace dashboard
 - workspace node list
+- add-node install status panel
 - node detail
 - node terminal
 - task detail
@@ -239,6 +241,7 @@ Terminal-specific notes:
 - Only the session creator can attach to and control a live terminal session
 - Persisted transcript chunks are polled while a session is active so the history panel stays current
 - Leaving the page no longer closes the shell immediately; the UI advertises the 5-minute reattach window
+- The selected live session also polls its own detail state so missed close events do not leave the UI stuck in `terminating`
 
 ## API Surface Used By The Web App
 
@@ -288,6 +291,7 @@ Primary upstream routes:
 - `GET /workspaces/:workspaceId/nodes`
 - `POST /workspaces/:workspaceId/nodes/:id/team`
 - `POST /workspaces/:workspaceId/node-installs`
+- `GET /workspaces/:workspaceId/node-installs/:installId`
 - `POST /workspaces/:workspaceId/nodes/:id/maintenance/enable`
 - `POST /workspaces/:workspaceId/nodes/:id/maintenance/disable`
 - `GET /workspaces/:workspaceId/tasks`
@@ -328,6 +332,7 @@ Notes:
 - Realtime connects to `/realtime`, not `/api/v1/realtime`.
 - If `NEXT_PUBLIC_NODERAX_WS_URL` is omitted, the app falls back to the API origin or browser origin.
 - The runtime can also be overridden by the `noderax_api_url` cookie during setup/onboarding flows.
+- `Add node` uses the active system API URL as the agent installer origin and strips `/v1` or `/api/v1` before writing `--api-url`.
 
 ## Local Development
 
