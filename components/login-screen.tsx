@@ -225,8 +225,49 @@ function RotatingOSCluster() {
 }
 
 function TerminalSimulation() {
+  const { resolvedTheme } = useTheme();
   const [logs, setLogs] = useState<string[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const isDark = resolvedTheme !== "light";
+  const terminalTheme = isDark
+    ? {
+        shell:
+          "bg-[#0a0a0b] border-2 border-white/[0.08] shadow-[0_20px_50px_rgba(0,0,0,0.5)]",
+        header: "bg-white/[0.03] border-b border-white/[0.05]",
+        title: "text-muted-foreground/50",
+        statusDot:
+          "bg-tone-success-foreground shadow-[0_0_8px_var(--tone-success-foreground)]",
+        statusText: "text-tone-success-foreground",
+        lineNumber: "text-muted-foreground/30",
+        info: "text-blue-400",
+        auth: "text-purple-400",
+        ok: "text-tone-success-foreground",
+        warn: "text-yellow-400",
+        command: "text-primary",
+        defaultLog: "text-foreground/80",
+        cursor: "bg-primary",
+        scanline:
+          "bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.1)_50%),linear-gradient(90deg,rgba(255,0,0,0.02),rgba(0,255,0,0.01),rgba(0,0,255,0.02))] bg-[length:100%_2px,3px_100%]",
+      }
+    : {
+        shell:
+          "bg-[#f7efe6] border-2 border-black/[0.08] shadow-[0_20px_50px_rgba(73,34,16,0.16)]",
+        header: "bg-black/[0.03] border-b border-black/[0.07]",
+        title: "text-[#5f5147]",
+        statusDot:
+          "bg-emerald-600 shadow-[0_0_8px_rgba(5,150,105,0.35)]",
+        statusText: "text-emerald-700",
+        lineNumber: "text-[#8b7768]",
+        info: "text-sky-700",
+        auth: "text-violet-700",
+        ok: "text-emerald-700",
+        warn: "text-amber-700",
+        command: "text-rose-700",
+        defaultLog: "text-[#2f241d]",
+        cursor: "bg-rose-700",
+        scanline:
+          "bg-[linear-gradient(rgba(255,255,255,0)_50%,rgba(0,0,0,0.035)_50%),linear-gradient(90deg,rgba(255,0,0,0.012),rgba(0,140,90,0.008),rgba(0,90,255,0.012))] bg-[length:100%_2px,3px_100%]",
+      };
 
   const logTemplates = [
     "[INFO] Initializing secure handshake with control plane...",
@@ -271,22 +312,47 @@ function TerminalSimulation() {
   return (
     <div className="relative group perspective-1000">
       <div className="absolute -inset-[1px] bg-gradient-to-r from-muted/50 via-primary/30 to-muted/50 rounded-2xl opacity-40 blur-[1px]" />
-      <div className="relative bg-[#0a0a0b] border-2 border-white/[0.08] rounded-2xl overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.5)]">
+      <div
+        className={cn(
+          "relative overflow-hidden rounded-2xl",
+          terminalTheme.shell,
+        )}
+      >
         {/* Terminal Header */}
-        <div className="flex items-center justify-between px-4 py-3 bg-white/[0.03] border-b border-white/[0.05]">
+        <div
+          className={cn(
+            "flex items-center justify-between px-4 py-3",
+            terminalTheme.header,
+          )}
+        >
           <div className="flex items-center gap-2">
             <div className="flex gap-1.5">
               <div className="size-2.5 rounded-full bg-red-500/30 border border-red-500/40" />
               <div className="size-2.5 rounded-full bg-yellow-500/30 border border-yellow-500/40" />
               <div className="size-2.5 rounded-full bg-green-500/30 border border-green-500/40" />
             </div>
-            <span className="text-[10px] uppercase font-bold text-muted-foreground/50 tracking-[0.2em] ml-2">
+            <span
+              className={cn(
+                "ml-2 text-[10px] font-bold uppercase tracking-[0.2em]",
+                terminalTheme.title,
+              )}
+            >
               Operator Console
             </span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="size-1.5 rounded-full bg-tone-success-foreground animate-pulse shadow-[0_0_8px_var(--tone-success-foreground)]" />
-            <span className="text-[10px] font-mono text-tone-success-foreground font-bold tracking-tighter">
+            <div
+              className={cn(
+                "size-1.5 rounded-full animate-pulse",
+                terminalTheme.statusDot,
+              )}
+            />
+            <span
+              className={cn(
+                "text-[10px] font-mono font-bold tracking-tighter",
+                terminalTheme.statusText,
+              )}
+            >
               NODE_BRIDGE_CONNECTED
             </span>
           </div>
@@ -298,30 +364,40 @@ function TerminalSimulation() {
           className="relative p-6 h-[340px] overflow-y-auto font-mono text-[13px] leading-relaxed scrollbar-none"
         >
           {/* Scanline Effect */}
-          <div className="absolute inset-0 pointer-events-none bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.1)_50%),linear-gradient(90deg,rgba(255,0,0,0.02),rgba(0,255,0,0.01),rgba(0,0,255,0.02))] bg-[length:100%_2px,3px_100%]" />
+          <div
+            className={cn(
+              "absolute inset-0 pointer-events-none",
+              terminalTheme.scanline,
+            )}
+          />
 
           {logs.map((log, i) => (
             <div
               key={i}
               className="flex gap-3 mb-1.5 animate-in fade-in slide-in-from-left-2 duration-300"
             >
-              <span className="text-muted-foreground/30 select-none min-w-[28px]">
+              <span
+                className={cn(
+                  "min-w-[28px] select-none",
+                  terminalTheme.lineNumber,
+                )}
+              >
                 {i + 104}
               </span>
               <span
                 className={cn(
                   "break-all",
                   log.includes("[INFO]")
-                    ? "text-blue-400"
+                    ? terminalTheme.info
                     : log.includes("[AUTH]") || log.includes("[SSH]")
-                      ? "text-purple-400"
+                      ? terminalTheme.auth
                       : log.includes("[OK]")
-                        ? "text-tone-success-foreground"
+                        ? terminalTheme.ok
                         : log.includes("[WARN]")
-                          ? "text-yellow-400"
+                          ? terminalTheme.warn
                           : log.includes("[CMD]") || log.includes("[LOAD]")
-                            ? "text-primary"
-                            : "text-foreground/80",
+                            ? terminalTheme.command
+                            : terminalTheme.defaultLog,
                 )}
               >
                 {log}
@@ -329,10 +405,15 @@ function TerminalSimulation() {
             </div>
           ))}
           <div className="flex gap-3 items-center">
-            <span className="text-muted-foreground/30 select-none min-w-[28px]">
+            <span
+              className={cn(
+                "min-w-[28px] select-none",
+                terminalTheme.lineNumber,
+              )}
+            >
               {logs.length + 104}
             </span>
-            <span className="h-4 w-2 bg-primary animate-pulse" />
+            <span className={cn("h-4 w-2 animate-pulse", terminalTheme.cursor)} />
           </div>
         </div>
       </div>
