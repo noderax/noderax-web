@@ -173,14 +173,18 @@ const SidebarContent = ({
           "flex h-16 items-center gap-3 border-b border-sidebar-border px-5",
           collapsed && "justify-center px-0",
         )}
+        style={{
+          background: "linear-gradient(to right, #0a246a, #a6caf0)",
+          borderBottom: "2px solid #404040",
+        }}
       >
         <BrandBadge size={collapsed ? "sm" : "md"} />
         {!collapsed ? (
           <div className="min-w-0">
-            <p className="text-sm font-semibold tracking-tight text-sidebar-foreground">
+            <p style={{ fontSize: "13px", fontWeight: "bold", color: "#ffffff", letterSpacing: 0 }}>
               Noderax
             </p>
-            <p className="text-xs text-muted-foreground">Operations center</p>
+            <p style={{ fontSize: "10px", color: "#c8d8f0" }}>Operations center</p>
           </div>
         ) : null}
       </div>
@@ -190,7 +194,10 @@ const SidebarContent = ({
           {visibleNavigation.map((group) => (
             <div key={group.label} className="space-y-1.5">
               {!collapsed ? (
-                <p className="px-3 text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+                <p
+                  className="px-3"
+                  style={{ fontSize: "10px", fontWeight: "bold", textTransform: "uppercase", color: "#444444", letterSpacing: "0.1em", marginBottom: "2px" }}
+                >
                   {group.label}
                 </p>
               ) : null}
@@ -332,14 +339,22 @@ const SidebarContent = ({
         )}
       >
         {!collapsed ? (
-          <div className="mb-3 rounded-2xl border border-sidebar-border bg-background/70 px-3.5 py-3">
-            <p className="text-xs font-medium text-sidebar-foreground">
+          <div
+            className="mb-3 px-3.5 py-3"
+            style={{
+              background: "#ffffff",
+              border: "2px solid",
+              borderColor: "#808080 #ffffff #ffffff #808080",
+              borderRadius: "0",
+            }}
+          >
+            <p style={{ fontSize: "10px", fontWeight: "bold", color: "#000000" }}>
               {workspace ? "Workspace" : "Connection"}
             </p>
-            <p className="mt-1 text-sm font-semibold text-sidebar-foreground">
+            <p style={{ marginTop: "2px", fontSize: "11px", fontWeight: "bold", color: "#000000" }}>
               {workspace?.name ?? realtimeLabels[realtimeStatus]}
             </p>
-            <p className="mt-1 text-xs text-muted-foreground">
+            <p style={{ marginTop: "2px", fontSize: "9px", color: "#444444" }}>
               {workspace
                 ? `Timezone ${workspace.defaultTimezone} · ${workspace.currentUserRole ?? "member"} access`
                 : "Select a workspace to scope nodes, tasks, metrics, and events."}
@@ -378,9 +393,14 @@ export const AppSidebar = () => {
     <>
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-30 hidden border-r border-sidebar-border bg-sidebar text-sidebar-foreground lg:block",
+          "fixed inset-y-0 left-0 z-30 hidden lg:block",
           collapsed ? "w-20" : "w-64",
         )}
+        style={{
+          background: "#d4d0c8",
+          borderRight: "2px solid #808080",
+          boxShadow: "1px 0 0 #404040",
+        }}
       >
         <SidebarContent collapsed={collapsed} />
       </aside>

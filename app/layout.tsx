@@ -1,19 +1,16 @@
 import type { Metadata } from "next";
-import { JetBrains_Mono, Plus_Jakarta_Sans } from "next/font/google";
+import { Cousine } from "next/font/google";
 
 import { AppProviders } from "@/components/providers/app-providers";
 import { cn } from "@/lib/utils";
 
 import "./globals.css";
 
-const plusJakarta = Plus_Jakarta_Sans({
-  variable: "--font-jakarta",
-  subsets: ["latin"],
-});
-
-const jetBrainsMono = JetBrains_Mono({
+// Cousine is the closest Google Font to Courier/system mono
+const cousine = Cousine({
   variable: "--font-mono-ui",
   subsets: ["latin"],
+  weight: ["400", "700"],
 });
 
 export const metadata: Metadata = {
@@ -35,10 +32,10 @@ export default function RootLayout({
       <body
         suppressHydrationWarning
         className={cn(
-          plusJakarta.variable,
-          jetBrainsMono.variable,
-          "min-h-screen bg-background font-sans text-foreground antialiased",
+          cousine.variable,
+          "min-h-screen bg-background text-foreground",
         )}
+        style={{ fontFamily: "'Tahoma', 'MS Sans Serif', 'Arial', sans-serif" }}
       >
         <AppProviders>{children}</AppProviders>
       </body>

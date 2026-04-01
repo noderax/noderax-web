@@ -81,12 +81,28 @@ export const MetricsChart = ({
   const MetricIcon = metricMeta[metric].icon;
 
   return (
-    <Card className="border">
-      <CardHeader className="border-b border-border/80 bg-muted/20">
+    <Card
+      className="border"
+      style={{
+        background: "#d4d0c8",
+        border: "2px solid",
+        borderColor: "#ffffff #808080 #808080 #ffffff",
+        boxShadow: "1px 1px 0 #404040",
+        borderRadius: "0",
+      }}
+    >
+      <CardHeader
+        className="border-b border-border/80 bg-muted/20"
+        style={{
+          background: "linear-gradient(to right, #0a246a, #a6caf0)",
+          borderBottom: "2px solid #404040",
+          padding: "4px 8px",
+        }}
+      >
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
-            <CardTitle>{title}</CardTitle>
-            <CardDescription>{description}</CardDescription>
+            <CardTitle style={{ color: "#ffffff", fontSize: "12px", fontWeight: "bold" }}>{title}</CardTitle>
+            <CardDescription style={{ color: "#c8d8f0", fontSize: "10px" }}>{description}</CardDescription>
           </div>
           <Tabs
             value={metric}

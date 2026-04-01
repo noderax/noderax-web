@@ -301,7 +301,15 @@ const TopbarContent = () => {
   };
 
   return (
-    <header className="sticky top-0 z-20 border-b border-border/70 bg-background/90 backdrop-blur-xl">
+    <header
+      className="sticky top-0 z-20"
+      style={{
+        background: "#d4d0c8",
+        borderBottom: "2px solid #808080",
+        boxShadow: "0 1px 0 #404040",
+        backdropFilter: "none",
+      }}
+    >
       <div className="mx-auto flex h-16 w-full max-w-[1600px] items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
         <div className="flex min-w-0 items-center gap-3">
           <Button
@@ -310,33 +318,46 @@ const TopbarContent = () => {
             className="lg:hidden"
             onClick={() => setMobileSidebarOpen(true)}
             aria-label="Open navigation"
+            style={{ background: "#d4d0c8", border: "2px solid", borderColor: "#ffffff #808080 #808080 #ffffff", borderRadius: "0" }}
           >
             <Menu className="size-4" />
           </Button>
           <div className="min-w-0">
-            {/* <p className="text-xs font-medium text-muted-foreground">Control Center</p> */}
             <div className="mt-0.5 flex min-w-0 items-center gap-2">
-              <h1 className="truncate text-xl font-semibold tracking-tight">
+              <h1
+                className="truncate"
+                style={{ fontSize: "13px", fontWeight: "bold", color: "#000000", letterSpacing: 0 }}
+              >
                 {section}
               </h1>
               <div
                 className={cn(
-                  "hidden items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium sm:inline-flex",
-                  statusConfig.className,
+                  "hidden items-center gap-1.5 px-2.5 py-1 text-[11px] font-medium sm:inline-flex",
                 )}
+                style={{
+                  background: statusConfig.className.includes("success") ? "#d0ffd0" : statusConfig.className.includes("warning") ? "#fff0c8" : statusConfig.className.includes("danger") ? "#ffd0d0" : "#d0e8ff",
+                  border: "2px solid",
+                  borderColor: "#ffffff #808080 #808080 #ffffff",
+                  color: "#000000",
+                  fontSize: "10px",
+                  borderRadius: "0",
+                }}
               >
                 <StatusIcon className="size-3.5" />
                 {statusConfig.label}
-                <span className="text-muted-foreground">• {statusHint}</span>
+                <span style={{ color: "#444444" }}>• {statusHint}</span>
               </div>
               {queuedAlertTone ? (
                 <div
-                  className={cn(
-                    "hidden items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium sm:inline-flex",
-                    queuedAlertTone === "danger"
-                      ? "tone-danger"
-                      : "tone-warning",
-                  )}
+                  className="hidden items-center gap-1.5 px-2.5 py-1 text-[11px] font-medium sm:inline-flex"
+                  style={{
+                    background: queuedAlertTone === "danger" ? "#ffd0d0" : "#fff0c8",
+                    border: "2px solid",
+                    borderColor: "#ffffff #808080 #808080 #ffffff",
+                    color: queuedAlertTone === "danger" ? "#880000" : "#884400",
+                    fontSize: "10px",
+                    borderRadius: "0",
+                  }}
                 >
                   <AlertTriangle className="size-3.5" />
                   {queuedAlertTone === "danger"
@@ -345,7 +366,10 @@ const TopbarContent = () => {
                 </div>
               ) : null}
             </div>
-            <p className="hidden truncate text-sm text-muted-foreground lg:block">
+            <p
+              className="hidden truncate lg:block"
+              style={{ fontSize: "10px", color: "#444444" }}
+            >
               {sectionDescription}
             </p>
           </div>
@@ -355,17 +379,24 @@ const TopbarContent = () => {
           {workspace ? (
             <DropdownMenu>
               <DropdownMenuTrigger
-                className="control-surface hidden h-10 items-center gap-3 rounded-xl border px-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:flex"
+                className="hidden h-10 items-center gap-3 px-3 text-left focus-visible:outline-none md:flex"
+                style={{
+                  background: "#d4d0c8",
+                  border: "2px solid",
+                  borderColor: "#ffffff #808080 #808080 #ffffff",
+                  borderRadius: "0",
+                  fontSize: "11px",
+                }}
               >
                 <div className="min-w-0">
-                  <p className="truncate text-sm font-medium">
+                  <p className="truncate" style={{ fontSize: "11px", fontWeight: "bold", color: "#000000" }}>
                     {workspace.name}
                   </p>
-                  <p className="truncate text-xs text-muted-foreground">
+                  <p className="truncate" style={{ fontSize: "9px", color: "#444444" }}>
                     {workspace.defaultTimezone}
                   </p>
                 </div>
-                <ChevronsUpDown className="size-3.5 text-muted-foreground" />
+                <ChevronsUpDown className="size-3.5" style={{ color: "#444444" }} />
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-72">
                 <DropdownMenuGroup>
@@ -396,7 +427,7 @@ const TopbarContent = () => {
             </DropdownMenu>
           ) : null}
           <div className="relative hidden w-[280px] md:block lg:w-[360px]">
-            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2" style={{ color: "#444444" }} />
             <Input
               id="workspace-search-input"
               value={searchQuery}
@@ -413,33 +444,50 @@ const TopbarContent = () => {
                   : "Search this page"
               }
               className="h-10 pl-10"
+              style={{
+                background: "#ffffff",
+                border: "2px solid",
+                borderColor: "#808080 #ffffff #ffffff #808080",
+                borderRadius: "0",
+                fontSize: "11px",
+                color: "#000000",
+              }}
             />
             {showWorkspaceSearchResults ? (
-              <div className="absolute inset-x-0 top-[calc(100%+0.5rem)] z-30 rounded-[20px] border bg-background/95 p-2 shadow-[0_22px_50px_-30px_rgba(0,0,0,0.45)] backdrop-blur-xl">
+              <div
+                className="absolute inset-x-0 top-[calc(100%+0.5rem)] z-30 p-2"
+                style={{
+                  background: "#d4d0c8",
+                  border: "2px solid",
+                  borderColor: "#ffffff #808080 #808080 #ffffff",
+                  boxShadow: "2px 2px 0 #404040",
+                }}
+              >
                 {workspaceSearchQuery.isPending ? (
-                  <p className="px-3 py-3 text-sm text-muted-foreground">
+                  <p style={{ padding: "6px", fontSize: "11px", color: "#444444" }}>
                     Searching workspace…
                   </p>
                 ) : searchResults.length ? (
                   <div className="space-y-1">
                     {searchResults.map((group) => (
                       <div key={group.key} className="space-y-1">
-                        <p className="px-3 pt-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                        <p style={{ padding: "4px 6px 2px", fontSize: "10px", fontWeight: "bold", textTransform: "uppercase", color: "#444444" }}>
                           {group.label}
                         </p>
                         {group.hits.map((hit) => (
                           <button
                             key={`${group.key}-${hit.id}`}
                             type="button"
-                            className="flex w-full flex-col rounded-[16px] px-3 py-2 text-left transition-colors hover:bg-muted/70"
+                            className="flex w-full flex-col px-3 py-2 text-left"
+                            style={{ background: "#ffffff", border: "1px solid #808080", fontSize: "11px", color: "#000000", cursor: "pointer" }}
                             onMouseDown={(event) => {
                               event.preventDefault();
                               handleSearchResultSelect(group.route);
                             }}
                           >
-                            <span className="text-sm font-medium">{hit.title}</span>
+                            <span style={{ fontWeight: "bold" }}>{hit.title}</span>
                             {hit.subtitle ? (
-                              <span className="text-xs text-muted-foreground">
+                              <span style={{ fontSize: "10px", color: "#444444" }}>
                                 {hit.subtitle}
                               </span>
                             ) : null}
@@ -449,8 +497,8 @@ const TopbarContent = () => {
                     ))}
                   </div>
                 ) : (
-                  <p className="px-3 py-3 text-sm text-muted-foreground">
-                    No workspace results matched “{deferredSearchQuery}”.
+                  <p style={{ padding: "6px", fontSize: "11px", color: "#444444" }}>
+                    No results matched &quot;{deferredSearchQuery}&quot;.
                   </p>
                 )}
               </div>
@@ -460,17 +508,26 @@ const TopbarContent = () => {
           <DropdownMenu>
             <DropdownMenuTrigger
               id="account-menu-trigger"
-              className="control-surface flex h-10 items-center gap-3 rounded-xl border px-2.5 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="flex h-10 items-center gap-3 px-2.5 text-left focus-visible:outline-none"
+              style={{
+                background: "#d4d0c8",
+                border: "2px solid",
+                borderColor: "#ffffff #808080 #808080 #ffffff",
+                borderRadius: "0",
+              }}
             >
-              <Avatar className="size-8.5 border border-border/70">
-                <AvatarFallback>{initials}</AvatarFallback>
+              <Avatar
+                className="size-8.5"
+                style={{ border: "2px solid #808080", borderRadius: "0" }}
+              >
+                <AvatarFallback style={{ background: "#0a246a", color: "#ffffff", fontSize: "11px", fontWeight: "bold", borderRadius: "0" }}>{initials}</AvatarFallback>
               </Avatar>
               <div className="hidden min-w-0 sm:block">
-                <p className="truncate text-sm font-medium">
+                <p className="truncate" style={{ fontSize: "11px", fontWeight: "bold", color: "#000000" }}>
                   {session?.user.name ?? "Operator"}
                 </p>
               </div>
-              <ChevronsUpDown className="size-3.5 text-muted-foreground" />
+              <ChevronsUpDown className="size-3.5" style={{ color: "#444444" }} />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-64">
               <DropdownMenuGroup>

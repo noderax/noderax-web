@@ -1,4 +1,3 @@
-import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
 type SectionPanelProps = {
@@ -11,11 +10,6 @@ type SectionPanelProps = {
   className?: string;
   headerClassName?: string;
   contentClassName?: string;
-};
-
-const variants = {
-  default: "surface-panel",
-  feature: "surface-feature",
 };
 
 export const SectionPanel = ({
@@ -32,44 +26,62 @@ export const SectionPanel = ({
   const hasHeader = Boolean(title || description || eyebrow || action);
 
   return (
-    <Card
-      className={cn(
-        "overflow-hidden rounded-2xl border",
-        variants[variant],
-        className,
-      )}
+    <div
+      className={cn("overflow-hidden", className)}
+      style={{
+        background: "#d4d0c8",
+        border: "2px solid",
+        borderColor: "#ffffff #808080 #808080 #ffffff",
+        boxShadow: "1px 1px 0 #404040",
+        borderRadius: "0",
+      }}
     >
       {hasHeader ? (
-        <CardHeader
-          className={cn(
-            "border-b border-border/80 bg-muted/20 px-5 py-4 sm:px-6",
-            headerClassName,
-          )}
+        <div
+          className={cn(headerClassName)}
+          style={{
+            background: "linear-gradient(to right, #0a246a, #a6caf0)",
+            color: "#ffffff",
+            padding: "3px 6px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: "8px",
+            borderBottom: "2px solid #404040",
+          }}
         >
-          <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-            <div className="min-w-0 space-y-1.5">
-              {eyebrow ? (
-                <p className="text-[10px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
-                  {eyebrow}
-                </p>
-              ) : null}
-              {title ? <CardTitle className="text-base font-semibold">{title}</CardTitle> : null}
-              {description ? (
-                <CardDescription className="max-w-3xl">{description}</CardDescription>
-              ) : null}
-            </div>
-            {action ? (
-              <div className="flex shrink-0 flex-wrap items-center gap-2">{action}</div>
+          <div style={{ minWidth: 0 }}>
+            {eyebrow ? (
+              <p style={{ fontSize: "9px", fontWeight: "bold", textTransform: "uppercase", letterSpacing: "0.08em", color: "#c8d8f0", margin: 0 }}>
+                {eyebrow}
+              </p>
+            ) : null}
+            {title ? (
+              <p style={{ fontSize: "12px", fontWeight: "bold", color: "#ffffff", margin: 0, letterSpacing: 0 }}>
+                {title}
+              </p>
+            ) : null}
+            {description ? (
+              <p style={{ fontSize: "10px", color: "#c8d8f0", margin: 0, marginTop: "1px" }}>
+                {description}
+              </p>
             ) : null}
           </div>
-        </CardHeader>
+          {action ? (
+            <div style={{ display: "flex", flexShrink: 0, flexWrap: "wrap", alignItems: "center", gap: "4px" }}>
+              {action}
+            </div>
+          ) : null}
+        </div>
       ) : null}
       <div
         data-slot="section-panel-content"
         className={cn("px-5 py-4 sm:px-6", contentClassName)}
+        style={{ background: "#d4d0c8" }}
       >
         {children}
       </div>
-    </Card>
+    </div>
   );
 };
+
