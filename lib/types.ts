@@ -926,6 +926,20 @@ export interface PlatformSettingsResponse extends PlatformSettingsValues {
 
 export type UpdatePlatformSettingsPayload = PlatformSettingsValues;
 
+export interface PlatformApiRestartResponse {
+  accepted: true;
+  requestedAt: string;
+  message: string;
+}
+
+export interface HealthResponse {
+  service: string;
+  status: string;
+  timestamp: string;
+  startedAt: string;
+  bootId: string;
+}
+
 export interface CancelTaskPayload {
   reason?: string;
 }

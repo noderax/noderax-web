@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useEffectEvent, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -10,8 +10,10 @@ import {
   Clock3,
   Globe2,
   KeyRound,
+  LoaderCircle,
   Mail,
   Palette,
+  RefreshCcw,
   Send,
   Settings2,
   Shield,
@@ -51,13 +53,14 @@ import {
   useChangeCurrentUserPassword,
   useDeleteWorkspace,
   usePlatformSettings,
+  useRestartPlatformApi,
   useUpdateCurrentUserPreferences,
   useUpdatePlatformSettings,
   useValidatePlatformSmtp,
   useUpdateWorkspace,
 } from "@/lib/hooks/use-noderax-data";
 import { useWorkspaceContext, workspacesQueryKey } from "@/lib/hooks/use-workspace-context";
-import { apiClient } from "@/lib/api";
+import { ApiError, apiClient } from "@/lib/api";
 import { DEFAULT_TIMEZONE, getBrowserTimeZone } from "@/lib/timezone";
 import {
   EventSeverity,
@@ -83,7 +86,18 @@ type SmtpTestState = {
   message: string;
 };
 
+type PlatformRestartState = {
+  phase: "polling" | "timed_out";
+  startedAt: number;
+  lastCheckedAt: number;
+  previousBootId: string | null;
+  requestedAt: string;
+  observedDowntime: boolean;
+};
+
 const SETTINGS_TABS: SettingsTab[] = ["account", "notifications", "workspace", "platform"];
+const PLATFORM_RESTART_POLL_INTERVAL_MS = 2_000;
+const PLATFORM_RESTART_TIMEOUT_MS = 90_000;
 
 const isSettingsTab = (value: string | null): value is SettingsTab =>
   SETTINGS_TABS.includes((value ?? "") as SettingsTab);
@@ -173,6 +187,7 @@ function SettingsPageContent({
   const platformSettingsQuery = usePlatformSettings(isPlatformAdmin);
   const updatePlatformSettings = useUpdatePlatformSettings();
   const validatePlatformSmtp = useValidatePlatformSmtp();
+  const restartPlatformApi = useRestartPlatformApi();
 
   const browserTimeZone = useMemo(() => getBrowserTimeZone(), []);
   const availableTabs = useMemo<SettingsTab[]>(
@@ -243,6 +258,9 @@ function SettingsPageContent({
     useState<PlatformSettingsValues | null>(null);
   const [platformMailTestStatus, setPlatformMailTestStatus] =
     useState<SmtpTestState | null>(null);
+  const [platformRestartDialogOpen, setPlatformRestartDialogOpen] = useState(false);
+  const [platformRestartState, setPlatformRestartState] =
+    useState<PlatformRestartState | null>(null);
 
   useEffect(() => {
     setActiveTab(resolvedTab);
@@ -556,6 +574,173 @@ function SettingsPageContent({
   };
 
   const platformEditable = platformSettingsQuery.data?.editable ?? false;
+  const platformRestartPending = platformRestartState?.phase === "polling";
+  const platformRestartTimedOut = platformRestartState?.phase === "timed_out";
+  const platformActionsDisabled =
+    restartPlatformApi.isPending || platformRestartPending || platformRestartTimedOut;
+
+  const handlePlatformRestartReauth = useEffectEvent(async () => {
+    await apiClient.logout().catch(() => undefined);
+    clearSession();
+    queryClient.clear();
+    toast.message("API restarted", {
+      description: "Your session is no longer valid. Sign in again to continue.",
+    });
+    router.replace("/login?message=api-restarted");
+  });
+
+  const pollPlatformRestart = useEffectEvent(async (signal: AbortSignal) => {
+    if (!platformRestartState || platformRestartState.phase !== "polling") {
+      return;
+    }
+
+    try {
+      const health = await apiClient.getHealth(signal);
+      if (signal.aborted) {
+        return;
+      }
+
+      const restartObserved = platformRestartState.previousBootId
+        ? health.bootId !== platformRestartState.previousBootId
+        : platformRestartState.observedDowntime;
+
+      if (!restartObserved) {
+        setPlatformRestartState((current) =>
+          current?.phase === "polling"
+            ? {
+                ...current,
+                lastCheckedAt: Date.now(),
+              }
+            : current,
+        );
+        return;
+      }
+
+      const result = await platformSettingsQuery.refetch();
+      if (signal.aborted) {
+        return;
+      }
+
+      if (result.error) {
+        if (result.error instanceof ApiError && result.error.status === 401) {
+          await handlePlatformRestartReauth();
+          return;
+        }
+
+        setPlatformRestartState((current) =>
+          current?.phase === "polling"
+            ? {
+                ...current,
+                lastCheckedAt: Date.now(),
+              }
+            : current,
+        );
+        return;
+      }
+
+      setPlatformMailTestStatus(null);
+      setPlatformRestartState(null);
+      toast.success("API restarted", {
+        description: "Platform settings reconnected successfully.",
+      });
+    } catch {
+      if (signal.aborted) {
+        return;
+      }
+
+      setPlatformRestartState((current) =>
+        current?.phase === "polling"
+          ? {
+              ...current,
+              observedDowntime: true,
+              lastCheckedAt: Date.now(),
+            }
+          : current,
+      );
+    }
+  });
+
+  useEffect(() => {
+    if (!platformRestartState || platformRestartState.phase !== "polling") {
+      return;
+    }
+
+    if (Date.now() - platformRestartState.startedAt >= PLATFORM_RESTART_TIMEOUT_MS) {
+      setPlatformRestartState((current) =>
+        current?.phase === "polling"
+          ? {
+              ...current,
+              phase: "timed_out",
+            }
+          : current,
+      );
+      return;
+    }
+
+    const abortController = new AbortController();
+    const delay =
+      platformRestartState.lastCheckedAt === platformRestartState.startedAt
+        ? 900
+        : PLATFORM_RESTART_POLL_INTERVAL_MS;
+    const timer = window.setTimeout(() => {
+      void pollPlatformRestart(abortController.signal);
+    }, delay);
+
+    return () => {
+      abortController.abort();
+      window.clearTimeout(timer);
+    };
+  }, [
+    platformRestartState?.lastCheckedAt,
+    platformRestartState?.phase,
+    platformRestartState?.startedAt,
+  ]);
+
+  const handlePlatformRestart = async () => {
+    let previousBootId: string | null = null;
+
+    try {
+      previousBootId = (await apiClient.getHealth()).bootId;
+    } catch {
+      previousBootId = null;
+    }
+
+    try {
+      const response = await restartPlatformApi.mutateAsync();
+      const now = Date.now();
+
+      setPlatformRestartDialogOpen(false);
+      setPlatformMailTestStatus(null);
+      setPlatformRestartState({
+        phase: "polling",
+        startedAt: now,
+        lastCheckedAt: now,
+        previousBootId,
+        requestedAt: response.requestedAt,
+        observedDowntime: false,
+      });
+      toast.message("API restart requested", {
+        description: response.message,
+      });
+    } catch {
+      return;
+    }
+  };
+
+  const handleRetryPlatformReconnect = () => {
+    const now = Date.now();
+
+    setPlatformRestartState((current) =>
+      current
+        ? {
+            ...current,
+            phase: "polling",
+            startedAt: now,
+            lastCheckedAt: now,
+          }
+        : current,
+    );
+  };
 
   return (
     <AppShell>
@@ -1520,42 +1705,106 @@ function SettingsPageContent({
                     title="Loading platform settings"
                     description="Fetching installer-managed runtime configuration for this deployment."
                   />
-                ) : platformSettingsQuery.isError || !platformDraft ? (
+                ) : platformSettingsQuery.isError && !platformDraft ? (
                   <EmptyState
                     icon={Shield}
                     title="Platform settings unavailable"
                     description="The admin-only platform settings payload could not be loaded."
                   />
+                ) : !platformDraft ? (
+                  <EmptyState
+                    icon={Shield}
+                    title="Preparing platform settings"
+                    description="Loading the latest platform runtime configuration."
+                  />
                 ) : (
                   <div className="space-y-6">
+                    <Dialog
+                      open={platformRestartDialogOpen}
+                      onOpenChange={setPlatformRestartDialogOpen}
+                    >
+                      <DialogContent>
+                        <DialogHeader>
+                          <DialogTitle>Restart API</DialogTitle>
+                          <DialogDescription>
+                            The API will become briefly unavailable while the current
+                            process exits. Automatic recovery depends on Docker,
+                            systemd, or another supervisor restarting it.
+                          </DialogDescription>
+                        </DialogHeader>
+
+                        <div className="space-y-4">
+                          <div className="rounded-[18px] border border-tone-warning/30 bg-tone-warning/10 px-4 py-3 text-sm text-muted-foreground">
+                            Saving is not automatic here. Restarting now discards any
+                            unsaved platform settings still open in this form.
+                          </div>
+
+                          {hasPlatformChanges ? (
+                            <div className="rounded-[18px] border border-tone-warning/30 bg-background px-4 py-3 text-sm text-muted-foreground">
+                              Unsaved platform changes are present and will be
+                              discarded after the API reconnects.
+                            </div>
+                          ) : null}
+                        </div>
+
+                        <DialogFooter>
+                          <DialogClose render={<Button variant="outline" type="button" />}>
+                            Cancel
+                          </DialogClose>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className="border-tone-warning/30 bg-tone-warning/10 text-tone-warning hover:bg-tone-warning/16"
+                            disabled={restartPlatformApi.isPending}
+                            onClick={() => void handlePlatformRestart()}
+                          >
+                            {restartPlatformApi.isPending ? "Requesting..." : "Restart API"}
+                          </Button>
+                        </DialogFooter>
+                      </DialogContent>
+                    </Dialog>
+
                     <SectionPanel
                       eyebrow="Platform"
                       title="Platform runtime settings"
                       description="These values are persisted through installer state. Saving them updates the next boot configuration for the API container."
                       action={
-                        <Button
-                          type="button"
-                          disabled={
-                            !platformEditable ||
-                            !hasPlatformChanges ||
-                            updatePlatformSettings.isPending
-                          }
-                          onClick={() =>
-                            platformDraft &&
-                            updatePlatformSettings.mutate(platformDraft, {
-                              onSuccess: (settings) =>
-                                setPlatformDraft(
-                                  clonePlatformSettingsValues(
-                                    extractPlatformSettingsValues(settings),
+                        <>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className="border-tone-warning/30 bg-tone-warning/10 text-tone-warning hover:bg-tone-warning/16"
+                            disabled={platformActionsDisabled}
+                            onClick={() => setPlatformRestartDialogOpen(true)}
+                          >
+                            <RefreshCcw className="size-4" />
+                            Restart API
+                          </Button>
+                          <Button
+                            type="button"
+                            disabled={
+                              !platformEditable ||
+                              !hasPlatformChanges ||
+                              updatePlatformSettings.isPending ||
+                              platformActionsDisabled
+                            }
+                            onClick={() =>
+                              platformDraft &&
+                              updatePlatformSettings.mutate(platformDraft, {
+                                onSuccess: (settings) =>
+                                  setPlatformDraft(
+                                    clonePlatformSettingsValues(
+                                      extractPlatformSettingsValues(settings),
+                                    ),
                                   ),
-                                ),
-                            })
-                          }
-                        >
-                          {updatePlatformSettings.isPending
-                            ? "Saving..."
-                            : "Save platform settings"}
-                        </Button>
+                              })
+                            }
+                          >
+                            {updatePlatformSettings.isPending
+                              ? "Saving..."
+                              : "Save platform settings"}
+                          </Button>
+                        </>
                       }
                       contentClassName="space-y-6"
                     >
@@ -1567,15 +1816,62 @@ function SettingsPageContent({
                           {platformEditable ? "Editable" : "Read-only"}
                         </Badge>
                         <Badge variant="outline" className="rounded-full px-3 py-1">
-                          Restart required after save
+                          {platformSettingsQuery.data?.restartRequired
+                            ? "Pending restart"
+                            : "Restart synced"}
                         </Badge>
                       </div>
+
+                      {platformRestartState ? (
+                        <div
+                          className={cn(
+                            "flex flex-col gap-3 rounded-[18px] border px-4 py-3 text-sm md:flex-row md:items-center md:justify-between",
+                            platformRestartTimedOut
+                              ? "border-tone-warning/40 bg-tone-warning/10 text-muted-foreground"
+                              : "surface-subtle border-border/70 text-muted-foreground",
+                          )}
+                        >
+                          <div className="flex items-start gap-3">
+                            {platformRestartTimedOut ? (
+                              <AlertTriangle className="mt-0.5 size-4 shrink-0 text-tone-warning" />
+                            ) : (
+                              <LoaderCircle className="mt-0.5 size-4 shrink-0 animate-spin text-tone-warning" />
+                            )}
+                            <div className="space-y-1">
+                              <p className="font-medium text-foreground">
+                                {platformRestartTimedOut
+                                  ? "Waiting for the API to come back timed out"
+                                  : "API restart requested"}
+                              </p>
+                              <p>
+                                Requested at{" "}
+                                <span className="font-medium text-foreground">
+                                  {new Date(platformRestartState.requestedAt).toLocaleTimeString()}
+                                </span>
+                                . {platformRestartTimedOut
+                                  ? "If the supervisor restarted the API, retry the connection check."
+                                  : "Waiting for the current process to exit and a new instance to report healthy."}
+                              </p>
+                            </div>
+                          </div>
+                          {platformRestartTimedOut ? (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              onClick={handleRetryPlatformReconnect}
+                            >
+                              <RefreshCcw className="size-4" />
+                              Retry connection
+                            </Button>
+                          ) : null}
+                        </div>
+                      ) : null}
 
                       {platformSettingsQuery.data?.message ? (
                         <div
                           className={cn(
                             "rounded-[18px] border px-4 py-3 text-sm",
-                            platformEditable
+                            platformEditable && !platformSettingsQuery.data.restartRequired
                               ? "surface-subtle border-border/70 text-muted-foreground"
                               : "border-tone-warning/40 bg-tone-warning/10 text-muted-foreground",
                           )}
@@ -1936,7 +2232,10 @@ function SettingsPageContent({
                                   type="button"
                                   variant="outline"
                                   onClick={() => void handleValidatePlatformSmtp()}
-                                  disabled={validatePlatformSmtp.isPending}
+                                  disabled={
+                                    validatePlatformSmtp.isPending ||
+                                    platformActionsDisabled
+                                  }
                                 >
                                   {validatePlatformSmtp.isPending
                                     ? "Testing..."

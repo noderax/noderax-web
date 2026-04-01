@@ -145,7 +145,7 @@ The top-level non-workspace pages continue to exist as convenience or fallback s
   - change password
   - token management and MFA enrollment
   - workspace settings
-  - platform runtime settings, SMTP testing, and identity provider management
+  - platform runtime settings, SMTP testing, warned API restart, and identity provider management
 - Platform-admin user lifecycle management with self-protection and last-admin guardrails
 - Task operations:
   - on-demand task runs
@@ -204,8 +204,21 @@ The unified `/settings` page now contains:
 - `Platform`
   - installer-managed runtime settings for app, auth, database, Redis, mail, and agent behavior
   - SMTP draft validation
+  - `Restart API` button rendered to the left of `Save platform settings`
+  - warning dialog before restart is requested
+  - reconnect banner and health polling while the API process is restarting
+  - timeout + retry handling if the API does not come back quickly
+  - forced sign-in recovery if restart invalidates the current session, such as after a `JWT_SECRET` change
   - OIDC provider configuration and discovery testing
   - visible only to `platform_admin`
+
+Platform restart UX details:
+
+- Restart does not auto-save the current draft
+- unsaved platform changes are discarded if the API reconnects after restart
+- the web app polls `/api/proxy/health` and waits for a new `bootId`
+- once a new process instance is detected, platform settings are refetched automatically
+- if authenticated refetch returns `401`, the operator is redirected to `/login?message=api-restarted`
 
 ## Realtime Behavior
 
@@ -234,6 +247,12 @@ Surfaces kept fresh by realtime:
 - node terminal
 - task detail
 - recent event views
+
+Platform settings restart notes:
+
+- API restart recovery is not realtime-driven; it uses explicit health polling
+- the UI keeps the platform panel visible during reconnect instead of dropping into a generic error state
+- a timeout leaves the operator in a warned retry state rather than an infinite spinner
 
 Terminal-specific notes:
 

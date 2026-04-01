@@ -42,6 +42,7 @@ import type {
   NodeFilters,
   RemovePackagePayload,
   PlatformSettingsResponse,
+  PlatformApiRestartResponse,
   RegenerateMfaRecoveryCodesPayload,
   ResendUserInviteResponse,
   TestOidcProviderPayload,
@@ -68,6 +69,14 @@ import { useAppStore } from "@/store/useAppStore";
 
 const readMutationError = (error: unknown) =>
   error instanceof Error ? error.message : "Request failed unexpectedly.";
+
+const shouldRetryInteractiveQuery = (failureCount: number, error: unknown) => {
+  if (error instanceof ApiError && error.status === 429) {
+    return false;
+  }
+
+  return failureCount < 1;
+};
 
 const requireWorkspaceId = (workspaceId: string | null) => {
   if (!workspaceId) {
@@ -363,6 +372,17 @@ export const useValidatePlatformSmtp = () =>
       apiClient.validatePlatformSmtp(payload),
   });
 
+export const useRestartPlatformApi = () =>
+  useMutation({
+    mutationFn: (): Promise<PlatformApiRestartResponse> =>
+      apiClient.restartPlatformApi(),
+    onError: (error) => {
+      toast.error("Unable to restart API", {
+        description: readMutationError(error),
+      });
+    },
+  });
+
 export const useWorkspaceAuditLogs = (
   filters?: AuditLogFilters,
   enabled = true,
@@ -515,6 +535,7 @@ export const useNodeTerminalSessions = (
     enabled: Boolean(workspaceId && nodeId),
     staleTime: 5_000,
     refetchOnWindowFocus: false,
+    retry: shouldRetryInteractiveQuery,
   });
 };
 
@@ -536,8 +557,9 @@ export const useTerminalSession = (
     enabled: (options?.enabled ?? true) && Boolean(workspaceId && sessionId),
     staleTime: 5_000,
     refetchInterval: options?.refetchIntervalMs ?? false,
-    refetchIntervalInBackground: true,
+    refetchIntervalInBackground: false,
     refetchOnWindowFocus: false,
+    retry: shouldRetryInteractiveQuery,
   });
 };
 
@@ -563,6 +585,7 @@ export const useTerminalSessionChunks = (
     staleTime: 5_000,
     refetchInterval: options?.refetchIntervalMs ?? false,
     refetchOnWindowFocus: false,
+    retry: shouldRetryInteractiveQuery,
   });
 };
 

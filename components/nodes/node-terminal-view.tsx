@@ -35,6 +35,7 @@ import {
   useCreateTerminalSession,
   useNode,
   useNodeTerminalSessions,
+  queryKeys,
   useTerminalSession,
   useTerminateTerminalSession,
   useTerminalSessionChunks,
@@ -67,6 +68,28 @@ const formatSessionTitle = (session: TerminalSession) =>
 
 const isLiveSession = (status: TerminalSessionStatus) =>
   LIVE_SESSION_STATUSES.has(status);
+
+const areTerminalSessionsEquivalent = (
+  left: TerminalSession,
+  right: TerminalSession,
+) =>
+  left.id === right.id &&
+  left.status === right.status &&
+  left.updatedAt === right.updatedAt &&
+  left.closedReason === right.closedReason &&
+  left.exitCode === right.exitCode &&
+  left.cols === right.cols &&
+  left.rows === right.rows &&
+  left.openedAt === right.openedAt &&
+  left.closedAt === right.closedAt;
+
+const sortSessionsByCreatedAtDesc = (sessions: TerminalSession[]) =>
+  sessions
+    .slice()
+    .sort(
+      (left, right) =>
+        new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime(),
+    );
 
 const decodeBase64Bytes = (value: string) => {
   const binary = globalThis.atob(value);
@@ -133,6 +156,14 @@ const formatGraceWindowLabel = (seconds: number) => {
 
   return `${seconds} second${seconds === 1 ? "" : "s"}`;
 };
+
+const isExpectedTerminalClosureMessage = (message: string) =>
+  /terminal session .* was not found/i.test(message) ||
+  /terminal session is no longer active/i.test(message) ||
+  /unable to attach terminal session/i.test(message) ||
+  /terminal session is no longer available/i.test(message) ||
+  /\bno longer available\b/i.test(message) ||
+  /\bsession .* (closed|ended|finished)\b/i.test(message);
 
 export const NodeTerminalView = ({ id }: { id: string }) => {
   const queryClient = useQueryClient();
@@ -225,8 +256,8 @@ export const NodeTerminalView = ({ id }: { id: string }) => {
     enabled: Boolean(selectedSession && isLiveSession(selectedSession.status)),
     refetchIntervalMs: selectedSession
       ? selectedSession.status === "terminating"
-        ? 1_500
-        : 5_000
+        ? 3_000
+        : 10_000
       : false,
   });
 
@@ -251,7 +282,9 @@ export const NodeTerminalView = ({ id }: { id: string }) => {
     ? selectedSession.status === "pending"
       ? "Starting the remote shell. The first prompt can take a few seconds."
       : selectedSession.status === "terminating"
-        ? "Termination requested. Waiting for the remote shell to exit and persist the final transcript."
+        ? terminalStatus === "disconnected" || terminalStatus === "idle"
+          ? "The remote shell disconnected. Noderax is finalizing the session and persisting the last transcript chunks."
+          : "Termination requested. Waiting for the remote shell to exit and persist the final transcript."
         : canControlSelectedLiveSession
           ? `Interactive session is live. If you leave without terminating, it stays available for ${detachGraceLabel} so you can reattach.`
           : null
@@ -264,11 +297,141 @@ export const NodeTerminalView = ({ id }: { id: string }) => {
       offset: historyPage * HISTORY_PAGE_SIZE,
       refetchIntervalMs:
         selectedSession && isLiveSession(selectedSession.status)
-          ? 1_000
+          ? selectedSession.status === "terminating"
+            ? 3_000
+            : 5_000
           : false,
     },
     canReadSelectedTranscript,
   );
+
+  const syncTerminalSessionCaches = useEffectEvent(
+    (
+      session: TerminalSession,
+      options?: { refreshChunks?: boolean; updateDetailCache?: boolean },
+    ) => {
+      setSessionOverrides((current) => {
+        const existing = current[session.id];
+        if (existing && areTerminalSessionsEquivalent(existing, session)) {
+          return current;
+        }
+
+        return {
+          ...current,
+          [session.id]: session,
+        };
+      });
+
+      if (options?.updateDetailCache ?? true) {
+        const currentDetail = queryClient.getQueryData<TerminalSession>(
+          queryKeys.nodes.terminalSession(session.workspaceId, session.id),
+        );
+
+        if (!currentDetail || !areTerminalSessionsEquivalent(currentDetail, session)) {
+          queryClient.setQueryData(
+            queryKeys.nodes.terminalSession(session.workspaceId, session.id),
+            session,
+          );
+        }
+      }
+
+      queryClient.setQueriesData<TerminalSession[]>(
+        {
+          queryKey: ["nodes", session.workspaceId, session.nodeId, "terminal-sessions"],
+        },
+        (current) => {
+          if (!current) {
+            return current;
+          }
+
+          const existingIndex = current.findIndex((item) => item.id === session.id);
+          if (existingIndex >= 0) {
+            const existing = current[existingIndex];
+            if (areTerminalSessionsEquivalent(existing, session)) {
+              return current;
+            }
+
+            const nextSessions = current.slice();
+            nextSessions[existingIndex] = session;
+            return sortSessionsByCreatedAtDesc(nextSessions);
+          }
+
+          return sortSessionsByCreatedAtDesc([session, ...current]);
+        },
+      );
+
+      if (options?.refreshChunks) {
+        void queryClient.invalidateQueries({
+          queryKey: ["nodes", session.workspaceId, "terminal-session", session.id, "chunks"],
+          refetchType: "active",
+        });
+      }
+    },
+  );
+
+  const refreshSelectedTerminalState = useEffectEvent(async () => {
+    if (!workspaceId || !selectedSessionKey) {
+      return;
+    }
+
+    await Promise.allSettled([
+      selectedSessionNodeId
+        ? queryClient.invalidateQueries({
+            queryKey: ["nodes", workspaceId, selectedSessionNodeId, "terminal-sessions"],
+            refetchType: "active",
+          })
+        : Promise.resolve(),
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.nodes.terminalSession(workspaceId, selectedSessionKey),
+        refetchType: "active",
+      }),
+      queryClient.invalidateQueries({
+        queryKey: ["nodes", workspaceId, "terminal-session", selectedSessionKey, "chunks"],
+        refetchType: "active",
+      }),
+    ]);
+  });
+
+  const finalizeTerminalConnection = useEffectEvent((message?: string) => {
+    if (terminalRef.current) {
+      terminalRef.current.writeln("");
+      terminalRef.current.writeln(
+        `[session finalizing] ${message ?? "Remote shell disconnected. Waiting for the final transcript sync."}`,
+      );
+    }
+
+    activeSessionIdRef.current = null;
+    terminalClientRef.current?.disconnect();
+    terminalClientRef.current = null;
+    void refreshSelectedTerminalState();
+  });
+
+  const handleTerminalConnectionIssue = useEffectEvent((message: string) => {
+    if (terminateRequested && isExpectedTerminalClosureMessage(message)) {
+      finalizeTerminalConnection(message);
+      return;
+    }
+
+    toast.error("Terminal connection issue", {
+      description: message,
+    });
+  });
+
+  const handleTerminalConnectFailure = useEffectEvent((error: unknown) => {
+    const message =
+      error instanceof Error
+        ? error.message
+        : "The terminal session could not be attached.";
+
+    if (terminateRequested && isExpectedTerminalClosureMessage(message)) {
+      finalizeTerminalConnection(message);
+      return;
+    }
+
+    toast.error("Unable to connect terminal", {
+      description: message,
+    });
+  });
 
   useEffect(() => {
     const session = selectedSessionDetailQuery.data;
@@ -276,37 +439,27 @@ export const NodeTerminalView = ({ id }: { id: string }) => {
       return;
     }
 
-    setSessionOverrides((current) => {
-      const existing = current[session.id];
-      if (
-        existing &&
-        existing.status === session.status &&
-        existing.updatedAt === session.updatedAt &&
-        existing.closedReason === session.closedReason &&
-        existing.exitCode === session.exitCode
-      ) {
-        return current;
-      }
-
-      return {
-        ...current,
-        [session.id]: session,
-      };
-    });
+    syncTerminalSessionCaches(session, { updateDetailCache: false });
 
     if (!isLiveSession(session.status)) {
-      void Promise.all([
-        queryClient.invalidateQueries({
-          queryKey: ["nodes", session.workspaceId, session.nodeId, "terminal-sessions"],
-          refetchType: "active",
-        }),
-        queryClient.invalidateQueries({
-          queryKey: ["nodes", session.workspaceId, "terminal-session", session.id, "chunks"],
-          refetchType: "active",
-        }),
-      ]);
+      void queryClient.invalidateQueries({
+        queryKey: ["nodes", session.workspaceId, "terminal-session", session.id, "chunks"],
+        refetchType: "active",
+      });
     }
   }, [queryClient, selectedSessionDetailQuery.data]);
+
+  useEffect(() => {
+    if (!terminateRequested) {
+      return;
+    }
+
+    if (terminalStatus !== "disconnected" && terminalStatus !== "idle") {
+      return;
+    }
+
+    void refreshSelectedTerminalState();
+  }, [refreshSelectedTerminalState, terminalStatus, terminateRequested]);
 
   const renderTerminalChunk = useEffectEvent(
     (chunk: TerminalTranscriptChunk, options?: { allowStdin?: boolean }) => {
@@ -530,14 +683,7 @@ export const NodeTerminalView = ({ id }: { id: string }) => {
 
     const unsubscribeStatus = client.subscribeStatus(setTerminalStatus);
     const unsubscribeSession = client.subscribeSessionState((session) => {
-      setSessionOverrides((current) => ({
-        ...current,
-        [session.id]: session,
-      }));
-      void queryClient.invalidateQueries({
-        queryKey: ["nodes", session.workspaceId, session.nodeId, "terminal-sessions"],
-        refetchType: "active",
-      });
+      syncTerminalSessionCaches(session);
     });
     const unsubscribeOutput = client.subscribeOutput((chunk) => {
       if (!terminalRef.current) {
@@ -556,10 +702,7 @@ export const NodeTerminalView = ({ id }: { id: string }) => {
       renderTerminalChunk(chunk);
     });
     const unsubscribeClosed = client.subscribeClosed((session) => {
-      setSessionOverrides((current) => ({
-        ...current,
-        [session.id]: session,
-      }));
+      syncTerminalSessionCaches(session, { refreshChunks: true });
 
       if (terminalRef.current) {
         terminalRef.current.writeln("");
@@ -568,21 +711,10 @@ export const NodeTerminalView = ({ id }: { id: string }) => {
         );
       }
 
-      void Promise.all([
-        queryClient.invalidateQueries({
-          queryKey: ["nodes", session.workspaceId, session.nodeId, "terminal-sessions"],
-          refetchType: "active",
-        }),
-        queryClient.invalidateQueries({
-          queryKey: ["nodes", session.workspaceId, "terminal-session", session.id, "chunks"],
-          refetchType: "active",
-        }),
-      ]);
+      client.disconnect();
     });
     const unsubscribeError = client.subscribeError((message) => {
-      toast.error("Terminal connection issue", {
-        description: message,
-      });
+      handleTerminalConnectionIssue(message);
     });
 
     void client
@@ -595,12 +727,7 @@ export const NodeTerminalView = ({ id }: { id: string }) => {
         fitTerminal();
       })
       .catch((error) => {
-        toast.error("Unable to connect terminal", {
-          description:
-            error instanceof Error
-              ? error.message
-              : "The terminal session could not be attached.",
-        });
+        handleTerminalConnectFailure(error);
       });
 
     return () => {
@@ -683,6 +810,9 @@ export const NodeTerminalView = ({ id }: { id: string }) => {
         ...current,
         [session.id]: session,
       }));
+      finalizeTerminalConnection(
+        "Termination accepted. Waiting for the remote shell to exit and persist the final transcript.",
+      );
     } catch {
       // Mutation toasts already surface the backend reason.
     }

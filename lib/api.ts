@@ -48,6 +48,7 @@ import type {
   FinalizeEnrollmentPayload,
   FinalizeEnrollmentResponse,
   ForgotPasswordPayload,
+  HealthResponse,
   InvitationPreviewDto,
   InstallPackagesPayload,
   LoginPayload,
@@ -64,6 +65,7 @@ import type {
   OidcProviderDto,
   NodeSummary,
   PlatformSettingsResponse,
+  PlatformApiRestartResponse,
   UpdatePlatformSettingsPayload,
   PackageSearchResult,
   PackageTaskAcceptedResponse,
@@ -840,6 +842,11 @@ export const apiClient = {
       body: JSON.stringify(payload),
     });
   },
+  restartPlatformApi() {
+    return request<PlatformApiRestartResponse>("/api/proxy/platform-settings/restart", {
+      method: "POST",
+    });
+  },
   validatePlatformSmtp(payload: ValidateSmtpPayload) {
     return request<ValidateSmtpResponse>(
       "/api/proxy/platform-settings/validate/smtp",
@@ -848,6 +855,11 @@ export const apiClient = {
         body: JSON.stringify(payload),
       },
     );
+  },
+  getHealth(signal?: AbortSignal) {
+    return request<HealthResponse>("/api/proxy/health", {
+      signal,
+    });
   },
   updateCurrentUserPreferences(payload: UpdateUserPreferencesPayload) {
     return request<UserDto>("/api/proxy/users/me/preferences", {

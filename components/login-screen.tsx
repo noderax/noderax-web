@@ -110,6 +110,8 @@ const loginMessageCopy: Record<string, string> = {
     "Account activated. Sign in with the password you just created.",
   "password-reset": "Password reset complete. Sign in with your new password.",
   "password-updated": "Password updated. Sign in again to continue.",
+  "api-restarted":
+    "The API restarted and your previous session is no longer valid. Sign in again to continue.",
 };
 
 const isAuthSession = (

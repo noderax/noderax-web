@@ -384,7 +384,10 @@ export class NoderaxTerminalClient {
   private isClosedSessionAttachError(message: string) {
     return /terminal session .* was not found/i.test(message)
       || /terminal session is no longer active/i.test(message)
-      || /unable to attach terminal session/i.test(message);
+      || /unable to attach terminal session/i.test(message)
+      || /terminal session is no longer available/i.test(message)
+      || /\bno longer available\b/i.test(message)
+      || /\bsession .* (closed|ended|finished)\b/i.test(message);
   }
 
   private readonly handleConnect = () => {
@@ -476,11 +479,18 @@ export class NoderaxTerminalClient {
       return;
     }
 
+    const message = payload.message || "Terminal request failed.";
+
+    if (this.isClosedSessionAttachError(message)) {
+      this.disconnect();
+      return;
+    }
+
     if (this.suppressErrorEvents) {
       return;
     }
 
-    this.emitError(payload.message || "Terminal request failed.");
+    this.emitError(message);
   };
 
   private attachSocketListeners(socket: Socket) {
