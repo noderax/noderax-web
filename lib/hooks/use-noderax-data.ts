@@ -9,11 +9,13 @@ import { useWorkspaceContext, workspacesQueryKey } from "@/lib/hooks/use-workspa
 import type {
   ChangePasswordPayload,
   AddTeamMemberPayload,
+  AgentUpdateSummary,
   AssignableUserDto,
   AuditLogFilters,
   AuthSession,
   CancelTaskPayload,
   CancelTaskResponse,
+  CreateAgentUpdateRolloutPayload,
   CreateNodeInstallPayload,
   CreateNodeInstallResponse,
   NodeInstallDto,
@@ -108,6 +110,12 @@ export const queryKeys = {
   platformSettings: {
     detail: ["platform-settings"] as const,
   },
+  agentUpdates: {
+    summary: ["agent-updates", "summary"] as const,
+    releases: ["agent-updates", "releases"] as const,
+    rollouts: ["agent-updates", "rollouts"] as const,
+    rollout: (rolloutId: string) => ["agent-updates", "rollout", rolloutId] as const,
+  },
   audit: {
     platform: (filters?: AuditLogFilters) =>
       ["audit-logs", "platform", filters ?? {}] as const,
@@ -121,6 +129,7 @@ export const queryKeys = {
     all: ["auth", "oidc-providers"] as const,
   },
   nodes: {
+    platform: (filters?: NodeFilters) => ["nodes", "platform", "list", filters ?? {}] as const,
     all: (workspaceId: string, filters?: NodeFilters) =>
       ["nodes", workspaceId, "list", filters ?? {}] as const,
     detail: (workspaceId: string, id: string) => ["nodes", workspaceId, "detail", id] as const,
@@ -366,6 +375,79 @@ export const usePlatformSettings = (enabled = true) =>
     staleTime: 15_000,
   });
 
+const invalidateAgentUpdateQueries = async (
+  queryClient: ReturnType<typeof useQueryClient>,
+  rolloutId?: string | null,
+) => {
+  await Promise.all([
+    queryClient.invalidateQueries({
+      queryKey: queryKeys.agentUpdates.summary,
+      refetchType: "active",
+    }),
+    queryClient.invalidateQueries({
+      queryKey: queryKeys.agentUpdates.releases,
+      refetchType: "active",
+    }),
+    queryClient.invalidateQueries({
+      queryKey: queryKeys.agentUpdates.rollouts,
+      refetchType: "active",
+    }),
+    queryClient.invalidateQueries({
+      predicate: (query) =>
+        query.queryKey[0] === "nodes" && query.queryKey[1] === "platform",
+      refetchType: "active",
+    }),
+    ...(rolloutId
+      ? [
+          queryClient.invalidateQueries({
+            queryKey: queryKeys.agentUpdates.rollout(rolloutId),
+            refetchType: "active",
+          }),
+        ]
+      : []),
+  ]);
+};
+
+export const useAgentUpdateSummary = (enabled = true) =>
+  useQuery<AgentUpdateSummary>({
+    queryKey: queryKeys.agentUpdates.summary,
+    queryFn: apiClient.getAgentUpdateSummary,
+    enabled,
+    staleTime: 10_000,
+    refetchInterval: enabled ? 15_000 : false,
+    refetchIntervalInBackground: true,
+  });
+
+export const useAgentUpdateReleases = (enabled = true) =>
+  useQuery({
+    queryKey: queryKeys.agentUpdates.releases,
+    queryFn: apiClient.getAgentUpdateReleases,
+    enabled,
+    staleTime: 30_000,
+    refetchInterval: enabled ? 60_000 : false,
+    refetchIntervalInBackground: false,
+  });
+
+export const useAgentUpdateRollouts = (enabled = true) =>
+  useQuery({
+    queryKey: queryKeys.agentUpdates.rollouts,
+    queryFn: apiClient.getAgentUpdateRollouts,
+    enabled,
+    staleTime: 10_000,
+    refetchInterval: enabled ? 15_000 : false,
+    refetchIntervalInBackground: true,
+  });
+
+export const useAgentUpdateRollout = (rolloutId: string, enabled = true) =>
+  useQuery({
+    queryKey: queryKeys.agentUpdates.rollout(rolloutId),
+    queryFn: () => apiClient.getAgentUpdateRollout(rolloutId),
+    enabled: enabled && Boolean(rolloutId),
+    staleTime: 5_000,
+    refetchInterval: enabled && rolloutId ? 10_000 : false,
+    refetchIntervalInBackground: true,
+  });
+
 export const useValidatePlatformSmtp = () =>
   useMutation({
     mutationFn: (payload: ValidateSmtpPayload) =>
@@ -486,6 +568,17 @@ export const useWorkspaceAssignableUsers = (enabled = true) => {
     staleTime: 15_000,
   });
 };
+
+export const usePlatformNodes = (filters?: NodeFilters, enabled = true) =>
+  useQuery({
+    queryKey: queryKeys.nodes.platform(filters),
+    queryFn: () => apiClient.getNodeSummaries(filters, undefined),
+    enabled,
+    staleTime: 15_000,
+    refetchInterval: enabled ? 20_000 : false,
+    refetchIntervalInBackground: true,
+    refetchOnWindowFocus: false,
+  });
 
 export const useNodes = (filters?: NodeFilters) => {
   const { workspaceId } = useWorkspaceContext();
@@ -882,6 +975,107 @@ export const useUpdatePlatformSettings = () => {
     },
     onError: (error) => {
       toast.error("Unable to update platform settings", {
+        description: readMutationError(error),
+      });
+    },
+  });
+};
+
+export const useCreateAgentUpdateRollout = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (payload: CreateAgentUpdateRolloutPayload) =>
+      apiClient.createAgentUpdateRollout(payload),
+    onSuccess: async (rollout) => {
+      toast.success(
+        rollout.rollback ? "Agent rollback started" : "Agent rollout started",
+        {
+          description: `${rollout.counts.total} ${rollout.counts.total === 1 ? "server is" : "servers are"} targeting ${rollout.targetVersion}.`,
+        },
+      );
+      await invalidateAgentUpdateQueries(queryClient, rollout.id);
+    },
+    onError: (error) => {
+      toast.error("Unable to start agent rollout", {
+        description: readMutationError(error),
+      });
+    },
+  });
+};
+
+export const useResumeAgentUpdateRollout = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (rolloutId: string) => apiClient.resumeAgentUpdateRollout(rolloutId),
+    onSuccess: async (rollout) => {
+      toast.success("Agent rollout resumed", {
+        description: rollout.targetVersion,
+      });
+      await invalidateAgentUpdateQueries(queryClient, rollout.id);
+    },
+    onError: (error) => {
+      toast.error("Unable to resume rollout", {
+        description: readMutationError(error),
+      });
+    },
+  });
+};
+
+export const useCancelAgentUpdateRollout = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (rolloutId: string) => apiClient.cancelAgentUpdateRollout(rolloutId),
+    onSuccess: async (rollout) => {
+      toast.success("Agent rollout cancelled", {
+        description: rollout.targetVersion,
+      });
+      await invalidateAgentUpdateQueries(queryClient, rollout.id);
+    },
+    onError: (error) => {
+      toast.error("Unable to cancel rollout", {
+        description: readMutationError(error),
+      });
+    },
+  });
+};
+
+export const useRetryAgentUpdateRolloutTarget = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (input: { rolloutId: string; targetId: string }) =>
+      apiClient.retryAgentUpdateRolloutTarget(input.rolloutId, input.targetId),
+    onSuccess: async (rollout) => {
+      toast.success("Target retry queued", {
+        description: rollout.targetVersion,
+      });
+      await invalidateAgentUpdateQueries(queryClient, rollout.id);
+    },
+    onError: (error) => {
+      toast.error("Unable to retry target", {
+        description: readMutationError(error),
+      });
+    },
+  });
+};
+
+export const useSkipAgentUpdateRolloutTarget = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (input: { rolloutId: string; targetId: string }) =>
+      apiClient.skipAgentUpdateRolloutTarget(input.rolloutId, input.targetId),
+    onSuccess: async (rollout) => {
+      toast.success("Target skipped", {
+        description: rollout.targetVersion,
+      });
+      await invalidateAgentUpdateQueries(queryClient, rollout.id);
+    },
+    onError: (error) => {
+      toast.error("Unable to skip target", {
         description: readMutationError(error),
       });
     },

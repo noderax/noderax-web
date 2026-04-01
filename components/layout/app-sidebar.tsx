@@ -14,6 +14,7 @@ import {
   FolderTree,
   LayoutDashboard,
   MonitorCog,
+  RefreshCcw,
   Settings,
   ServerCog,
   UserRound,
@@ -150,6 +151,7 @@ const SidebarContent = ({
           ? [
               { href: "/workspaces", label: "Workspaces", icon: FolderTree },
               { href: "/users", label: "Users", icon: Users },
+              { href: "/updates", label: "Updates", icon: RefreshCcw },
               { href: "/audit", label: "Platform Audit", icon: ClipboardList },
               {
                 href: platformSettingsHref,

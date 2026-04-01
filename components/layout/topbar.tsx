@@ -4,6 +4,7 @@ import { Suspense, startTransition, useDeferredValue, useEffect, useMemo, useSta
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   AlertTriangle,
+  ArrowUpCircle,
   ChevronsUpDown,
   LogOut,
   Menu,
@@ -31,7 +32,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { apiClient } from "@/lib/api";
 import { useAuthSession } from "@/lib/hooks/use-auth-session";
-import { useWorkspaceSearch } from "@/lib/hooks/use-noderax-data";
+import { useAgentUpdateSummary, useWorkspaceSearch } from "@/lib/hooks/use-noderax-data";
 import { useWorkspaceContext } from "@/lib/hooks/use-workspace-context";
 import { buildWorkspacePath } from "@/lib/workspace";
 import { cn } from "@/lib/utils";
@@ -52,6 +53,7 @@ const sectionNames: Record<string, string> = {
   "/teams": "Teams",
   "/workspace-settings": "Workspace Settings",
   "/workspaces": "Workspaces",
+  "/updates": "Updates",
   "/users": "Users",
   "/settings": "Settings",
 };
@@ -69,6 +71,7 @@ const sectionDescriptions: Record<string, string> = {
   "/workspace-settings":
     "Configure workspace name, slug, and execution timezone.",
   "/workspaces": "Create, switch, and manage isolated operational workspaces.",
+  "/updates": "Track official agent releases, rollout progress, and fleet rollback actions.",
   "/users": "Manage global operator accounts and platform roles.",
   "/settings": "Manage appearance, session metadata, and preferences.",
 };
@@ -208,6 +211,7 @@ const TopbarContent = () => {
     refetchIntervalInBackground: false,
     refetchOnWindowFocus: false,
   });
+  const agentUpdatesSummaryQuery = useAgentUpdateSummary(isPlatformAdmin);
 
   const queuedAges = (queuedTaskHealthQuery.data ?? [])
     .map((task) => Date.now() - Date.parse(task.createdAt))
@@ -457,6 +461,29 @@ const TopbarContent = () => {
             ) : null}
           </div>
           <ThemeToggle />
+          {isPlatformAdmin &&
+          (agentUpdatesSummaryQuery.data?.activeRollout ||
+            (agentUpdatesSummaryQuery.data?.outdatedNodeCount ?? 0) > 0) ? (
+            <Button
+              variant="outline"
+              className={cn(
+                "hidden rounded-xl md:inline-flex",
+                agentUpdatesSummaryQuery.data?.activeRollout?.status === "paused"
+                  ? "tone-warning"
+                  : agentUpdatesSummaryQuery.data?.activeRollout
+                    ? "tone-brand"
+                    : "tone-success",
+              )}
+              onClick={() => router.push("/updates")}
+            >
+              <ArrowUpCircle className="size-4" />
+              {agentUpdatesSummaryQuery.data?.activeRollout
+                ? agentUpdatesSummaryQuery.data.activeRollout.status === "paused"
+                  ? "Agent rollout paused"
+                  : "Agent rollout in progress"
+                : "New agent version available"}
+            </Button>
+          ) : null}
           <DropdownMenu>
             <DropdownMenuTrigger
               id="account-menu-trigger"

@@ -323,6 +323,7 @@ export interface MetricPoint {
 
 export interface NodeSummary {
   id: string;
+  workspaceId: string;
   name: string;
   hostname: string;
   status: NodeStatus;
@@ -340,6 +341,112 @@ export interface NodeSummary {
   createdAt: string;
   updatedAt: string;
   latestMetric: MetricPoint | null;
+}
+
+export type AgentReleaseChannel = "tag";
+
+export interface AgentReleaseArtifact {
+  binaryUrl: string;
+  sha256: string;
+}
+
+export interface AgentReleaseArtifacts {
+  amd64?: AgentReleaseArtifact;
+  arm64?: AgentReleaseArtifact;
+}
+
+export interface AgentReleaseNotesSection {
+  title: string;
+  items: string[];
+}
+
+export interface AgentRelease {
+  version: string;
+  publishedAt: string;
+  commit: string;
+  channel: AgentReleaseChannel;
+  notes: AgentReleaseNotesSection[];
+  artifacts: AgentReleaseArtifacts;
+}
+
+export type AgentUpdateRolloutStatus =
+  | "queued"
+  | "running"
+  | "paused"
+  | "completed"
+  | "cancelled";
+
+export type AgentUpdateTargetStatus =
+  | "pending"
+  | "dispatched"
+  | "downloading"
+  | "verifying"
+  | "installing"
+  | "restarting"
+  | "waiting_for_reconnect"
+  | "completed"
+  | "failed"
+  | "skipped"
+  | "cancelled";
+
+export interface AgentUpdateRolloutTarget {
+  id: string;
+  rolloutId: string;
+  nodeId: string;
+  workspaceId: string;
+  teamId: string | null;
+  nodeNameSnapshot: string;
+  previousVersion: string | null;
+  targetVersion: string;
+  status: AgentUpdateTargetStatus;
+  progressPercent: number;
+  statusMessage: string | null;
+  taskId: string | null;
+  sequence: number;
+  dispatchedAt: string | null;
+  completedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AgentUpdateRolloutCounts {
+  total: number;
+  completed: number;
+  failed: number;
+  skipped: number;
+  active: number;
+  pending: number;
+}
+
+export interface AgentUpdateRollout {
+  id: string;
+  targetVersion: string;
+  status: AgentUpdateRolloutStatus;
+  rollback: boolean;
+  requestedByUserId: string | null;
+  requestedByEmailSnapshot: string | null;
+  statusMessage: string | null;
+  startedAt: string | null;
+  completedAt: string | null;
+  cancelledAt: string | null;
+  counts: AgentUpdateRolloutCounts;
+  targets: AgentUpdateRolloutTarget[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AgentUpdateSummary {
+  latestRelease: AgentRelease | null;
+  outdatedNodeCount: number;
+  eligibleOutdatedNodeCount: number;
+  activeRollout: AgentUpdateRollout | null;
+  releaseCheckedAt: string | null;
+}
+
+export interface CreateAgentUpdateRolloutPayload {
+  nodeIds: string[];
+  version?: string;
+  rollback?: boolean;
 }
 
 export interface NodeDetail extends NodeSummary {

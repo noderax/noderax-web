@@ -30,6 +30,7 @@ Current product surface:
 - Account security controls with QR-based TOTP MFA enrollment and recovery codes
 - Platform identity controls for SSO provider management and provider testing
 - Platform-admin audit view plus workspace audit history
+- Platform-admin `Updates` center for official tagged agent releases, changelog review, and fleet rollout orchestration
 - Workspace task templates and team-targeted task execution flows
 - Unified settings surface with:
   - `Account`
@@ -110,6 +111,7 @@ Additional top-level routes:
 - `/reset-password/[token]`
 - `/settings`
 - `/setup`
+- `/updates`
 - `/users`
 - `/audit`
 
@@ -125,6 +127,11 @@ The top-level non-workspace pages continue to exist as convenience or fallback s
 - Workspace-aware navigation and workspace cookie persistence
 - Default workspace fallback when a prior workspace disappears
 - Platform-admin workspace creation and workspace inventory
+- Platform-admin agent update center with:
+  - global "new agent version available" / rollout-in-progress CTA in the topbar
+  - official tagged release history and changelog cards
+  - platform-wide node filtering and selection
+  - sequential rollout progress with retry, skip, resume, cancel, and rollback actions
 - Workspace archive / restore controls with read-only UI states
 - Workspace member and team management built on top of the global user directory
 - Task templates with prefill/save UX in task creation flows
@@ -161,6 +168,7 @@ The top-level non-workspace pages continue to exist as convenience or fallback s
 - `platform_admin`
   - can create workspaces
   - can access `/users`
+  - can access `/updates`
   - can create, edit, activate, deactivate, and delete global users
   - can access `Platform` settings
   - can choose the platform default workspace
@@ -258,6 +266,16 @@ Terminal-specific notes:
 
 - Live terminal traffic uses the separate `/terminal` namespace rather than the general `/realtime` stream
 - Only the session creator can attach to and control a live terminal session
+
+## Agent Updates
+
+The platform `Updates` page is the web entrypoint for official agent release management.
+
+- The web UI reads summary, releases, and rollout state from the authenticated API only.
+- Release source selection is not operator-configurable in the browser; the API uses the official CDN catalog first and official GitHub Releases as fallback metadata.
+- Only tagged official releases appear in the UI. Preview or `main` binaries are ignored for badges, notifications, and rollout actions.
+- Fleet rollout selection is platform-wide rather than workspace-scoped, but workspace and team filters remain available to narrow the target set.
+- Nodes that are offline, in maintenance mode, already on the target version, or on unsupported architectures remain visible yet cannot be selected.
 - Persisted transcript chunks are polled while a session is active so the history panel stays current
 - Leaving the page no longer closes the shell immediately; the UI advertises the 5-minute reattach window
 - The selected live session also polls its own detail state so missed close events do not leave the UI stuck in `terminating`

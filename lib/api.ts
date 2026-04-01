@@ -12,6 +12,9 @@ import {
 import type {
   AcceptInvitationPayload,
   AddTeamMemberPayload,
+  AgentRelease,
+  AgentUpdateRollout,
+  AgentUpdateSummary,
   AuditLogDto,
   AuditLogFilters,
   AuthProviderOption,
@@ -22,6 +25,7 @@ import type {
   ChangePasswordPayload,
   CreateBatchScheduledTaskPayload,
   CreateBatchTaskPayload,
+  CreateAgentUpdateRolloutPayload,
   CreateNodeInstallPayload,
   CreateNodeInstallResponse,
   CreateScheduledTaskPayload,
@@ -834,6 +838,58 @@ export const apiClient = {
   },
   getPlatformSettings() {
     return request<PlatformSettingsResponse>("/api/proxy/platform-settings");
+  },
+  getAgentUpdateSummary() {
+    return request<AgentUpdateSummary>("/api/proxy/agent-updates/summary");
+  },
+  getAgentUpdateReleases() {
+    return request<AgentRelease[]>("/api/proxy/agent-updates/releases");
+  },
+  getAgentUpdateRollouts() {
+    return request<AgentUpdateRollout[]>("/api/proxy/agent-updates/rollouts");
+  },
+  getAgentUpdateRollout(rolloutId: string) {
+    return request<AgentUpdateRollout>(
+      `/api/proxy/agent-updates/rollouts/${rolloutId}`,
+    );
+  },
+  createAgentUpdateRollout(payload: CreateAgentUpdateRolloutPayload) {
+    return request<AgentUpdateRollout>("/api/proxy/agent-updates/rollouts", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  },
+  resumeAgentUpdateRollout(rolloutId: string) {
+    return request<AgentUpdateRollout>(
+      `/api/proxy/agent-updates/rollouts/${rolloutId}/resume`,
+      {
+        method: "POST",
+      },
+    );
+  },
+  cancelAgentUpdateRollout(rolloutId: string) {
+    return request<AgentUpdateRollout>(
+      `/api/proxy/agent-updates/rollouts/${rolloutId}/cancel`,
+      {
+        method: "POST",
+      },
+    );
+  },
+  retryAgentUpdateRolloutTarget(rolloutId: string, targetId: string) {
+    return request<AgentUpdateRollout>(
+      `/api/proxy/agent-updates/rollouts/${rolloutId}/targets/${targetId}/retry`,
+      {
+        method: "POST",
+      },
+    );
+  },
+  skipAgentUpdateRolloutTarget(rolloutId: string, targetId: string) {
+    return request<AgentUpdateRollout>(
+      `/api/proxy/agent-updates/rollouts/${rolloutId}/targets/${targetId}/skip`,
+      {
+        method: "POST",
+      },
+    );
   },
   updatePlatformSettings(payload: UpdatePlatformSettingsPayload) {
     return request<PlatformSettingsResponse>("/api/proxy/platform-settings", {

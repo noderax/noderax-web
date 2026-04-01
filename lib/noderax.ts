@@ -214,6 +214,7 @@ export const mapNodeSummary = (
 
   return {
     id: node.id,
+    workspaceId: node.workspaceId,
     name: node.name,
     hostname: node.hostname,
     status: node.status,
