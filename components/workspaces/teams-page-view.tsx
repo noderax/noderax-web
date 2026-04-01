@@ -204,6 +204,10 @@ const TeamCard = ({
       (member) => !memberIds.has(member.userId) && member.userIsActive !== false,
     );
   }, [members, teamMembersQuery.data]);
+  const selectedUser =
+    selectedUserId
+      ? selectableMembers.find((member) => member.userId === selectedUserId) ?? null
+      : null;
 
   return (
     <article className="surface-subtle rounded-[22px] border p-5">
@@ -229,7 +233,11 @@ const TeamCard = ({
             onValueChange={(value) => setSelectedUserId(value ?? "")}
           >
             <SelectTrigger className="md:w-72">
-              <SelectValue placeholder="Add a workspace member" />
+              <SelectValue placeholder="Add a workspace member">
+                {selectedUser
+                  ? selectedUser.userName ?? selectedUser.userEmail ?? selectedUser.userId
+                  : null}
+              </SelectValue>
             </SelectTrigger>
             <SelectContent>
               {selectableMembers.map((member) => (

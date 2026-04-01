@@ -43,6 +43,10 @@ export const EventsPageView = () => {
   const [typeFilter, setTypeFilter] = useState("");
   const [limit, setLimit] = useState<25 | 50 | 100>(50);
   const nodesQuery = useNodes({ limit: 100 });
+  const selectedNode =
+    nodeFilter === "all"
+      ? null
+      : (nodesQuery.data ?? []).find((node) => node.id === nodeFilter) ?? null;
   const eventsQuery = useEvents({
     severity: eventSeverityFilter,
     nodeId: nodeFilter === "all" ? undefined : nodeFilter,
@@ -87,7 +91,9 @@ export const EventsPageView = () => {
         onValueChange={(value) => setNodeFilter(value ?? "all")}
       >
         <SelectTrigger className="min-w-52 shrink-0">
-          <SelectValue placeholder="Node" />
+          <SelectValue placeholder="Node">
+            {nodeFilter === "all" ? "All nodes" : selectedNode?.name}
+          </SelectValue>
         </SelectTrigger>
         <SelectContent>
           <SelectItem value="all">All nodes</SelectItem>

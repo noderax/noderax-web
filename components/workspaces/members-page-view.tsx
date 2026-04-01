@@ -59,6 +59,10 @@ export const MembersPageView = () => {
   const [open, setOpen] = useState(false);
   const [formState, setFormState] = useState(defaultFormState);
   const [teamFilter, setTeamFilter] = useState<string>("all");
+  const selectedTeam =
+    teamFilter === "all"
+      ? null
+      : (teamsQuery.data ?? []).find((team) => team.id === teamFilter) ?? null;
   const selectedTeamMembersQuery = useWorkspaceTeamMembers(
     teamFilter === "all" ? "" : teamFilter,
     Boolean(workspace && teamFilter !== "all"),
@@ -346,7 +350,9 @@ export const MembersPageView = () => {
                     onValueChange={(value) => setTeamFilter(value ?? "all")}
                   >
                     <SelectTrigger className="w-full sm:w-56">
-                      <SelectValue placeholder="Filter by team" />
+                      <SelectValue placeholder="Filter by team">
+                        {teamFilter === "all" ? "All members" : selectedTeam?.name}
+                      </SelectValue>
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">All members</SelectItem>

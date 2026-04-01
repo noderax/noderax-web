@@ -116,6 +116,10 @@ export const NodeDetailView = ({ id }: { id: string }) => {
   const disableMaintenance = useDisableNodeMaintenance();
   const node = nodeQuery.data;
   const isAdmin = isWorkspaceAdmin;
+  const selectedTeam =
+    selectedTeamId === "none"
+      ? null
+      : (teamsQuery.data ?? []).find((team) => team.id === selectedTeamId) ?? null;
 
   useEffect(() => {
     if (!node) {
@@ -307,7 +311,9 @@ export const NodeDetailView = ({ id }: { id: string }) => {
               disabled={!isAdmin}
             >
               <SelectTrigger className="w-full">
-                <SelectValue placeholder="Select a team" />
+                <SelectValue placeholder="Select a team">
+                  {selectedTeamId === "none" ? "No team" : selectedTeam?.name}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="none">No team</SelectItem>

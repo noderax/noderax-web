@@ -479,6 +479,14 @@ export const CreateTaskDialog = ({
     (team) => team.id === scheduledTeamId,
   );
   const taskTemplates = taskTemplatesQuery.data ?? [];
+  const selectedOnDemandTemplate =
+    onDemandTemplateId === "none"
+      ? null
+      : taskTemplates.find((template) => template.id === onDemandTemplateId) ?? null;
+  const selectedScheduledTemplate =
+    scheduledTemplateId === "none"
+      ? null
+      : taskTemplates.find((template) => template.id === scheduledTemplateId) ?? null;
   const selectedMultiNodes = useMemo(
     () =>
       nodes.filter((node) => (multiNodeIdsValue ?? []).includes(node.id)),
@@ -829,7 +837,11 @@ export const CreateTaskDialog = ({
                       }}
                     >
                       <SelectTrigger id="task-template" className="w-full">
-                        <SelectValue placeholder="No template" />
+                        <SelectValue placeholder="No template">
+                          {onDemandTemplateId === "none"
+                            ? "No template"
+                            : selectedOnDemandTemplate?.name}
+                        </SelectValue>
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="none">No template</SelectItem>
@@ -1032,7 +1044,11 @@ export const CreateTaskDialog = ({
                       }}
                     >
                       <SelectTrigger id="schedule-template" className="w-full">
-                        <SelectValue placeholder="No template" />
+                        <SelectValue placeholder="No template">
+                          {scheduledTemplateId === "none"
+                            ? "No template"
+                            : selectedScheduledTemplate?.name}
+                        </SelectValue>
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="none">No template</SelectItem>
