@@ -1,5 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 
+import { buildClearedApiBaseUrlCookieOptions } from "@/lib/auth";
+
 const AUTH_TOKEN_COOKIE = "noderax_token";
 const API_BASE_URL_COOKIE = "noderax_api_url";
 const PUBLIC_AUTH_ROUTES = ["/login", "/forgot-password"] as const;
@@ -9,11 +11,9 @@ const isPublicAuthRoute = (pathname: string) =>
   PUBLIC_AUTH_ROUTES.includes(pathname as (typeof PUBLIC_AUTH_ROUTES)[number]) ||
   PUBLIC_AUTH_ROUTE_PREFIXES.some((prefix) => pathname.startsWith(prefix));
 
-const readSetupStatus = async (apiUrlOverride?: string) => {
+const readSetupStatus = async () => {
   const baseUrl =
-    apiUrlOverride?.trim() ||
-    process.env.NODERAX_API_URL ||
-    process.env.NEXT_PUBLIC_NODERAX_API_URL;
+    process.env.NODERAX_API_URL || process.env.NEXT_PUBLIC_NODERAX_API_URL;
 
   if (!baseUrl) {
     return null;
@@ -53,23 +53,44 @@ export async function proxy(request: NextRequest) {
   const isLoginRoute = pathname === "/login";
   const isPublicRoute = isPublicAuthRoute(pathname);
   const isSetupRoute = pathname === "/setup" || pathname.startsWith("/setup/");
+  const shouldClearApiOverride = Boolean(apiUrlOverride);
+  let clearCookieForInstalledSystem = false;
+  const finalizeResponse = (response: NextResponse, clearCookie = false) => {
+    if (clearCookie && shouldClearApiOverride) {
+      response.cookies.set(
+        API_BASE_URL_COOKIE,
+        "",
+        buildClearedApiBaseUrlCookieOptions(),
+      );
+    }
+
+    return response;
+  };
 
   try {
-    const status = await readSetupStatus(apiUrlOverride);
+    const status = await readSetupStatus();
 
     if (status) {
+      clearCookieForInstalledSystem =
+        status.mode === "installed" || status.mode === "legacy";
+
       if (
         (status.mode === "setup" || status.mode === "restart_required") &&
         !isSetupRoute
       ) {
-        return NextResponse.redirect(new URL("/setup", request.url));
+        return finalizeResponse(
+          NextResponse.redirect(new URL("/setup", request.url)),
+        );
       }
 
       if (
         (status.mode === "installed" || status.mode === "legacy") &&
         isSetupRoute
       ) {
-        return NextResponse.redirect(new URL(token ? "/" : "/login", request.url));
+        return finalizeResponse(
+          NextResponse.redirect(new URL(token ? "/" : "/login", request.url)),
+          clearCookieForInstalledSystem,
+        );
       }
     }
   } catch {
@@ -79,14 +100,20 @@ export async function proxy(request: NextRequest) {
   if (!token && !isPublicRoute && !isSetupRoute) {
     const loginUrl = new URL("/login", request.url);
     loginUrl.searchParams.set("next", pathname);
-    return NextResponse.redirect(loginUrl);
+    return finalizeResponse(
+      NextResponse.redirect(loginUrl),
+      clearCookieForInstalledSystem,
+    );
   }
 
   if (token && (isLoginRoute || isSetupRoute)) {
-    return NextResponse.redirect(new URL("/", request.url));
+    return finalizeResponse(
+      NextResponse.redirect(new URL("/", request.url)),
+      clearCookieForInstalledSystem,
+    );
   }
 
-  return NextResponse.next();
+  return finalizeResponse(NextResponse.next(), clearCookieForInstalledSystem);
 }
 
 export const config = {

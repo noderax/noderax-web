@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useEffect, useState } from "react";
 import QRCode from "qrcode";
 
@@ -14,14 +15,19 @@ export function QrCode({
   size?: number;
   className?: string;
 }) {
-  const [dataUrl, setDataUrl] = useState<string | null>(null);
-  const [hasError, setHasError] = useState(false);
+  const requestKey = `${size}:${value}`;
+  const [qrState, setQrState] = useState<{
+    requestKey: string;
+    dataUrl: string | null;
+    hasError: boolean;
+  }>({
+    requestKey: "",
+    dataUrl: null,
+    hasError: false,
+  });
 
   useEffect(() => {
     let cancelled = false;
-
-    setDataUrl(null);
-    setHasError(false);
 
     void QRCode.toDataURL(value, {
       width: size,
@@ -34,19 +40,30 @@ export function QrCode({
     })
       .then((nextDataUrl) => {
         if (!cancelled) {
-          setDataUrl(nextDataUrl);
+          setQrState({
+            requestKey,
+            dataUrl: nextDataUrl,
+            hasError: false,
+          });
         }
       })
       .catch(() => {
         if (!cancelled) {
-          setHasError(true);
+          setQrState({
+            requestKey,
+            dataUrl: null,
+            hasError: true,
+          });
         }
       });
 
     return () => {
       cancelled = true;
     };
-  }, [size, value]);
+  }, [requestKey, size, value]);
+
+  const dataUrl = qrState.requestKey === requestKey ? qrState.dataUrl : null;
+  const hasError = qrState.requestKey === requestKey && qrState.hasError;
 
   return (
     <div
@@ -57,12 +74,13 @@ export function QrCode({
       style={{ width: size + 24, height: size + 24 }}
     >
       {dataUrl ? (
-        <img
+        <Image
           src={dataUrl}
           alt="Authenticator setup QR code"
           width={size}
           height={size}
           className="block"
+          unoptimized
         />
       ) : hasError ? (
         <div className="px-4 text-center text-xs text-muted-foreground">

@@ -1,11 +1,7 @@
-import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import {
-  API_BASE_URL_COOKIE,
-  fetchApiWithFallback,
-} from "@/lib/auth";
+import { fetchApiWithFallback } from "@/lib/auth";
 import { fetchSetupApi } from "@/lib/setup";
 import type { LoginResponseDto } from "@/lib/types";
 import { createSessionResponse } from "@/app/api/auth/_shared";
@@ -35,17 +31,10 @@ const readErrorMessage = async (response: Response) => {
 
 export async function POST(request: Request) {
   try {
-    const cookieStore = await cookies();
-    const apiUrlOverride = cookieStore.get(API_BASE_URL_COOKIE)?.value;
-
     try {
-      const setupStatusResponse = await fetchSetupApi(
-        "/setup/status",
-        {
-          cache: "no-store",
-        },
-        apiUrlOverride,
-      );
+      const setupStatusResponse = await fetchSetupApi("/setup/status", {
+        cache: "no-store",
+      });
 
       if (setupStatusResponse.ok) {
         const setupStatus = (await setupStatusResponse.json()) as {
@@ -86,7 +75,7 @@ export async function POST(request: Request) {
           password: payload.password,
         }),
         cache: "no-store",
-      }, apiUrlOverride);
+      });
     } catch {
       return NextResponse.json(
         {

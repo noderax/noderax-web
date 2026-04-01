@@ -1,18 +1,14 @@
 import { NextResponse } from "next/server";
 
-import { API_BASE_URL_COOKIE } from "@/lib/auth";
+import {
+  API_BASE_URL_COOKIE,
+  buildApiBaseUrlCookieOptions,
+  buildClearedApiBaseUrlCookieOptions,
+} from "@/lib/auth";
 import { getSetupApiConfig } from "@/lib/setup";
 import { parseSetupApiUrlInput, readSetupApiConfig } from "../_shared";
 
 export const dynamic = "force-dynamic";
-
-const buildCookieOptions = () => ({
-  httpOnly: true,
-  sameSite: "lax" as const,
-  secure: process.env.NODE_ENV === "production",
-  path: "/",
-  maxAge: 60 * 60 * 24 * 30,
-});
 
 export async function GET() {
   return NextResponse.json(await readSetupApiConfig(), {
@@ -44,13 +40,17 @@ export async function POST(request: Request) {
   const response = NextResponse.json(body, { status: 200 });
 
   if (payload.apiUrl?.trim()) {
-    response.cookies.set(API_BASE_URL_COOKIE, normalizedApiUrl!, buildCookieOptions());
+    response.cookies.set(
+      API_BASE_URL_COOKIE,
+      normalizedApiUrl!,
+      buildApiBaseUrlCookieOptions(),
+    );
   } else {
-    response.cookies.set(API_BASE_URL_COOKIE, "", {
-      ...buildCookieOptions(),
-      maxAge: 0,
-      expires: new Date(0),
-    });
+    response.cookies.set(
+      API_BASE_URL_COOKIE,
+      "",
+      buildClearedApiBaseUrlCookieOptions(),
+    );
   }
 
   return response;

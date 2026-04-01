@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import {
-  API_BASE_URL_COOKIE,
   AUTH_TOKEN_COOKIE,
   getApiRequestUrls,
   resolveApiBaseUrl,
@@ -14,9 +13,8 @@ async function forwardRequest(
   context: { params: Promise<{ path: string[] }> },
 ) {
   const { path } = await context.params;
-  const apiUrlOverride = request.cookies.get(API_BASE_URL_COOKIE)?.value;
-  const upstreamUrls = getApiRequestUrls(`/${path.join("/")}`, apiUrlOverride);
-  const resolvedApiBaseUrl = resolveApiBaseUrl(apiUrlOverride).apiUrl;
+  const upstreamUrls = getApiRequestUrls(`/${path.join("/")}`);
+  const resolvedApiBaseUrl = resolveApiBaseUrl().apiUrl;
 
   if (!upstreamUrls.length) {
     return NextResponse.json(

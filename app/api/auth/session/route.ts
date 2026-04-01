@@ -7,6 +7,7 @@ import {
   AUTH_SESSION_COOKIE,
   AUTH_TOKEN_COOKIE,
   buildAuthCookieOptions,
+  buildClearedApiBaseUrlCookieOptions,
   decodeSession,
   encodeSession,
   fetchApiWithFallback,
@@ -16,6 +17,11 @@ import { fetchSetupApi } from "@/lib/setup";
 import type { UserDto } from "@/lib/types";
 
 const clearAuthCookies = (response: NextResponse) => {
+  response.cookies.set(
+    API_BASE_URL_COOKIE,
+    "",
+    buildClearedApiBaseUrlCookieOptions(),
+  );
   response.cookies.set(AUTH_TOKEN_COOKIE, "", {
     expires: new Date(0),
     path: "/",
@@ -32,19 +38,14 @@ const clearAuthCookies = (response: NextResponse) => {
 
 export async function GET() {
   const cookieStore = await cookies();
-  const apiUrlOverride = cookieStore.get(API_BASE_URL_COOKIE)?.value;
   const token = cookieStore.get(AUTH_TOKEN_COOKIE)?.value;
   const cachedSession = decodeSession(cookieStore.get(AUTH_SESSION_COOKIE)?.value);
   const isPersistent = cookieStore.get(AUTH_PERSIST_COOKIE)?.value === "1";
 
   try {
-    const setupStatusResponse = await fetchSetupApi(
-      "/setup/status",
-      {
-        cache: "no-store",
-      },
-      apiUrlOverride,
-    );
+    const setupStatusResponse = await fetchSetupApi("/setup/status", {
+      cache: "no-store",
+    });
 
     if (setupStatusResponse.ok) {
       const setupStatus = (await setupStatusResponse.json()) as {
@@ -89,7 +90,7 @@ export async function GET() {
         authorization: `Bearer ${token}`,
       },
       cache: "no-store",
-    }, apiUrlOverride);
+    });
   } catch {
     const response = NextResponse.json(
       {
@@ -143,6 +144,11 @@ export async function GET() {
     }),
     httpOnly: true,
   });
+  response.cookies.set(
+    API_BASE_URL_COOKIE,
+    "",
+    buildClearedApiBaseUrlCookieOptions(),
+  );
 
   return response;
 }

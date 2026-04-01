@@ -578,6 +578,9 @@ function SettingsPageContent({
   const platformRestartTimedOut = platformRestartState?.phase === "timed_out";
   const platformActionsDisabled =
     restartPlatformApi.isPending || platformRestartPending || platformRestartTimedOut;
+  const restartPhase = platformRestartState?.phase;
+  const restartStartedAt = platformRestartState?.startedAt ?? null;
+  const restartLastCheckedAt = platformRestartState?.lastCheckedAt ?? null;
 
   const handlePlatformRestartReauth = useEffectEvent(async () => {
     await apiClient.logout().catch(() => undefined);
@@ -661,11 +664,15 @@ function SettingsPageContent({
   });
 
   useEffect(() => {
-    if (!platformRestartState || platformRestartState.phase !== "polling") {
+    if (
+      restartPhase !== "polling" ||
+      restartStartedAt === null ||
+      restartLastCheckedAt === null
+    ) {
       return;
     }
 
-    if (Date.now() - platformRestartState.startedAt >= PLATFORM_RESTART_TIMEOUT_MS) {
+    if (Date.now() - restartStartedAt >= PLATFORM_RESTART_TIMEOUT_MS) {
       setPlatformRestartState((current) =>
         current?.phase === "polling"
           ? {
@@ -679,7 +686,7 @@ function SettingsPageContent({
 
     const abortController = new AbortController();
     const delay =
-      platformRestartState.lastCheckedAt === platformRestartState.startedAt
+      restartLastCheckedAt === restartStartedAt
         ? 900
         : PLATFORM_RESTART_POLL_INTERVAL_MS;
     const timer = window.setTimeout(() => {
@@ -691,9 +698,9 @@ function SettingsPageContent({
       window.clearTimeout(timer);
     };
   }, [
-    platformRestartState?.lastCheckedAt,
-    platformRestartState?.phase,
-    platformRestartState?.startedAt,
+    restartLastCheckedAt,
+    restartPhase,
+    restartStartedAt,
   ]);
 
   const handlePlatformRestart = async () => {

@@ -1,9 +1,7 @@
-import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
 
 import { createSessionResponse, readErrorMessage } from "@/app/api/auth/_shared";
 import {
-  API_BASE_URL_COOKIE,
   AUTH_FLASH_ERROR_COOKIE,
   fetchApiWithFallback,
 } from "@/lib/auth";
@@ -14,8 +12,6 @@ export async function GET(
   context: { params: Promise<{ provider: string }> },
 ) {
   const { provider } = await context.params;
-  const cookieStore = await cookies();
-  const apiUrlOverride = cookieStore.get(API_BASE_URL_COOKIE)?.value;
   const search = request.nextUrl.searchParams;
   const callbackPath = `/auth/oidc/${encodeURIComponent(provider)}/callback?${search.toString()}`;
   const response = await fetchApiWithFallback(
@@ -23,7 +19,6 @@ export async function GET(
     {
       cache: "no-store",
     },
-    apiUrlOverride,
   ).catch(() => null);
 
   if (!response?.ok) {

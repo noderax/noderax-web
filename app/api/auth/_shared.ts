@@ -1,4 +1,3 @@
-import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
 import {
@@ -7,6 +6,7 @@ import {
   AUTH_SESSION_COOKIE,
   AUTH_TOKEN_COOKIE,
   buildAuthCookieOptions,
+  buildClearedApiBaseUrlCookieOptions,
   encodeSession,
   fetchApiWithFallback,
   normalizeAuthSession,
@@ -32,15 +32,13 @@ export const readErrorMessage = async (response: Response) => {
 };
 
 export const proxyPublicAuthRequest = async (path: string, init?: RequestInit) => {
-  const cookieStore = await cookies();
-  const apiUrlOverride = cookieStore.get(API_BASE_URL_COOKIE)?.value;
   let response: Response;
 
   try {
     response = await fetchApiWithFallback(path, {
       ...init,
       cache: "no-store",
-    }, apiUrlOverride);
+    });
   } catch {
     return NextResponse.json(
       {
@@ -108,6 +106,11 @@ export const createSessionResponse = (
     ...cookieOptions,
     httpOnly: true,
   });
+  response.cookies.set(
+    API_BASE_URL_COOKIE,
+    "",
+    buildClearedApiBaseUrlCookieOptions(),
+  );
 
   if (input?.redirectTo) {
     response.headers.set("x-noderax-auth-redirect", input.redirectTo);

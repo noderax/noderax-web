@@ -14,7 +14,6 @@ import { clearPersistedWorkspaceSlug } from "@/lib/workspace";
 import type {
   AuthSession,
   LoginPayload,
-  LoginResponseDto,
   VerifyMfaChallengePayload,
   VerifyMfaRecoveryPayload,
 } from "@/lib/types";

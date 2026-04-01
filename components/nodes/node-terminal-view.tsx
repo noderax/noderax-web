@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import {
+  useCallback,
   useEffect,
   useEffectEvent,
   useMemo,
@@ -369,7 +370,7 @@ export const NodeTerminalView = ({ id }: { id: string }) => {
     },
   );
 
-  const refreshSelectedTerminalState = useEffectEvent(async () => {
+  const refreshSelectedTerminalState = useCallback(async () => {
     if (!workspaceId || !selectedSessionKey) {
       return;
     }
@@ -390,9 +391,9 @@ export const NodeTerminalView = ({ id }: { id: string }) => {
         refetchType: "active",
       }),
     ]);
-  });
+  }, [queryClient, selectedSessionKey, selectedSessionNodeId, workspaceId]);
 
-  const finalizeTerminalConnection = useEffectEvent((message?: string) => {
+  const finalizeTerminalConnection = useCallback((message?: string) => {
     if (terminalRef.current) {
       terminalRef.current.writeln("");
       terminalRef.current.writeln(
@@ -404,7 +405,7 @@ export const NodeTerminalView = ({ id }: { id: string }) => {
     terminalClientRef.current?.disconnect();
     terminalClientRef.current = null;
     void refreshSelectedTerminalState();
-  });
+  }, [refreshSelectedTerminalState]);
 
   const handleTerminalConnectionIssue = useEffectEvent((message: string) => {
     if (terminateRequested && isExpectedTerminalClosureMessage(message)) {
@@ -633,7 +634,7 @@ export const NodeTerminalView = ({ id }: { id: string }) => {
     return () => {
       observer.disconnect();
     };
-  }, [ensureTerminal, fitTerminal]);
+  }, []);
 
   useEffect(() => {
     if (!canControlSelectedLiveSession || selectedSessionStatus !== "open") {
@@ -643,7 +644,6 @@ export const NodeTerminalView = ({ id }: { id: string }) => {
     fitTerminal();
   }, [
     canControlSelectedLiveSession,
-    fitTerminal,
     selectedSessionKey,
     selectedSessionStatus,
   ]);

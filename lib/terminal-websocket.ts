@@ -109,32 +109,26 @@ const toTerminalNamespaceUrl = (value: string) => {
   }
 };
 
-const uniqueNonEmpty = (values: Array<string | null | undefined>) =>
-  Array.from(new Set(values.filter((value): value is string => Boolean(value))));
-
-const resolveTerminalNamespaceCandidates = async () => {
+const resolveTerminalNamespaceUrl = () => {
   if (typeof window === "undefined") {
-    return [];
-  }
-
-  let configuredSetupApiUrl: string | null = null;
-
-  try {
-    const { apiUrl } = await apiClient.getSetupApiConfig();
-    configuredSetupApiUrl = apiUrl;
-  } catch {
-    configuredSetupApiUrl = null;
+    return null;
   }
 
   const configuredSocketUrl = process.env.NEXT_PUBLIC_NODERAX_WS_URL;
-  const configuredApiUrl = process.env.NEXT_PUBLIC_NODERAX_API_URL;
+  if (configuredSocketUrl) {
+    return toTerminalNamespaceUrl(configuredSocketUrl);
+  }
 
-  return uniqueNonEmpty([
-    configuredSetupApiUrl ? toTerminalNamespaceUrl(configuredSetupApiUrl) : null,
-    configuredSocketUrl ? toTerminalNamespaceUrl(configuredSocketUrl) : null,
-    configuredApiUrl ? toTerminalNamespaceUrl(configuredApiUrl) : null,
-    `${window.location.origin}${TERMINAL_NAMESPACE}`,
-  ]);
+  const configuredApiUrl = process.env.NEXT_PUBLIC_NODERAX_API_URL;
+  if (configuredApiUrl) {
+    try {
+      return `${new URL(configuredApiUrl).origin}${TERMINAL_NAMESPACE}`;
+    } catch {
+      return toTerminalNamespaceUrl(configuredApiUrl);
+    }
+  }
+
+  return `${window.location.origin}${TERMINAL_NAMESPACE}`;
 };
 
 export class NoderaxTerminalClient {
@@ -263,8 +257,8 @@ export class NoderaxTerminalClient {
   }
 
   private async openConnection(sessionId: string) {
-    const namespaceUrls = await resolveTerminalNamespaceCandidates();
-    if (!namespaceUrls.length) {
+    const namespaceUrl = resolveTerminalNamespaceUrl();
+    if (!namespaceUrl) {
       this.setStatus("disconnected");
       throw new Error("Terminal namespace URL is unavailable.");
     }
@@ -274,71 +268,59 @@ export class NoderaxTerminalClient {
     const { token } = await apiClient.getRealtimeToken();
     this.suppressErrorEvents = true;
 
-    let lastError: unknown = null;
+    const socket = io(namespaceUrl, {
+      autoConnect: false,
+      transports: ["websocket"],
+      withCredentials: true,
+      reconnection: true,
+      reconnectionAttempts: Number.POSITIVE_INFINITY,
+      reconnectionDelay: 1_000,
+      reconnectionDelayMax: 6_000,
+      auth: {
+        token,
+      },
+    });
 
-    for (const namespaceUrl of namespaceUrls) {
-      const socket = io(namespaceUrl, {
-        autoConnect: false,
-        transports: ["websocket"],
-        withCredentials: true,
-        reconnection: true,
-        reconnectionAttempts: Number.POSITIVE_INFINITY,
-        reconnectionDelay: 1_000,
-        reconnectionDelayMax: 6_000,
-        auth: {
-          token,
-        },
+    try {
+      await new Promise<void>((resolve, reject) => {
+        const handleConnect = () => {
+          cleanup();
+          resolve();
+        };
+        const handleError = (error: TerminalConnectError) => {
+          cleanup();
+          reject(error);
+        };
+        const cleanup = () => {
+          socket.off("connect", handleConnect);
+          socket.off("connect_error", handleError);
+        };
+
+        socket.on("connect", handleConnect);
+        socket.on("connect_error", handleError);
+        socket.connect();
       });
 
-      try {
-        await new Promise<void>((resolve, reject) => {
-          const handleConnect = () => {
-            cleanup();
-            resolve();
-          };
-          const handleError = (error: TerminalConnectError) => {
-            cleanup();
-            reject(error);
-          };
-          const cleanup = () => {
-            socket.off("connect", handleConnect);
-            socket.off("connect_error", handleError);
-          };
+      this.socket = socket;
+      this.attachSocketListeners(socket);
+      this.didRetryAuth = false;
+      this.setStatus("connected");
 
-          socket.on("connect", handleConnect);
-          socket.on("connect_error", handleError);
-          socket.connect();
-        });
-
-        this.socket = socket;
-        this.attachSocketListeners(socket);
-        this.didRetryAuth = false;
-        this.setStatus("connected");
-
-        await this.attachSession(sessionId);
-        this.suppressErrorEvents = false;
-        return;
-      } catch (error) {
-        lastError = error;
-
-        if (this.socket === socket) {
-          this.detachSocketListeners(socket);
-          this.socket = null;
-        }
-
-        socket.disconnect();
-
-        if (!this.isRecoverableEndpointError(error)) {
-          break;
-        }
+      await this.attachSession(sessionId);
+      this.suppressErrorEvents = false;
+    } catch (error) {
+      if (this.socket === socket) {
+        this.detachSocketListeners(socket);
+        this.socket = null;
       }
-    }
 
-    this.suppressErrorEvents = false;
-    this.setStatus("disconnected");
-    throw lastError instanceof Error
-      ? lastError
-      : new Error("Terminal connection failed.");
+      socket.disconnect();
+      this.suppressErrorEvents = false;
+      this.setStatus("disconnected");
+      throw error instanceof Error
+        ? error
+        : new Error("Terminal connection failed.");
+    }
   }
 
   private async attachSession(sessionId: string) {

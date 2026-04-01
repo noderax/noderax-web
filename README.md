@@ -350,7 +350,9 @@ Notes:
 - `NODERAX_API_URL` is required.
 - Realtime connects to `/realtime`, not `/api/v1/realtime`.
 - If `NEXT_PUBLIC_NODERAX_WS_URL` is omitted, the app falls back to the API origin or browser origin.
-- The runtime can also be overridden by the `noderax_api_url` cookie during setup/onboarding flows.
+- The `noderax_api_url` cookie is honored only by setup routes. Runtime auth, proxy, realtime, and terminal flows ignore it once the platform is installed.
+- Successful setup install and successful sign-in clear any stale `noderax_api_url` cookie so runtime traffic stays pinned to the configured origin.
+- The terminal namespace resolves from `NEXT_PUBLIC_NODERAX_WS_URL`, then `NEXT_PUBLIC_NODERAX_API_URL`, then the active browser origin. It does not call setup config APIs at runtime.
 - `Add node` uses the active system API URL as the agent installer origin and strips `/v1` or `/api/v1` before writing `--api-url`.
 
 ## Local Development
@@ -372,6 +374,7 @@ Useful checks:
 ```bash
 pnpm lint
 pnpm typecheck
+pnpm test
 pnpm build
 ```
 

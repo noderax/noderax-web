@@ -1,8 +1,6 @@
-import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
 
 import {
-  API_BASE_URL_COOKIE,
   AUTH_FLASH_ERROR_COOKIE,
   fetchApiWithFallback,
 } from "@/lib/auth";
@@ -26,8 +24,6 @@ export async function GET(
   context: { params: Promise<{ provider: string }> },
 ) {
   const { provider } = await context.params;
-  const cookieStore = await cookies();
-  const apiUrlOverride = cookieStore.get(API_BASE_URL_COOKIE)?.value;
   const nextPath = request.nextUrl.searchParams.get("next");
   const redirectUri = new URL(
     `/api/auth/oidc/${provider}/callback`,
@@ -41,7 +37,6 @@ export async function GET(
     {
       cache: "no-store",
     },
-    apiUrlOverride,
   ).catch(() => null);
 
   if (!response?.ok) {

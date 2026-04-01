@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Network, SquareTerminal, Timer, Wrench } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -101,11 +101,20 @@ const formatNetworkSummary = (stats: Record<string, unknown> | null) => {
   return `RX ${formatBytes(rxBytes)} / TX ${formatBytes(txBytes)}`;
 };
 
+type NodeOperationDraft = {
+  sourceKey: string | null;
+  selectedTeamId: "none" | string;
+  maintenanceReason: string;
+};
+
 export const NodeDetailView = ({ id }: { id: string }) => {
   const router = useRouter();
   const { buildWorkspaceHref, isWorkspaceAdmin, workspace } = useWorkspaceContext();
-  const [selectedTeamId, setSelectedTeamId] = useState<"none" | string>("none");
-  const [maintenanceReason, setMaintenanceReason] = useState("");
+  const [operationDraft, setOperationDraft] = useState<NodeOperationDraft>({
+    sourceKey: null,
+    selectedTeamId: "none",
+    maintenanceReason: "",
+  });
 
   useNodeRealtimeSubscription(id);
 
@@ -116,19 +125,6 @@ export const NodeDetailView = ({ id }: { id: string }) => {
   const disableMaintenance = useDisableNodeMaintenance();
   const node = nodeQuery.data;
   const isAdmin = isWorkspaceAdmin;
-  const selectedTeam =
-    selectedTeamId === "none"
-      ? null
-      : (teamsQuery.data ?? []).find((team) => team.id === selectedTeamId) ?? null;
-
-  useEffect(() => {
-    if (!node) {
-      return;
-    }
-
-    setSelectedTeamId(node.teamId ?? "none");
-    setMaintenanceReason(node.maintenanceReason ?? "");
-  }, [node]);
 
   if (nodeQuery.isError || (!nodeQuery.isPending && !node)) {
     return (
@@ -156,6 +152,29 @@ export const NodeDetailView = ({ id }: { id: string }) => {
       </AppShell>
     );
   }
+
+  const operationSourceKey = `${node.id}:${node.teamId ?? "none"}:${node.maintenanceMode ? "1" : "0"}:${node.maintenanceReason ?? ""}`;
+  const selectedTeamId =
+    operationDraft.sourceKey === operationSourceKey
+      ? operationDraft.selectedTeamId
+      : node.teamId ?? "none";
+  const maintenanceReason =
+    operationDraft.sourceKey === operationSourceKey
+      ? operationDraft.maintenanceReason
+      : node.maintenanceReason ?? "";
+  const selectedTeam =
+    selectedTeamId === "none"
+      ? null
+      : (teamsQuery.data ?? []).find((team) => team.id === selectedTeamId) ?? null;
+  const updateOperationDraft = (
+    nextPatch: Partial<Omit<NodeOperationDraft, "sourceKey">>,
+  ) => {
+    setOperationDraft({
+      sourceKey: operationSourceKey,
+      selectedTeamId: nextPatch.selectedTeamId ?? selectedTeamId,
+      maintenanceReason: nextPatch.maintenanceReason ?? maintenanceReason,
+    });
+  };
 
   return (
     <AppShell>
@@ -307,7 +326,11 @@ export const NodeDetailView = ({ id }: { id: string }) => {
             </div>
             <Select
               value={selectedTeamId}
-              onValueChange={(value) => setSelectedTeamId(value ?? "none")}
+              onValueChange={(value) =>
+                updateOperationDraft({
+                  selectedTeamId: value ?? "none",
+                })
+              }
               disabled={!isAdmin}
             >
               <SelectTrigger className="w-full">
@@ -358,7 +381,11 @@ export const NodeDetailView = ({ id }: { id: string }) => {
                 id="node-maintenance-reason"
                 value={maintenanceReason}
                 disabled={!isAdmin}
-                onChange={(event) => setMaintenanceReason(event.target.value)}
+                onChange={(event) =>
+                  updateOperationDraft({
+                    maintenanceReason: event.target.value,
+                  })
+                }
                 placeholder="Kernel upgrade, package maintenance, host reboot..."
               />
             </div>

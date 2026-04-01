@@ -904,7 +904,7 @@ export interface PlatformAgentSettings {
   highCpuThreshold: number;
 }
 
-export interface PlatformMailSettings extends MailSettingsPayload {}
+export type PlatformMailSettings = MailSettingsPayload;
 
 export interface PlatformSettingsValues {
   app: PlatformAppSettings;

@@ -1,9 +1,8 @@
-import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { createSessionResponse, readErrorMessage } from "@/app/api/auth/_shared";
-import { API_BASE_URL_COOKIE, fetchApiWithFallback } from "@/lib/auth";
+import { fetchApiWithFallback } from "@/lib/auth";
 import type { LoginResponseDto } from "@/lib/types";
 
 const schema = z.object({
@@ -14,8 +13,6 @@ const schema = z.object({
 
 export async function POST(request: Request) {
   try {
-    const cookieStore = await cookies();
-    const apiUrlOverride = cookieStore.get(API_BASE_URL_COOKIE)?.value;
     const payload = schema.parse(await request.json());
     const response = await fetchApiWithFallback(
       "/auth/mfa/recovery/verify",
@@ -30,7 +27,6 @@ export async function POST(request: Request) {
         }),
         cache: "no-store",
       },
-      apiUrlOverride,
     );
 
     if (!response.ok) {

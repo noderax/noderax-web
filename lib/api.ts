@@ -61,7 +61,6 @@ import type {
   NodeDto,
   NodeFilters,
   NodeInstallDto,
-  NodeStatus,
   OidcProviderDto,
   NodeSummary,
   PlatformSettingsResponse,

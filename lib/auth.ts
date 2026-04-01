@@ -254,3 +254,17 @@ export const buildAuthCookieOptions = (input?: {
   expires:
     input?.persistent && input.expiresAt ? new Date(input.expiresAt) : undefined,
 });
+
+export const buildApiBaseUrlCookieOptions = () => ({
+  httpOnly: true,
+  sameSite: "lax" as const,
+  secure: process.env.NODE_ENV === "production",
+  path: "/",
+  maxAge: 60 * 60 * 24 * 30,
+});
+
+export const buildClearedApiBaseUrlCookieOptions = () => ({
+  ...buildApiBaseUrlCookieOptions(),
+  maxAge: 0,
+  expires: new Date(0),
+});

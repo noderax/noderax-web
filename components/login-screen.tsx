@@ -7,18 +7,11 @@ import { useQuery } from "@tanstack/react-query";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
   ArrowRight,
-  BellRing,
-  Cpu,
-  Globe,
   KeyRound,
-  LayoutDashboard,
-  Monitor,
-  Server,
   ShieldCheck,
-  type LucideIcon,
 } from "lucide-react";
 import { OTPInput, REGEXP_ONLY_DIGITS } from "input-otp";
-import { AnimatePresence, useReducedMotion } from "motion/react";
+import { useReducedMotion } from "motion/react";
 import { useTheme } from "next-themes";
 import { useForm, useWatch } from "react-hook-form";
 import { z } from "zod";
@@ -42,8 +35,6 @@ import { Particles } from "@/components/ui/particles";
 import { Switch } from "@/components/ui/switch";
 import { ApiError } from "@/lib/api";
 import { apiClient } from "@/lib/api";
-import { motion } from "motion/react";
-import { MagicCard } from "@/components/ui/magic-card";
 import {
   useLogin,
   useVerifyMfaChallenge,
@@ -76,33 +67,24 @@ const overviewChips = [
   "Granular Alerts",
 ] as const;
 
-const workspaceHighlights: readonly {
-  title: string;
-  description: string;
-  icon: LucideIcon;
-  toneClassName: string;
-}[] = [
-  {
-    title: "Global Inventory",
-    description:
-      "Orchestrate thousands of nodes across multiple workspaces from a single plane.",
-    icon: Server,
-    toneClassName: "tone-brand",
-  },
-  {
-    title: "Granular Notifications",
-    description:
-      "Fine-tune alerting with level-based filtering for Email and Telegram.",
-    icon: BellRing,
-    toneClassName: "tone-warning",
-  },
-  {
-    title: "Team-Based Access",
-    description:
-      "Provision members and define team-scoped task targets with absolute precision.",
-    icon: ShieldCheck,
-    toneClassName: "tone-success",
-  },
+const TERMINAL_BOOT_LOGS = [
+  "Noderax Terminal v4.0.2 ready.",
+  "Copyright (c) 2026 Noderax Infrastructure.",
+] as const;
+
+const TERMINAL_LOG_TEMPLATES = [
+  "[INFO] Initializing secure handshake with control plane...",
+  "[AUTH] Verifying operator certificate (noderax-ca-01)...",
+  "[CONN] Establishing encrypted tunnel to node clusters...",
+  "[DATA] Streaming telemetry peak: 1.2 GB/s detected.",
+  "[SYNC] Synchronizing global task inventory (14,204 nodes)...",
+  "[LOAD] CPU: 42.1% | MEM: 61.8% | NET: 890Mbps",
+  "[OK]   Workspace 'prod-alpha' is reachable and synchronized.",
+  "[WARN] Latency spike (42ms) detected on EU-Central cluster.",
+  "[CMD]  Executing scheduled heartbeat checks on cluster-04...",
+  "[SSH]  Encrypted session established with edge-node-88.",
+  "[DB]   Writing event history to immutable ledger...",
+  "[OK]   Cluster 'edge-us-east' authentication successful.",
 ] as const;
 
 const loginMessageCopy: Record<string, string> = {
@@ -188,49 +170,13 @@ const OSLogos = {
   ),
 };
 
-function RotatingOSCluster() {
-  const [index, setIndex] = useState(0);
-  const items = [
-    { name: "Ubuntu", component: OSLogos.Ubuntu },
-    { name: "Debian", component: OSLogos.Debian },
-    { name: "CentOS", component: OSLogos.CentOS },
-  ];
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setIndex((i) => (i + 1) % items.length);
-    }, 2500);
-    return () => clearInterval(interval);
-  }, [items.length]);
-
-  return (
-    <div className="relative size-12">
-      <AnimatePresence mode="wait">
-        <motion.div
-          key={index}
-          initial={{ opacity: 0, scale: 0.8, rotateY: -90 }}
-          animate={{ opacity: 1, scale: 1, rotateY: 0 }}
-          exit={{ opacity: 0, scale: 0.8, rotateY: 90 }}
-          transition={{ duration: 0.5, ease: "easeInOut" }}
-          className="absolute inset-0 flex items-center justify-center bg-background border-2 border-muted rounded-xl p-2 shadow-xl"
-          style={{ perspective: 1000 }}
-        >
-          {items[index].component()}
-        </motion.div>
-      </AnimatePresence>
-
-      {/* Ghost nodes for cluster effect */}
-      <div className="absolute -top-1 -right-1 size-8 rounded-lg bg-background border-2 border-muted/50 p-1 opacity-40 -z-10 scale-90 grayscale" />
-      <div className="absolute -bottom-1 -left-1 size-8 rounded-lg bg-background border-2 border-muted/50 p-1 opacity-40 -z-10 scale-90 grayscale" />
-    </div>
-  );
-}
+void OSLogos;
 
 function TerminalSimulation() {
   const { resolvedTheme } = useTheme();
-  const [logs, setLogs] = useState<string[]>([]);
+  const [logs, setLogs] = useState<string[]>(() => [...TERMINAL_BOOT_LOGS]);
   const scrollRef = useRef<HTMLDivElement>(null);
-      const isDark = resolvedTheme !== "light";
+  const isDark = resolvedTheme !== "light";
   const terminalTheme = isDark
     ? {
         shell:
@@ -271,31 +217,12 @@ function TerminalSimulation() {
           "bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.52),transparent_46%),linear-gradient(180deg,rgba(255,255,255,0.18),rgba(255,255,255,0)_38%,rgba(110,78,52,0.035))]",
       };
 
-  const logTemplates = [
-    "[INFO] Initializing secure handshake with control plane...",
-    "[AUTH] Verifying operator certificate (noderax-ca-01)...",
-    "[CONN] Establishing encrypted tunnel to node clusters...",
-    "[DATA] Streaming telemetry peak: 1.2 GB/s detected.",
-    "[SYNC] Synchronizing global task inventory (14,204 nodes)...",
-    "[LOAD] CPU: 42.1% | MEM: 61.8% | NET: 890Mbps",
-    "[OK]   Workspace 'prod-alpha' is reachable and synchronized.",
-    "[WARN] Latency spike (42ms) detected on EU-Central cluster.",
-    "[CMD]  Executing scheduled heartbeat checks on cluster-04...",
-    "[SSH]  Encrypted session established with edge-node-88.",
-    "[DB]   Writing event history to immutable ledger...",
-    "[OK]   Cluster 'edge-us-east' authentication successful.",
-  ];
-
   useEffect(() => {
-    const currentLogs: string[] = [
-      "Noderax Terminal v4.0.2 ready.",
-      "Copyright (c) 2026 Noderax Infrastructure.",
-    ];
-    setLogs(currentLogs);
-
     const interval = setInterval(() => {
       const nextLog =
-        logTemplates[Math.floor(Math.random() * logTemplates.length)];
+        TERMINAL_LOG_TEMPLATES[
+          Math.floor(Math.random() * TERMINAL_LOG_TEMPLATES.length)
+        ];
       setLogs((prev) => [
         ...prev.slice(-14),
         `[${new Date().toLocaleTimeString("en-GB")}] ${nextLog}`,
@@ -423,154 +350,6 @@ function TerminalSimulation() {
   );
 }
 
-function DataFlowAnimation() {
-  return (
-    <div className="relative flex items-center justify-between px-6 py-10 bg-muted/20 rounded-2xl border-2 border-muted/50 overflow-hidden shadow-inner min-h-[140px]">
-      {/* Brand Red Pulse (Faint/Transparent) */}
-      <div
-        className="absolute inset-0 opacity-[0.08]"
-        style={{
-          background:
-            "radial-gradient(circle at center, color-mix(in oklch, var(--primary) 60%, transparent) 0%, transparent 70%)",
-        }}
-      >
-        <div className="absolute inset-0 animate-pulse bg-current" />
-      </div>
-
-      {/* Nodes */}
-      <div className="relative z-10 flex flex-col items-center gap-2">
-        <div className="size-10 rounded-xl bg-background border-2 border-primary/20 flex items-center justify-center shadow-lg text-primary">
-          <Monitor className="size-5" />
-        </div>
-        <span className="text-[10px] uppercase font-bold text-muted-foreground/80 tracking-tighter">
-          Operator
-        </span>
-      </div>
-
-      {/* Path 1: Forward (Web -> API) */}
-      <div className="relative flex-1 h-[2px] bg-muted/40 mx-2">
-        <motion.div
-          className="absolute top-1/2 -translate-y-1/2 size-2.5 rounded-full bg-primary shadow-[0_0_10px_var(--primary)]"
-          initial={{ left: "0%" }}
-          animate={{ left: ["0%", "100%"] }}
-          transition={{ duration: 1.8, repeat: Infinity, ease: "linear" }}
-        />
-      </div>
-
-      <div className="relative z-10 flex flex-col items-center gap-2">
-        <div className="size-14 rounded-xl bg-background border-2 border-primary flex items-center justify-center shadow-xl text-tone-brand-foreground tone-brand scale-110">
-          <Cpu className="size-7" />
-        </div>
-        <span className="text-[10px] uppercase font-bold text-primary tracking-tighter">
-          Control Plane
-        </span>
-      </div>
-
-      {/* Path 2: Bidirectional (API <-> Edge) */}
-      <div className="relative flex-1 h-[2px] bg-muted/40 mx-2">
-        {/* Forward Packet */}
-        <motion.div
-          className="absolute top-1/2 -translate-y-1/2 size-2.5 rounded-full bg-tone-success-foreground shadow-[0_0_10px_var(--tone-success-foreground)]"
-          initial={{ left: "0%" }}
-          animate={{ left: ["0%", "100%"] }}
-          transition={{
-            duration: 2.2,
-            repeat: Infinity,
-            ease: "linear",
-            delay: 0.2,
-          }}
-        />
-
-        {/* Backward Packet */}
-        <motion.div
-          className="absolute top-1/2 -translate-y-1/2 size-2.5 rounded-full bg-primary/80 shadow-[0_0_10px_var(--primary)]"
-          initial={{ left: "100%" }}
-          animate={{ left: ["100%", "0%"] }}
-          transition={{
-            duration: 2.2,
-            repeat: Infinity,
-            ease: "linear",
-            delay: 1.1,
-          }}
-        />
-      </div>
-
-      <div className="relative z-10 flex flex-col items-center gap-2">
-        <RotatingOSCluster />
-        <span className="text-[10px] uppercase font-bold text-muted-foreground/80 tracking-tighter">
-          Edge Cluster
-        </span>
-      </div>
-    </div>
-  );
-}
-
-function InfraTelemetry() {
-  const [success, setSuccess] = useState(124);
-  const [running, setRunning] = useState(8);
-  const [canceled, setCanceled] = useState(2);
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      if (Math.random() > 0.7) setSuccess((s) => s + 1);
-      setRunning(Math.floor(Math.random() * 5) + 5);
-      if (Math.random() > 0.95) setCanceled((c) => c + 1);
-    }, 3000);
-    return () => clearInterval(interval);
-  }, []);
-
-  return (
-    <div className="space-y-4">
-      {/* <DataFlowAnimation /> */}
-
-      <div className="grid grid-cols-3 gap-3">
-        {/* Success */}
-        <div className="rounded-xl border border-border/70 bg-background/40 p-3 backdrop-blur-md">
-          <div className="flex items-center gap-2 mb-1">
-            <div className="size-1.5 rounded-full bg-tone-success animate-pulse" />
-            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/70">
-              Success
-            </p>
-          </div>
-          <p className="font-mono text-lg font-bold text-tone-success leading-none">
-            {success}
-          </p>
-        </div>
-
-        {/* Running */}
-        <div className="rounded-xl border border-border/70 bg-background/40 p-3 backdrop-blur-md">
-          <div className="flex items-center gap-2 mb-1">
-            <motion.div
-              className="size-1.5 rounded-full bg-primary"
-              animate={{ scale: [1, 1.5, 1], opacity: [1, 0.5, 1] }}
-              transition={{ duration: 1, repeat: Infinity }}
-            />
-            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/70">
-              Running
-            </p>
-          </div>
-          <p className="font-mono text-lg font-bold text-primary leading-none">
-            {running}
-          </p>
-        </div>
-
-        {/* Canceled */}
-        <div className="rounded-xl border border-border/70 bg-background/40 p-3 backdrop-blur-md">
-          <div className="flex items-center gap-2 mb-1">
-            <div className="size-1.5 rounded-full bg-muted-foreground" />
-            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/70">
-              Canceled
-            </p>
-          </div>
-          <p className="font-mono text-lg font-bold text-muted-foreground leading-none">
-            {canceled}
-          </p>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 function LoginBackdrop() {
   const { resolvedTheme } = useTheme();
   const reduceMotion = Boolean(useReducedMotion());
@@ -602,43 +381,6 @@ function LoginBackdrop() {
 
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_0%,color-mix(in_oklch,var(--background)_52%,transparent)_70%,var(--background)_100%)]" />
     </>
-  );
-}
-
-function RackUnit({ children, u }: { children: React.ReactNode; u: string }) {
-  return (
-    <div className="relative group/rack">
-      {/* Side Rack Rail Markings */}
-      <div className="absolute -left-8 top-1/2 -translate-y-1/2 select-none">
-        <span className="text-[10px] font-mono font-bold text-muted-foreground/30">
-          {u}
-        </span>
-      </div>
-
-      <div className="relative overflow-hidden rounded-xl border-2 border-muted/50 bg-[#0c0c0c] shadow-2xl">
-        {/* Rack Mounting Screws */}
-        <div className="absolute right-2 top-2 size-1.5 rounded-full bg-muted/40 shadow-inner" />
-        <div className="absolute right-2 bottom-2 size-1.5 rounded-full bg-muted/40 shadow-inner" />
-        <div className="absolute left-2 top-2 size-1.5 rounded-full bg-muted/40 shadow-inner" />
-        <div className="absolute left-2 bottom-2 size-1.5 rounded-full bg-muted/40 shadow-inner" />
-
-        {/* Industrial Detail: Air Vents / Grille */}
-        <div className="absolute top-0 left-10 right-10 flex h-1 gap-1">
-          {Array.from({ length: 20 }).map((_, i) => (
-            <div key={i} className="flex-1 bg-muted/10" />
-          ))}
-        </div>
-
-        <div className="relative z-10 p-1">{children}</div>
-
-        {/* Bottom Air Vents */}
-        <div className="absolute bottom-0 left-10 right-10 flex h-1 gap-1">
-          {Array.from({ length: 20 }).map((_, i) => (
-            <div key={i} className="flex-1 bg-muted/10" />
-          ))}
-        </div>
-      </div>
-    </div>
   );
 }
 

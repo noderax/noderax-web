@@ -1,7 +1,11 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
-import { API_BASE_URL_COOKIE, normalizeApiBaseUrl } from "@/lib/auth";
+import {
+  API_BASE_URL_COOKIE,
+  buildClearedApiBaseUrlCookieOptions,
+  normalizeApiBaseUrl,
+} from "@/lib/auth";
 import { fetchSetupApi, getSetupApiConfig } from "@/lib/setup";
 
 const readErrorMessage = async (response: Response) => {
@@ -21,7 +25,11 @@ const readErrorMessage = async (response: Response) => {
   }
 };
 
-export const proxySetupRequest = async (path: string, init?: RequestInit) => {
+export const proxySetupRequest = async (
+  path: string,
+  init?: RequestInit,
+  options?: { clearApiBaseUrlCookieOnSuccess?: boolean },
+) => {
   const cookieStore = await cookies();
   const apiUrlOverride = cookieStore.get(API_BASE_URL_COOKIE)?.value;
   const apiConfig = getSetupApiConfig(apiUrlOverride);
@@ -46,9 +54,19 @@ export const proxySetupRequest = async (path: string, init?: RequestInit) => {
     );
   }
 
-  return NextResponse.json(await response.json(), {
+  const proxiedResponse = NextResponse.json(await response.json(), {
     status: response.status,
   });
+
+  if (options?.clearApiBaseUrlCookieOnSuccess) {
+    proxiedResponse.cookies.set(
+      API_BASE_URL_COOKIE,
+      "",
+      buildClearedApiBaseUrlCookieOptions(),
+    );
+  }
+
+  return proxiedResponse;
 };
 
 export const readSetupApiConfig = async () => {
