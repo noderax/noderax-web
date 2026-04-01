@@ -28,7 +28,7 @@ export const PublicAuthShell = ({
   const particleColor = resolvedTheme === "dark" ? "#f5f5f5" : "#7f1d1d";
 
   return (
-    <div className="relative min-h-dvh overflow-hidden bg-background">
+    <div className="relative min-h-dvh overflow-x-hidden bg-background">
       <div className="absolute inset-0 bg-[linear-gradient(180deg,color-mix(in_oklch,var(--background)_94%,white),var(--background))]" />
       <div
         aria-hidden="true"
@@ -51,7 +51,7 @@ export const PublicAuthShell = ({
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_0%,color-mix(in_oklch,var(--background)_52%,transparent)_70%,var(--background)_100%)]" />
 
       <div className="relative z-10 mx-auto flex min-h-dvh w-full max-w-6xl flex-col px-4 py-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between gap-4">
+        <div className="flex items-start justify-between gap-4 sm:items-center">
           <Link
             href="/login"
             className="inline-flex items-center gap-2 rounded-full border bg-background/80 px-3 py-2 text-sm font-medium text-muted-foreground backdrop-blur-xl transition-colors hover:text-foreground"
@@ -62,7 +62,7 @@ export const PublicAuthShell = ({
           <ThemeToggle />
         </div>
 
-        <div className="flex flex-1 items-center justify-center py-8">
+        <div className="flex flex-1 items-start justify-center py-6 sm:items-center sm:py-8">
           <div className="w-full max-w-xl">
             <Card className="border-border/70 bg-background/82 shadow-[0_18px_60px_-30px_rgba(0,0,0,0.35)] backdrop-blur-xl">
               <CardHeader className="space-y-4 border-b border-border/70 px-6 py-6 sm:px-7">

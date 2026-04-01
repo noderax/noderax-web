@@ -228,7 +228,7 @@ function TerminalSimulation() {
   const { resolvedTheme } = useTheme();
   const [logs, setLogs] = useState<string[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const isDark = resolvedTheme !== "light";
+      const isDark = resolvedTheme !== "light";
   const terminalTheme = isDark
     ? {
         shell:
@@ -246,8 +246,8 @@ function TerminalSimulation() {
         command: "text-primary",
         defaultLog: "text-foreground/80",
         cursor: "bg-primary",
-        scanline:
-          "bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.1)_50%),linear-gradient(90deg,rgba(255,0,0,0.02),rgba(0,255,0,0.01),rgba(0,0,255,0.02))] bg-[length:100%_2px,3px_100%]",
+        overlay:
+          "bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.05),transparent_52%),linear-gradient(180deg,rgba(255,255,255,0.018),rgba(255,255,255,0)_34%,rgba(0,0,0,0.1))]",
       }
     : {
         shell:
@@ -265,8 +265,8 @@ function TerminalSimulation() {
         command: "text-rose-700",
         defaultLog: "text-[#2f241d]",
         cursor: "bg-rose-700",
-        scanline:
-          "bg-[linear-gradient(rgba(255,255,255,0)_50%,rgba(0,0,0,0.035)_50%),linear-gradient(90deg,rgba(255,0,0,0.012),rgba(0,140,90,0.008),rgba(0,90,255,0.012))] bg-[length:100%_2px,3px_100%]",
+        overlay:
+          "bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.52),transparent_46%),linear-gradient(180deg,rgba(255,255,255,0.18),rgba(255,255,255,0)_38%,rgba(110,78,52,0.035))]",
       };
 
   const logTemplates = [
@@ -285,7 +285,7 @@ function TerminalSimulation() {
   ];
 
   useEffect(() => {
-    let currentLogs: string[] = [
+    const currentLogs: string[] = [
       "Noderax Terminal v4.0.2 ready.",
       "Copyright (c) 2026 Noderax Infrastructure.",
     ];
@@ -363,11 +363,11 @@ function TerminalSimulation() {
           ref={scrollRef}
           className="relative p-6 h-[340px] overflow-y-auto font-mono text-[13px] leading-relaxed scrollbar-none"
         >
-          {/* Scanline Effect */}
+          {/* Terminal glass overlay */}
           <div
             className={cn(
               "absolute inset-0 pointer-events-none",
-              terminalTheme.scanline,
+              terminalTheme.overlay,
             )}
           />
 
@@ -781,19 +781,19 @@ export const LoginScreen = ({
   };
 
   return (
-    <div className="relative h-dvh overflow-hidden bg-background">
+    <div className="relative min-h-dvh overflow-x-hidden bg-background">
       <LoginBackdrop />
 
-      <div className="relative z-10 mx-auto flex h-full w-full max-w-7xl flex-col px-4 py-4 sm:px-6 lg:px-8">
+      <div className="relative z-10 mx-auto flex min-h-dvh w-full max-w-7xl flex-col px-4 py-4 sm:px-6 lg:px-8">
         <Reveal
           delay={0.03}
-          className="flex items-center justify-between gap-4"
+          className="flex items-start justify-between gap-4 sm:items-center"
         >
-          <div className="flex items-center gap-3">
+          <div className="flex min-w-0 items-center gap-3">
             <BrandBadge size="lg" priority />
-            <div>
+            <div className="min-w-0">
               <p className="text-sm font-semibold tracking-tight">Noderax</p>
-              <p className="text-xs text-muted-foreground">
+              <p className="hidden text-xs text-muted-foreground sm:block">
                 Noderax is an agent-based infrastructure management platform.
               </p>
             </div>
@@ -801,7 +801,7 @@ export const LoginScreen = ({
           <ThemeToggle />
         </Reveal>
 
-        <div className="grid min-h-0 flex-1 items-center gap-8 py-4 lg:grid-cols-[minmax(0,1fr)_26rem] lg:gap-14">
+        <div className="grid min-h-0 flex-1 items-start gap-6 py-6 lg:items-center lg:gap-14 lg:py-4 lg:grid-cols-[minmax(0,1fr)_26rem]">
           <Reveal
             delay={0.08}
             className="hidden lg:flex lg:min-h-0 lg:flex-col lg:justify-center"
@@ -1120,7 +1120,7 @@ export const LoginScreen = ({
               </CardContent>
 
               <CardFooter className="flex-col items-stretch gap-3 border-border/70 px-6 py-5 sm:px-7">
-                <div className="flex items-center gap-3 rounded-[18px] border border-border/70 bg-background/76 px-4 py-3">
+                <div className="flex items-start gap-3 rounded-[18px] border border-border/70 bg-background/76 px-4 py-3">
                   <div className="tone-brand flex size-9 items-center justify-center rounded-2xl border">
                     <ShieldCheck className="size-4" />
                   </div>
