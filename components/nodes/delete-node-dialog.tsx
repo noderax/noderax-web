@@ -67,14 +67,16 @@ export const DeleteNodeDialog = ({
       <DialogTrigger
         render={
           <Button
-            variant={triggerVariant === "critical" ? "destructive" : triggerVariant}
+            variant={
+              triggerVariant === "critical" ? "destructive" : triggerVariant
+            }
             size={triggerSize}
             className={
               triggerVariant === "critical"
                 ? criticalTriggerClass
                 : triggerVariant === "destructive"
                   ? "border-destructive bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                : undefined
+                  : undefined
             }
           />
         }
