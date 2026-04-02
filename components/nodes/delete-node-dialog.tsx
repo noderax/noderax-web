@@ -27,12 +27,16 @@ export const DeleteNodeDialog = ({
   nodeName: string;
   onDeleted?: () => void;
   triggerLabel?: string;
-  triggerVariant?: "ghost" | "outline" | "destructive";
+  triggerVariant?: "ghost" | "outline" | "destructive" | "critical";
   triggerSize?: "sm" | "default";
 }) => {
   const [open, setOpen] = useState(false);
   const [submissionError, setSubmissionError] = useState<string | null>(null);
   const deleteNodeMutation = useDeleteNode();
+  const criticalTriggerClass =
+    "border-destructive/45 bg-destructive/12 text-destructive hover:border-destructive/70 hover:bg-destructive/18 focus-visible:border-destructive/70 focus-visible:ring-destructive/30 dark:border-destructive/55 dark:bg-destructive/26 dark:text-destructive-foreground dark:hover:bg-destructive/36";
+  const criticalConfirmClass =
+    "border-destructive/85 bg-destructive text-destructive-foreground hover:bg-destructive/88 focus-visible:border-destructive focus-visible:ring-destructive/35";
 
   const handleDelete = async () => {
     setSubmissionError(null);
@@ -63,11 +67,13 @@ export const DeleteNodeDialog = ({
       <DialogTrigger
         render={
           <Button
-            variant={triggerVariant}
+            variant={triggerVariant === "critical" ? "destructive" : triggerVariant}
             size={triggerSize}
             className={
-              triggerVariant === "destructive"
-                ? "border-destructive bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              triggerVariant === "critical"
+                ? criticalTriggerClass
+                : triggerVariant === "destructive"
+                  ? "border-destructive bg-destructive text-destructive-foreground hover:bg-destructive/90"
                 : undefined
             }
           />
@@ -96,7 +102,11 @@ export const DeleteNodeDialog = ({
           </DialogClose>
           <Button
             variant="destructive"
-            className="border-destructive bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            className={
+              triggerVariant === "critical"
+                ? criticalConfirmClass
+                : "border-destructive bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            }
             type="button"
             onClick={handleDelete}
             disabled={deleteNodeMutation.isPending}

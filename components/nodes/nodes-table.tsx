@@ -476,7 +476,11 @@ export const NodesTable = ({
                         nodeName={node.name}
                         variant="outline"
                       />
-                      <DeleteNodeDialog nodeId={node.id} nodeName={node.name} />
+                      <DeleteNodeDialog
+                        nodeId={node.id}
+                        nodeName={node.name}
+                        triggerVariant="critical"
+                      />
                     </>
                   ) : null}
 

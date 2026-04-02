@@ -228,7 +228,7 @@ export const NodeDetailView = ({ id }: { id: string }) => {
               nodeId={node.id}
               nodeName={node.name}
               triggerLabel="Delete node"
-              triggerVariant="destructive"
+              triggerVariant="critical"
               onDeleted={() =>
                 router.replace(buildWorkspaceHref("nodes") ?? "/workspaces")
               }
