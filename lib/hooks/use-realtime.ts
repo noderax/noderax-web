@@ -167,6 +167,148 @@ const collectTrackedNodeIds = (queryClient: QueryClient) => {
   return trackedNodeIds;
 };
 
+type TrackedNodeVersionSnapshot = {
+  agentVersion?: string | null;
+  lastVersionReportedAt?: string | null;
+};
+
+type TrackedNodePresencePatch = Partial<
+  Pick<
+    NodeSummary,
+    "status" | "lastSeenAt" | "agentVersion" | "lastVersionReportedAt"
+  >
+>;
+
+const readTrackedNodeVersionSnapshot = (
+  queryClient: QueryClient,
+  nodeId: string,
+): TrackedNodeVersionSnapshot | null => {
+  let snapshot: TrackedNodeVersionSnapshot | null = null;
+
+  queryClient
+    .getQueriesData<NodeDetail>({
+      predicate: (query) => query.isActive() && isNodeDetailQuery(query),
+    })
+    .forEach(([, node]) => {
+      if (!snapshot && node?.id === nodeId) {
+        snapshot = {
+          agentVersion: node.agentVersion ?? null,
+          lastVersionReportedAt: node.lastVersionReportedAt ?? null,
+        };
+      }
+    });
+
+  queryClient
+    .getQueriesData<NodeSummary[]>({
+      predicate: (query) => query.isActive() && isNodeListQuery(query),
+    })
+    .forEach(([, nodes]) => {
+      if (snapshot || !Array.isArray(nodes)) {
+        return;
+      }
+
+      const matched = nodes.find((node) => node.id === nodeId);
+      if (matched) {
+        snapshot = {
+          agentVersion: matched.agentVersion ?? null,
+          lastVersionReportedAt: matched.lastVersionReportedAt ?? null,
+        };
+      }
+    });
+
+  queryClient
+    .getQueriesData<TaskDetail>({
+      predicate: (query) => query.isActive() && isTaskDetailQuery(query),
+    })
+    .forEach(([, task]) => {
+      if (snapshot || task?.node?.id !== nodeId) {
+        return;
+      }
+
+      snapshot = {
+        agentVersion: task.node.agentVersion ?? null,
+        lastVersionReportedAt: task.node.lastVersionReportedAt ?? null,
+      };
+    });
+
+  queryClient
+    .getQueriesData<DashboardOverview>({
+      predicate: (query) => query.isActive() && isDashboardOverviewQuery(query),
+    })
+    .forEach(([, overview]) => {
+      if (snapshot) {
+        return;
+      }
+
+      const matched = overview?.nodes.find((node) => node.id === nodeId);
+      if (matched) {
+        snapshot = {
+          agentVersion: matched.agentVersion ?? null,
+          lastVersionReportedAt: matched.lastVersionReportedAt ?? null,
+        };
+      }
+    });
+
+  return snapshot;
+};
+
+const updateTrackedNodePresence = (
+  queryClient: QueryClient,
+  nodeId: string,
+  patch: TrackedNodePresencePatch,
+) => {
+  queryClient.setQueriesData<NodeSummary[]>(
+    { predicate: isNodeListQuery },
+    (current) =>
+      current?.map((node) =>
+        node.id === nodeId
+          ? {
+              ...node,
+              ...patch,
+            }
+          : node,
+      ),
+  );
+
+  queryClient.setQueriesData<NodeDetail | undefined>(
+    { predicate: isNodeDetailQuery },
+    (current) =>
+      current?.id === nodeId
+        ? {
+            ...current,
+            ...patch,
+          }
+        : current,
+  );
+
+  queryClient.setQueriesData<DashboardOverview | undefined>(
+    { queryKey: ["dashboard", "overview"] },
+    (current) =>
+      updateDashboardNodes(current, (node) =>
+        node.id === nodeId
+          ? {
+              ...node,
+              ...patch,
+            }
+          : node,
+      ),
+  );
+
+  queryClient.setQueriesData<TaskDetail | undefined>(
+    { predicate: isTaskDetailQuery },
+    (current) =>
+      current?.node?.id === nodeId
+        ? {
+            ...current,
+            node: {
+              ...current.node,
+              ...patch,
+            },
+          }
+        : current,
+  );
+};
+
 export const useRealtimeBridge = () => {
   const queryClient = useQueryClient();
   const session = useAppStore((state) => state.session);
@@ -334,6 +476,17 @@ export const useRealtimeBridge = () => {
     },
   );
 
+  const refreshAgentUpdateQueries = useEffectEvent(() => {
+    queryClient.invalidateQueries({
+      queryKey: queryKeys.agentUpdates.summary,
+      refetchType: "active",
+    });
+    queryClient.invalidateQueries({
+      queryKey: queryKeys.agentUpdates.rollouts,
+      refetchType: "active",
+    });
+  });
+
   const onMessage = useEffectEvent((message: RealtimeMessage) => {
     const receivedAt = Date.now();
     patchRealtimeHealth({
@@ -350,6 +503,11 @@ export const useRealtimeBridge = () => {
       }
 
       const nodeId = message.data.nodeId;
+      const previousSnapshot = readTrackedNodeVersionSnapshot(
+        queryClient,
+        nodeId,
+      );
+      const previousVersion = previousSnapshot?.agentVersion ?? null;
       let previousStatus = nodeStatusByIdRef.current.get(nodeId);
       let nodeLabel = message.data.hostname ?? "Node";
 
@@ -380,60 +538,20 @@ export const useRealtimeBridge = () => {
           });
       }
 
-      queryClient.setQueriesData<NodeSummary[]>(
-        { predicate: isNodeListQuery },
-        (current) =>
-          current?.map((node) =>
-            node.id === nodeId
-              ? {
-                  ...node,
-                  status: message.data.status,
-                  lastSeenAt: message.data.lastSeenAt,
-                }
-              : node,
-          ),
-      );
-
-      queryClient.setQueriesData<NodeDetail | undefined>(
-        { predicate: isNodeDetailQuery },
-        (current) =>
-          current?.id === nodeId
-            ? {
-                ...current,
-                status: message.data.status,
-                lastSeenAt: message.data.lastSeenAt,
-              }
-            : current,
-      );
-
-      queryClient.setQueriesData<DashboardOverview | undefined>(
-        { queryKey: ["dashboard", "overview"] },
-        (current) =>
-          updateDashboardNodes(current, (node) =>
-            node.id === nodeId
-              ? {
-                  ...node,
-                  status: message.data.status,
-                  lastSeenAt: message.data.lastSeenAt,
-                }
-              : node,
-          ),
-      );
-
-      queryClient.setQueriesData<TaskDetail | undefined>(
-        { predicate: isTaskDetailQuery },
-        (current) =>
-          current?.node?.id === nodeId
-            ? {
-                ...current,
-                node: {
-                  ...current.node,
-                  status: message.data.status,
-                  lastSeenAt: message.data.lastSeenAt,
-                },
-              }
-            : current,
-      );
+      updateTrackedNodePresence(queryClient, nodeId, {
+        status: message.data.status,
+        lastSeenAt: message.data.lastSeenAt,
+        ...(message.data.agentVersion !== undefined
+          ? {
+              agentVersion: message.data.agentVersion,
+            }
+          : {}),
+        ...(message.data.lastVersionReportedAt !== undefined
+          ? {
+              lastVersionReportedAt: message.data.lastVersionReportedAt,
+            }
+          : {}),
+      });
 
       if (message.data.status === "online" && previousStatus !== "online") {
         toast.success("Node online", {
@@ -449,6 +567,15 @@ export const useRealtimeBridge = () => {
 
       nodeStatusByIdRef.current.set(nodeId, message.data.status);
 
+      const versionChanged =
+        message.data.agentVersion !== undefined &&
+        message.data.agentVersion !== previousVersion;
+      const statusChanged = previousStatus !== message.data.status;
+
+      if (versionChanged || statusChanged) {
+        refreshAgentUpdateQueries();
+      }
+
       return;
     }
 
@@ -459,6 +586,23 @@ export const useRealtimeBridge = () => {
 
       const point = mapMetricDtoToPoint(message.data);
       enqueueMetric(message.data.nodeId, point, message.data.networkStats);
+
+      const previousSnapshot = readTrackedNodeVersionSnapshot(
+        queryClient,
+        message.data.nodeId,
+      );
+      const previousVersion = previousSnapshot?.agentVersion ?? null;
+
+      if (
+        message.data.agentVersion !== undefined &&
+        message.data.agentVersion !== previousVersion
+      ) {
+        updateTrackedNodePresence(queryClient, message.data.nodeId, {
+          agentVersion: message.data.agentVersion,
+          lastVersionReportedAt: message.data.recordedAt,
+        });
+        refreshAgentUpdateQueries();
+      }
       return;
     }
 

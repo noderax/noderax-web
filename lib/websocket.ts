@@ -23,6 +23,8 @@ export type RealtimeMessage =
         hostname?: string;
         status: NodeStatus;
         lastSeenAt: string | null;
+        agentVersion?: string | null;
+        lastVersionReportedAt?: string | null;
       };
     }
   | {
@@ -58,6 +60,8 @@ type NodeStatusUpdatedPayload = {
   hostname?: string;
   status: NodeStatus;
   lastSeenAt?: string | null;
+  agentVersion?: string | null;
+  lastVersionReportedAt?: string | null;
   sequence?: number;
   sourceInstance?: string;
 };
@@ -442,6 +446,8 @@ class NoderaxRealtimeClient {
         hostname: payload.hostname,
         status: payload.status,
         lastSeenAt: payload.lastSeenAt ?? null,
+        agentVersion: payload.agentVersion ?? null,
+        lastVersionReportedAt: payload.lastVersionReportedAt ?? null,
       },
     });
   };

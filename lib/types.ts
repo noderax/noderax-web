@@ -184,6 +184,7 @@ export interface MetricDto {
   id: string;
   workspaceId: string;
   nodeId: string;
+  agentVersion?: string | null;
   cpuUsage: number;
   memoryUsage: number;
   diskUsage: number;
