@@ -498,8 +498,8 @@ const TopbarContent = () => {
                 prefixContent={
                   agentUpdatesSummaryQuery.data.activeRollout.status ===
                   "paused"
-                    ? "⏸️"
-                    : "🔄"
+                    ? "⛔​"
+                    : "🔥​"
                 }
                 speed={1.2}
                 colorFrom="oklch(0.63 0.22 28)"
