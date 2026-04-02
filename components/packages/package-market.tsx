@@ -5,10 +5,10 @@ import { PackageSearch, RefreshCcw } from "lucide-react";
 
 import { EmptyState } from "@/components/empty-state";
 import { PackageActionDialog } from "@/components/packages/package-action-dialog";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { SectionPanel } from "@/components/ui/section-panel";
+import { ShimmerButton } from "@/components/ui/shimmer-button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useSearchPackages } from "@/lib/hooks/use-noderax-data";
 
@@ -78,14 +78,21 @@ export const PackageMarket = ({
               </span>{" "}
               search results
             </p>
-            <Button
-              variant="outline"
-              size="sm"
+            <ShimmerButton
+              className="action-btn-sm border-border/70 bg-(--control-surface) text-foreground shadow-none"
+              background="var(--control-surface)"
               onClick={() => searchQuery.refetch()}
+              disabled={searchQuery.isFetching}
             >
-              <RefreshCcw className="size-4" />
+              <RefreshCcw
+                className={
+                  searchQuery.isFetching
+                    ? "size-4 animate-spin"
+                    : "action-icon-spin size-4"
+                }
+              />
               Refresh
-            </Button>
+            </ShimmerButton>
           </div>
 
           <ScrollArea className="h-[28rem]">

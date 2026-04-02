@@ -6,7 +6,7 @@ import { BellRing, RefreshCcw } from "lucide-react";
 import { EmptyState } from "@/components/empty-state";
 import { AppShell } from "@/components/layout/app-shell";
 import { SeverityBadge } from "@/components/severity-badge";
-import { Button } from "@/components/ui/button";
+import { ShimmerButton } from "@/components/ui/shimmer-button";
 import { Input } from "@/components/ui/input";
 import { SectionPanel } from "@/components/ui/section-panel";
 import {
@@ -38,7 +38,9 @@ export const EventsPageView = () => {
     (state) => state.setEventSeverityFilter,
   );
   const searchQuery = useAppStore((state) => state.searchQuery);
-  const deferredSearchQuery = useDeferredValue(searchQuery.trim().toLowerCase());
+  const deferredSearchQuery = useDeferredValue(
+    searchQuery.trim().toLowerCase(),
+  );
   const [nodeFilter, setNodeFilter] = useState<"all" | string>("all");
   const [typeFilter, setTypeFilter] = useState("");
   const [limit, setLimit] = useState<25 | 50 | 100>(50);
@@ -46,7 +48,8 @@ export const EventsPageView = () => {
   const selectedNode =
     nodeFilter === "all"
       ? null
-      : (nodesQuery.data ?? []).find((node) => node.id === nodeFilter) ?? null;
+      : ((nodesQuery.data ?? []).find((node) => node.id === nodeFilter) ??
+        null);
   const eventsQuery = useEvents({
     severity: eventSeverityFilter,
     nodeId: nodeFilter === "all" ? undefined : nodeFilter,
@@ -126,19 +129,22 @@ export const EventsPageView = () => {
         </SelectContent>
       </Select>
 
-      <Button
-        variant="outline"
-        size="icon-lg"
-        className="shrink-0"
+      <ShimmerButton
+        className="action-btn shrink-0 border-border/70 bg-(--control-surface) px-0 text-foreground shadow-none"
+        background="var(--control-surface)"
         aria-label="Refresh events"
         title="Refresh events"
         onClick={() => void eventsQuery.refetch()}
         disabled={eventsQuery.isFetching}
       >
         <RefreshCcw
-          className={eventsQuery.isFetching ? "size-4 animate-spin" : "size-4"}
+          className={
+            eventsQuery.isFetching
+              ? "size-4 animate-spin"
+              : "action-icon-spin size-4"
+          }
         />
-      </Button>
+      </ShimmerButton>
     </div>
   );
 
@@ -205,7 +211,11 @@ export const EventsPageView = () => {
           </Table>
         ) : (
           <EmptyState
-            title={rawEvents.length ? "No events match the current search" : "No events found"}
+            title={
+              rawEvents.length
+                ? "No events match the current search"
+                : "No events found"
+            }
             description={
               rawEvents.length
                 ? "The current event slice loaded successfully, but the global search did not match any entries."

@@ -7,6 +7,36 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
+  --animate-shimmer-slide: shimmer-slide var(--speed) ease-in-out infinite
+    alternate;
+  --animate-spin-around: spin-around calc(var(--speed) * 2) infinite linear;
+
+  @keyframes shimmer-slide {
+    to {
+      transform: translate(calc(100cqw - 100%), 0);
+    }
+  }
+
+  @keyframes spin-around {
+    0% {
+      transform: translateZ(0) rotate(0);
+    }
+
+    15%,
+    35% {
+      transform: translateZ(0) rotate(90deg);
+    }
+
+    65%,
+    85% {
+      transform: translateZ(0) rotate(270deg);
+    }
+
+    100% {
+      transform: translateZ(0) rotate(360deg);
+    }
+  }
+
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-jakarta);
@@ -94,11 +124,15 @@
   --control-surface: color-mix(in oklch, var(--card) 94%, var(--muted));
   --control-hover: color-mix(in oklch, var(--accent) 88%, white);
   --popover-surface: var(--popover);
-  --surface-hover-border: color-mix(in oklch, var(--primary) 16%, var(--border));
-  --shadow-dashboard: 0 1px 2px rgba(15, 23, 42, 0.04),
-    0 12px 28px -22px rgba(15, 23, 42, 0.12);
-  --shadow-dashboard-hover: 0 16px 38px -24px rgba(15, 23, 42, 0.16),
-    0 3px 10px rgba(15, 23, 42, 0.06);
+  --surface-hover-border: color-mix(
+    in oklch,
+    var(--primary) 16%,
+    var(--border)
+  );
+  --shadow-dashboard:
+    0 1px 2px rgba(15, 23, 42, 0.04), 0 12px 28px -22px rgba(15, 23, 42, 0.12);
+  --shadow-dashboard-hover:
+    0 16px 38px -24px rgba(15, 23, 42, 0.16), 0 3px 10px rgba(15, 23, 42, 0.06);
 }
 
 .dark {
@@ -146,11 +180,15 @@
   --control-surface: color-mix(in oklch, var(--card) 88%, var(--background));
   --control-hover: color-mix(in oklch, var(--accent) 72%, var(--card));
   --popover-surface: var(--popover);
-  --surface-hover-border: color-mix(in oklch, var(--primary) 14%, var(--border));
-  --shadow-dashboard: 0 1px 2px rgba(0, 0, 0, 0.2),
-    0 16px 36px -24px rgba(0, 0, 0, 0.45);
-  --shadow-dashboard-hover: 0 18px 44px -24px rgba(0, 0, 0, 0.56),
-    0 4px 12px rgba(0, 0, 0, 0.24);
+  --surface-hover-border: color-mix(
+    in oklch,
+    var(--primary) 14%,
+    var(--border)
+  );
+  --shadow-dashboard:
+    0 1px 2px rgba(0, 0, 0, 0.2), 0 16px 36px -24px rgba(0, 0, 0, 0.45);
+  --shadow-dashboard-hover:
+    0 18px 44px -24px rgba(0, 0, 0, 0.56), 0 4px 12px rgba(0, 0, 0, 0.24);
 }
 
 @layer base {
@@ -164,16 +202,17 @@
 
   body {
     @apply min-h-full overflow-x-hidden bg-background text-foreground antialiased;
-    background-image: radial-gradient(
-      circle at top right,
-      color-mix(in oklch, var(--primary) 6%, transparent),
-      transparent 24rem
-    ),
-    linear-gradient(
-      180deg,
-      color-mix(in oklch, var(--background) 98%, var(--muted) 2%),
-      var(--background)
-    );
+    background-image:
+      radial-gradient(
+        circle at top right,
+        color-mix(in oklch, var(--primary) 6%, transparent),
+        transparent 24rem
+      ),
+      linear-gradient(
+        180deg,
+        color-mix(in oklch, var(--background) 98%, var(--muted) 2%),
+        var(--background)
+      );
   }
 
   .dark body {
@@ -213,7 +252,11 @@
   .surface-feature {
     border-color: color-mix(in oklch, var(--primary) 10%, var(--border));
     background:
-      linear-gradient(180deg, color-mix(in oklch, var(--primary) 4%, transparent), transparent 5rem),
+      linear-gradient(
+        180deg,
+        color-mix(in oklch, var(--primary) 4%, transparent),
+        transparent 5rem
+      ),
       var(--surface-feature);
     box-shadow: var(--shadow-dashboard);
   }
@@ -338,6 +381,34 @@
 
   .shadow-dashboard {
     box-shadow: var(--shadow-dashboard);
+  }
+
+  .action-btn {
+    height: 2.25rem;
+    padding-inline: 1rem;
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+  }
+
+  .action-btn-sm {
+    height: 2rem;
+    padding-inline: 0.75rem;
+    font-size: 0.8rem;
+    line-height: 1rem;
+  }
+
+  .action-icon-spin {
+    transition: transform 320ms ease;
+  }
+
+  .group:hover .action-icon-spin,
+  .group\/button:hover .action-icon-spin {
+    transform: rotate(180deg);
+  }
+
+  .group:active .action-icon-spin,
+  .group\/button:active .action-icon-spin {
+    transform: rotate(220deg);
   }
 }
 

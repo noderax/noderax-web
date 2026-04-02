@@ -15,6 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SectionPanel } from "@/components/ui/section-panel";
+import { ShimmerButton } from "@/components/ui/shimmer-button";
 import {
   Select,
   SelectContent,
@@ -111,15 +112,21 @@ export const PackagesPage = ({
           ))}
         </SelectContent>
       </Select>
-      <Button
-        variant="outline"
-        size="sm"
+      <ShimmerButton
+        className="action-btn-sm border-border/70 bg-(--control-surface) text-foreground shadow-none"
+        background="var(--control-surface)"
         onClick={() => void packagesQuery.refetch()}
         disabled={packagesQuery.isFetching}
       >
-        <RefreshCcw className="size-4" />
+        <RefreshCcw
+          className={
+            packagesQuery.isFetching
+              ? "size-4 animate-spin"
+              : "action-icon-spin size-4"
+          }
+        />
         Refresh
-      </Button>
+      </ShimmerButton>
       {headerAction}
     </div>
   );

@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { ExternalLink, MonitorCog, SquareTerminal } from "lucide-react";
 
@@ -21,7 +21,14 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { SectionPanel } from "@/components/ui/section-panel";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ShimmerButton } from "@/components/ui/shimmer-button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
@@ -86,6 +93,7 @@ export const NodesTable = ({
   createAction?: React.ReactNode;
 }) => {
   const [selectedNode, setSelectedNode] = useState<NodeSummary | null>(null);
+  const router = useRouter();
   const { buildWorkspaceHref } = useWorkspaceContext();
   const selectedTeam = teams.find((team) => team.id === teamFilter);
 
@@ -93,7 +101,9 @@ export const NodesTable = ({
     <>
       <Select
         value={statusFilter}
-        onValueChange={(value) => onStatusFilterChange((value ?? "all") as typeof statusFilter)}
+        onValueChange={(value) =>
+          onStatusFilterChange((value ?? "all") as typeof statusFilter)
+        }
       >
         <SelectTrigger id="node-status-filter" className="min-w-40">
           <SelectValue placeholder="Filter status" />
@@ -125,7 +135,9 @@ export const NodesTable = ({
       <Select
         value={maintenanceFilter}
         onValueChange={(value) =>
-          onMaintenanceFilterChange((value ?? "all") as typeof maintenanceFilter)
+          onMaintenanceFilterChange(
+            (value ?? "all") as typeof maintenanceFilter,
+          )
         }
       >
         <SelectTrigger id="node-maintenance-filter" className="min-w-44">
@@ -142,13 +154,23 @@ export const NodesTable = ({
 
   const pager = (
     <div className="flex items-center gap-2">
-      <Button variant="outline" size="sm" onClick={onPreviousPage} disabled={page === 0}>
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={onPreviousPage}
+        disabled={page === 0}
+      >
         Previous
       </Button>
       <span className="px-1 text-xs font-medium text-muted-foreground">
         Page {page + 1}
       </span>
-      <Button variant="outline" size="sm" onClick={onNextPage} disabled={!hasNextPage}>
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={onNextPage}
+        disabled={!hasNextPage}
+      >
         Next
       </Button>
     </div>
@@ -258,7 +280,9 @@ export const NodesTable = ({
               <TableCell>
                 <div>
                   <p className="font-medium">{node.name}</p>
-                  <p className="text-xs text-muted-foreground">{node.hostname}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {node.hostname}
+                  </p>
                 </div>
               </TableCell>
               <TableCell>
@@ -275,7 +299,11 @@ export const NodesTable = ({
                 {node.teamName ?? "Unassigned"}
               </TableCell>
               <TableCell className="text-muted-foreground">
-                <TimeDisplay value={node.lastSeenAt} mode="relative" emptyLabel="Never" />
+                <TimeDisplay
+                  value={node.lastSeenAt}
+                  mode="relative"
+                  emptyLabel="Never"
+                />
               </TableCell>
               <TableCell className="text-muted-foreground">
                 <div className="flex items-center gap-2">
@@ -288,17 +316,23 @@ export const NodesTable = ({
               <TableCell className="text-muted-foreground">
                 {node.agentVersion ?? "Unknown"}
               </TableCell>
-              <TableCell className={node.latestMetric ? getCpuColor(node.latestMetric.cpu) : ""}>
+              <TableCell
+                className={
+                  node.latestMetric ? getCpuColor(node.latestMetric.cpu) : ""
+                }
+              >
                 {node.latestMetric ? `${node.latestMetric.cpu}%` : "N/A"}
               </TableCell>
               <TableCell
                 className={
-                  node.latestMetric?.temperature !== null && node.latestMetric?.temperature !== undefined
+                  node.latestMetric?.temperature !== null &&
+                  node.latestMetric?.temperature !== undefined
                     ? getTempColor(node.latestMetric.temperature)
                     : ""
                 }
               >
-                {node.latestMetric?.temperature !== null && node.latestMetric?.temperature !== undefined
+                {node.latestMetric?.temperature !== null &&
+                node.latestMetric?.temperature !== undefined
                   ? `${node.latestMetric.temperature.toFixed(1)}°C`
                   : "N/A"}
               </TableCell>
@@ -308,14 +342,19 @@ export const NodesTable = ({
                     open={selectedNode?.id === node.id}
                     onOpenChange={(open) => setSelectedNode(open ? node : null)}
                   >
-                    <DialogTrigger className={cn(buttonVariants({ variant: "outline", size: "sm" }))}>
+                    <DialogTrigger
+                      className={cn(
+                        buttonVariants({ variant: "outline", size: "sm" }),
+                      )}
+                    >
                       Inspect
                     </DialogTrigger>
                     <DialogContent className="max-w-xl">
                       <DialogHeader>
                         <DialogTitle>{node.name}</DialogTitle>
                         <DialogDescription>
-                          A concise operational snapshot before opening the full node detail view.
+                          A concise operational snapshot before opening the full
+                          node detail view.
                         </DialogDescription>
                       </DialogHeader>
                       <div className="grid gap-3 sm:grid-cols-2">
@@ -327,7 +366,9 @@ export const NodesTable = ({
                             <NodeOsIcon os={node.os} className="size-4.5" />
                             <p className="text-sm font-medium">{node.os}</p>
                           </div>
-                          <p className="text-sm text-muted-foreground">{node.arch}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {node.arch}
+                          </p>
                         </div>
                         <div className="surface-subtle rounded-[16px] border p-4">
                           <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
@@ -338,7 +379,8 @@ export const NodesTable = ({
                           </p>
                           <p className="text-sm text-muted-foreground">
                             {node.maintenanceMode
-                              ? node.maintenanceReason ?? "In maintenance mode"
+                              ? (node.maintenanceReason ??
+                                "In maintenance mode")
                               : "Accepting new work"}
                           </p>
                         </div>
@@ -360,9 +402,15 @@ export const NodesTable = ({
                           <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
                             Hostname
                           </p>
-                          <p className="mt-2 text-sm font-medium">{node.hostname}</p>
+                          <p className="mt-2 text-sm font-medium">
+                            {node.hostname}
+                          </p>
                           <p className="text-sm text-muted-foreground">
-                            Created <TimeDisplay value={node.createdAt} mode="datetime" />
+                            Created{" "}
+                            <TimeDisplay
+                              value={node.createdAt}
+                              mode="datetime"
+                            />
                           </p>
                         </div>
                         <div className="surface-subtle rounded-[16px] border p-4">
@@ -370,40 +418,59 @@ export const NodesTable = ({
                             Latest telemetry
                           </p>
                           <p className="mt-2 text-sm font-medium">
-                            CPU {node.latestMetric ? `${node.latestMetric.cpu}%` : "N/A"}
+                            CPU{" "}
+                            {node.latestMetric
+                              ? `${node.latestMetric.cpu}%`
+                              : "N/A"}
                           </p>
                           <p className="text-sm font-medium">
                             Temp{" "}
-                            {node.latestMetric?.temperature !== null && node.latestMetric?.temperature !== undefined
+                            {node.latestMetric?.temperature !== null &&
+                            node.latestMetric?.temperature !== undefined
                               ? `${node.latestMetric.temperature.toFixed(1)}°C`
                               : "N/A"}
                           </p>
                           <p className="text-sm text-muted-foreground">
-                            Memory {node.latestMetric ? `${node.latestMetric.memory}%` : "N/A"}
+                            Memory{" "}
+                            {node.latestMetric
+                              ? `${node.latestMetric.memory}%`
+                              : "N/A"}
                           </p>
                         </div>
                       </div>
                       <div className="flex justify-end pt-2">
-                        <Link
-                          href={buildWorkspaceHref(`nodes/${node.id}`) ?? "/workspaces"}
-                          className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
+                        <ShimmerButton
+                          type="button"
+                          className="action-btn-sm"
+                          onClick={() =>
+                            router.push(
+                              buildWorkspaceHref(`nodes/${node.id}`) ??
+                                "/workspaces",
+                            )
+                          }
                         >
                           Open node
                           <ExternalLink className="size-4" />
-                        </Link>
+                        </ShimmerButton>
                       </div>
                     </DialogContent>
                   </Dialog>
 
                   {isAdmin ? (
                     <>
-                      <Link
-                        href={buildWorkspaceHref(`nodes/${node.id}/terminal`) ?? "/workspaces"}
-                        className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
+                      <ShimmerButton
+                        type="button"
+                        className="action-btn-sm"
+                        onClick={() =>
+                          router.push(
+                            buildWorkspaceHref(`nodes/${node.id}/terminal`) ??
+                              "/workspaces",
+                          )
+                        }
                       >
                         Terminal
                         <SquareTerminal className="size-4" />
-                      </Link>
+                      </ShimmerButton>
                       <NodeActionMenu
                         nodeId={node.id}
                         nodeName={node.name}
@@ -413,13 +480,18 @@ export const NodesTable = ({
                     </>
                   ) : null}
 
-                  <Link
-                    href={buildWorkspaceHref(`nodes/${node.id}`) ?? "/workspaces"}
-                    className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}
+                  <ShimmerButton
+                    type="button"
+                    className="action-btn-sm"
+                    onClick={() =>
+                      router.push(
+                        buildWorkspaceHref(`nodes/${node.id}`) ?? "/workspaces",
+                      )
+                    }
                   >
                     Open
                     <ExternalLink className="size-4" />
-                  </Link>
+                  </ShimmerButton>
                 </div>
               </TableCell>
             </TableRow>

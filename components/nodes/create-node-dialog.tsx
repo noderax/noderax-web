@@ -28,10 +28,8 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import {
-  Progress,
-  ProgressLabel,
-} from "@/components/ui/progress";
+import { Progress, ProgressLabel } from "@/components/ui/progress";
+import { ShimmerButton } from "@/components/ui/shimmer-button";
 import {
   useCreateNodeInstall,
   useNodeInstallStatus,
@@ -45,7 +43,10 @@ import type {
 import { toast } from "sonner";
 
 const createNodeInstallSchema = z.object({
-  nodeName: z.string().trim().min(2, "Node name must be at least 2 characters."),
+  nodeName: z
+    .string()
+    .trim()
+    .min(2, "Node name must be at least 2 characters."),
   description: z.string(),
 });
 
@@ -63,7 +64,8 @@ export const CreateNodeDialog = () => {
   const [teamId, setTeamId] = useState<"none" | string>("none");
   const [generationError, setGenerationError] = useState<string | null>(null);
   const [copiedField, setCopiedField] = useState<CopyField>(null);
-  const [installData, setInstallData] = useState<CreateNodeInstallResponse | null>(null);
+  const [installData, setInstallData] =
+    useState<CreateNodeInstallResponse | null>(null);
   const copyTimeoutRef = useRef<number | null>(null);
   const createNodeInstallMutation = useCreateNodeInstall();
   const teamsQuery = useWorkspaceTeams();
@@ -74,9 +76,12 @@ export const CreateNodeDialog = () => {
   const selectedTeam =
     teamId === "none"
       ? null
-      : (teamsQuery.data ?? []).find((team) => team.id === teamId) ?? null;
+      : ((teamsQuery.data ?? []).find((team) => team.id === teamId) ?? null);
   const currentStep = installData ? 2 : 1;
-  const installStatusQuery = useNodeInstallStatus(installData?.installId, installData);
+  const installStatusQuery = useNodeInstallStatus(
+    installData?.installId,
+    installData,
+  );
   const activeInstall = installStatusQuery.data ?? installData;
 
   const clearCopyTimeout = () => {
@@ -149,7 +154,7 @@ export const CreateNodeDialog = () => {
         }
       }}
     >
-      <DialogTrigger render={<Button size="sm" />}>
+      <DialogTrigger render={<ShimmerButton className="action-btn-sm" />}>
         <Plus className="size-4" />
         Add node
       </DialogTrigger>
@@ -193,8 +198,8 @@ export const CreateNodeDialog = () => {
                     One-click install
                   </p>
                   <p className="text-sm font-medium">
-                    Noderax will create the node record when the installer consumes
-                    the bootstrap token.
+                    Noderax will create the node record when the installer
+                    consumes the bootstrap token.
                   </p>
                 </div>
               </div>
@@ -216,7 +221,10 @@ export const CreateNodeDialog = () => {
 
               <div className="space-y-2">
                 <Label htmlFor="node-team">Team ownership</Label>
-                <Select value={teamId} onValueChange={(value) => setTeamId(value ?? "none")}>
+                <Select
+                  value={teamId}
+                  onValueChange={(value) => setTeamId(value ?? "none")}
+                >
                   <SelectTrigger id="node-team" className="w-full">
                     <SelectValue placeholder="Select a team">
                       {selectedTeam?.name ?? null}
@@ -232,8 +240,8 @@ export const CreateNodeDialog = () => {
                   </SelectContent>
                 </Select>
                 <p className="text-xs text-muted-foreground">
-                  The selected team will be assigned automatically after the server
-                  finishes bootstrapping.
+                  The selected team will be assigned automatically after the
+                  server finishes bootstrapping.
                 </p>
               </div>
 
@@ -256,14 +264,19 @@ export const CreateNodeDialog = () => {
               <div className="space-y-4">
                 <div className="rounded-[20px] border bg-muted/20 p-4">
                   <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
-                    <SummaryField label="Node name" value={form.getValues("nodeName").trim()} />
+                    <SummaryField
+                      label="Node name"
+                      value={form.getValues("nodeName").trim()}
+                    />
                     <SummaryField
                       label="Team ownership"
                       value={selectedTeam?.name ?? "No team"}
                     />
                     <SummaryField
                       label="Description"
-                      value={form.getValues("description").trim() || "No description"}
+                      value={
+                        form.getValues("description").trim() || "No description"
+                      }
                     />
                   </div>
                 </div>
@@ -328,22 +341,30 @@ export const CreateNodeDialog = () => {
 
                 <p className="text-xs text-muted-foreground">
                   Expires at{" "}
-                  {new Date((activeInstall ?? installData).expiresAt).toLocaleString()}.
-                  Run the command on the target Ubuntu or Debian host with `sudo`.
+                  {new Date(
+                    (activeInstall ?? installData).expiresAt,
+                  ).toLocaleString()}
+                  . Run the command on the target Ubuntu or Debian host with
+                  `sudo`.
                 </p>
 
                 {installStatusQuery.error instanceof Error ? (
                   <p className="text-xs text-tone-danger">
-                    Live status refresh failed: {installStatusQuery.error.message}
+                    Live status refresh failed:{" "}
+                    {installStatusQuery.error.message}
                   </p>
                 ) : null}
               </div>
             </div>
           ) : null}
         </div>
-        <div className="flex flex-col gap-2 border-t bg-[var(--surface-dialog)] px-6 py-3.5 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-2 border-t bg-(--surface-dialog) px-6 py-3.5 sm:flex-row sm:items-center sm:justify-between">
           {currentStep === 2 ? (
-            <Button variant="outline" type="button" onClick={handleBackToDetails}>
+            <Button
+              variant="outline"
+              type="button"
+              onClick={handleBackToDetails}
+            >
               Back to details
             </Button>
           ) : (
@@ -358,8 +379,9 @@ export const CreateNodeDialog = () => {
                 Close
               </DialogClose>
             ) : null}
-            <Button
+            <ShimmerButton
               type="button"
+              className="action-btn"
               onClick={() => void handleGenerate()}
               disabled={createNodeInstallMutation.isPending}
             >
@@ -368,7 +390,7 @@ export const CreateNodeDialog = () => {
                 : installData
                   ? "Regenerate command"
                   : "Generate install command"}
-            </Button>
+            </ShimmerButton>
           </div>
         </div>
       </DialogContent>

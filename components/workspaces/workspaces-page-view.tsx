@@ -90,7 +90,8 @@ export const WorkspacesPageView = () => {
                 <DialogHeader>
                   <DialogTitle>Create workspace</DialogTitle>
                   <DialogDescription>
-                    Provision a new isolated operations surface with its own timezone and members.
+                    Provision a new isolated operations surface with its own
+                    timezone and members.
                   </DialogDescription>
                 </DialogHeader>
 
@@ -180,7 +181,9 @@ export const WorkspacesPageView = () => {
                       const workspace =
                         await createWorkspaceMutation.mutateAsync(formState);
                       setCreateOpen(false);
-                      router.push(buildWorkspacePath(workspace.slug, "dashboard"));
+                      router.push(
+                        buildWorkspacePath(workspace.slug, "dashboard"),
+                      );
                     }}
                   >
                     {createWorkspaceMutation.isPending
@@ -210,7 +213,11 @@ export const WorkspacesPageView = () => {
         ) : !workspaces.length ? (
           <EmptyState
             icon={canCreateWorkspace ? Waypoints : ShieldAlert}
-            title={canCreateWorkspace ? "No workspaces yet" : "No accessible workspace"}
+            title={
+              canCreateWorkspace
+                ? "No workspaces yet"
+                : "No accessible workspace"
+            }
             description={
               canCreateWorkspace
                 ? "Create the first workspace to start isolating teams, nodes, tasks, and schedules."
@@ -231,12 +238,18 @@ export const WorkspacesPageView = () => {
                         {workspace.currentUserRole ?? "workspace"}
                       </p>
                       {workspace.isDefault ? (
-                        <Badge variant="outline" className="rounded-full px-2.5 py-0.5">
+                        <Badge
+                          variant="outline"
+                          className="rounded-full px-2.5 py-0.5"
+                        >
                           Default
                         </Badge>
                       ) : null}
                       {workspace.isArchived ? (
-                        <Badge variant="secondary" className="rounded-full px-2.5 py-0.5">
+                        <Badge
+                          variant="secondary"
+                          className="rounded-full px-2.5 py-0.5"
+                        >
                           Archived
                         </Badge>
                       ) : null}
@@ -256,7 +269,10 @@ export const WorkspacesPageView = () => {
                   <div className="flex items-center gap-2 pt-2">
                     <Link
                       href={buildWorkspacePath(workspace.slug, "dashboard")}
-                      className={cn(buttonVariants({ size: "default" }), "flex-1")}
+                      className={cn(
+                        buttonVariants({ size: "default" }),
+                        "flex-1",
+                      )}
                     >
                       Open workspace
                     </Link>
@@ -267,7 +283,8 @@ export const WorkspacesPageView = () => {
                       Members
                     </Link>
                   </div>
-                  {canCreateWorkspace || isWorkspaceAdminRole(workspace.currentUserRole) ? (
+                  {canCreateWorkspace ||
+                  isWorkspaceAdminRole(workspace.currentUserRole) ? (
                     <div className="flex items-center gap-2">
                       <Button
                         type="button"
@@ -288,7 +305,7 @@ export const WorkspacesPageView = () => {
                       >
                         {workspace.isArchived ? (
                           <>
-                            <RotateCcw className="size-4" />
+                            <RotateCcw className="action-icon-spin size-4" />
                             Restore
                           </>
                         ) : (

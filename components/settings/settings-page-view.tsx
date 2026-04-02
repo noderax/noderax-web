@@ -44,6 +44,7 @@ import { Label } from "@/components/ui/label";
 import { PasswordFeedback } from "@/components/ui/password-feedback";
 import { SectionPanel } from "@/components/ui/section-panel";
 import { Separator } from "@/components/ui/separator";
+import { ShimmerButton } from "@/components/ui/shimmer-button";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TimeDisplay } from "@/components/ui/time-display";
@@ -59,7 +60,10 @@ import {
   useValidatePlatformSmtp,
   useUpdateWorkspace,
 } from "@/lib/hooks/use-noderax-data";
-import { useWorkspaceContext, workspacesQueryKey } from "@/lib/hooks/use-workspace-context";
+import {
+  useWorkspaceContext,
+  workspacesQueryKey,
+} from "@/lib/hooks/use-workspace-context";
 import { ApiError, apiClient } from "@/lib/api";
 import { DEFAULT_TIMEZONE, getBrowserTimeZone } from "@/lib/timezone";
 import {
@@ -95,7 +99,12 @@ type PlatformRestartState = {
   observedDowntime: boolean;
 };
 
-const SETTINGS_TABS: SettingsTab[] = ["account", "notifications", "workspace", "platform"];
+const SETTINGS_TABS: SettingsTab[] = [
+  "account",
+  "notifications",
+  "workspace",
+  "platform",
+];
 const PLATFORM_RESTART_POLL_INTERVAL_MS = 2_000;
 const PLATFORM_RESTART_TIMEOUT_MS = 90_000;
 
@@ -169,12 +178,8 @@ function SettingsPageContent({
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const { session } = useAuthSession();
-  const {
-    workspace,
-    isPlatformAdmin,
-    isWorkspaceAdmin,
-    workspaceSlug,
-  } = useWorkspaceContext();
+  const { workspace, isPlatformAdmin, isWorkspaceAdmin, workspaceSlug } =
+    useWorkspaceContext();
   const setActiveWorkspaceSlug = useAppStore(
     (state) => state.setActiveWorkspaceSlug,
   );
@@ -223,19 +228,26 @@ function SettingsPageContent({
   const [workspaceDeleteOpen, setWorkspaceDeleteOpen] = useState(false);
   const [workspaceDeleteConfirmation, setWorkspaceDeleteConfirmation] =
     useState("");
-  const [workspaceDeleteError, setWorkspaceDeleteError] = useState<string | null>(
-    null,
-  );
+  const [workspaceDeleteError, setWorkspaceDeleteError] = useState<
+    string | null
+  >(null);
   const [notificationPreferences, setNotificationPreferences] = useState({
-    criticalEventEmailsEnabled: session?.user.criticalEventEmailsEnabled ?? true,
+    criticalEventEmailsEnabled:
+      session?.user.criticalEventEmailsEnabled ?? true,
     enrollmentEmailsEnabled: session?.user.enrollmentEmailsEnabled ?? true,
   });
   const [automationEmailEnabled, setAutomationEmailEnabled] = useState(false);
-  const [automationTelegramEnabled, setAutomationTelegramEnabled] = useState(false);
-  const [automationTelegramBotToken, setAutomationTelegramBotToken] = useState("");
+  const [automationTelegramEnabled, setAutomationTelegramEnabled] =
+    useState(false);
+  const [automationTelegramBotToken, setAutomationTelegramBotToken] =
+    useState("");
   const [automationTelegramChatId, setAutomationTelegramChatId] = useState("");
-  const [automationEmailLevels, setAutomationEmailLevels] = useState<EventSeverity[]>(["critical"]);
-  const [automationTelegramLevels, setAutomationTelegramLevels] = useState<EventSeverity[]>(["critical"]);
+  const [automationEmailLevels, setAutomationEmailLevels] = useState<
+    EventSeverity[]
+  >(["critical"]);
+  const [automationTelegramLevels, setAutomationTelegramLevels] = useState<
+    EventSeverity[]
+  >(["critical"]);
 
   const toggleEmailLevel = (level: EventSeverity) => {
     setAutomationEmailLevels((prev) =>
@@ -258,7 +270,8 @@ function SettingsPageContent({
     useState<PlatformSettingsValues | null>(null);
   const [platformMailTestStatus, setPlatformMailTestStatus] =
     useState<SmtpTestState | null>(null);
-  const [platformRestartDialogOpen, setPlatformRestartDialogOpen] = useState(false);
+  const [platformRestartDialogOpen, setPlatformRestartDialogOpen] =
+    useState(false);
   const [platformRestartState, setPlatformRestartState] =
     useState<PlatformRestartState | null>(null);
 
@@ -282,7 +295,9 @@ function SettingsPageContent({
     setAutomationTelegramBotToken(workspace.automationTelegramBotToken ?? "");
     setAutomationTelegramChatId(workspace.automationTelegramChatId ?? "");
     setAutomationEmailLevels(workspace.automationEmailLevels ?? ["critical"]);
-    setAutomationTelegramLevels(workspace.automationTelegramLevels ?? ["critical"]);
+    setAutomationTelegramLevels(
+      workspace.automationTelegramLevels ?? ["critical"],
+    );
   }, [workspace]);
 
   const platformBaseline = useMemo(
@@ -344,38 +359,41 @@ function SettingsPageContent({
 
   const hasWorkspaceChanges = Boolean(
     workspace &&
-      (workspaceName !== workspace.name ||
-        workspaceSlugDraft !== workspace.slug ||
-        workspaceTimeZone !== workspace.defaultTimezone ||
-        automationEmailEnabled !== workspace.automationEmailEnabled ||
-        automationTelegramEnabled !== workspace.automationTelegramEnabled ||
-        automationTelegramBotToken !== (workspace.automationTelegramBotToken ?? "") ||
-        automationTelegramChatId !== (workspace.automationTelegramChatId ?? "") ||
-        JSON.stringify(automationEmailLevels) !== JSON.stringify(workspace.automationEmailLevels ?? ["critical"]) ||
-        JSON.stringify(automationTelegramLevels) !== JSON.stringify(workspace.automationTelegramLevels ?? ["critical"])),
+    (workspaceName !== workspace.name ||
+      workspaceSlugDraft !== workspace.slug ||
+      workspaceTimeZone !== workspace.defaultTimezone ||
+      automationEmailEnabled !== workspace.automationEmailEnabled ||
+      automationTelegramEnabled !== workspace.automationTelegramEnabled ||
+      automationTelegramBotToken !==
+        (workspace.automationTelegramBotToken ?? "") ||
+      automationTelegramChatId !== (workspace.automationTelegramChatId ?? "") ||
+      JSON.stringify(automationEmailLevels) !==
+        JSON.stringify(workspace.automationEmailLevels ?? ["critical"]) ||
+      JSON.stringify(automationTelegramLevels) !==
+        JSON.stringify(workspace.automationTelegramLevels ?? ["critical"])),
   );
 
   const canManageDefaultWorkspace = isPlatformAdmin;
   const canSetWorkspaceAsDefault = Boolean(
     workspace &&
-      canManageDefaultWorkspace &&
-      !workspace.isDefault &&
-      !workspace.isArchived,
+    canManageDefaultWorkspace &&
+    !workspace.isDefault &&
+    !workspace.isArchived,
   );
   const workspaceDeleteBlockedReason = !workspace
     ? "Workspace is still loading."
     : workspace.isArchived
       ? "Archived workspaces are read-only. Restore the workspace before deleting it."
-    : workspace.isDefault
-      ? "Default workspace cannot be deleted. Select another default workspace first."
-      : null;
+      : workspace.isDefault
+        ? "Default workspace cannot be deleted. Select another default workspace first."
+        : null;
   const workspaceDeleteRequiresConfirmation =
     workspaceDeleteConfirmation.trim() === workspace?.slug;
 
   const hasPlatformChanges = Boolean(
     platformDraft &&
-      platformBaseline &&
-      JSON.stringify(platformDraft) !== JSON.stringify(platformBaseline),
+    platformBaseline &&
+    JSON.stringify(platformDraft) !== JSON.stringify(platformBaseline),
   );
 
   const navigateToTab = (nextTab: SettingsTab) => {
@@ -389,7 +407,9 @@ function SettingsPageContent({
       params.set("tab", nextTab);
     }
 
-    const nextHref = params.toString() ? `${targetPath}?${params.toString()}` : targetPath;
+    const nextHref = params.toString()
+      ? `${targetPath}?${params.toString()}`
+      : targetPath;
     router.replace(nextHref, { scroll: false });
   };
 
@@ -416,11 +436,21 @@ function SettingsPageContent({
           setWorkspaceSlugDraft(updatedWorkspace.slug);
           setWorkspaceTimeZone(updatedWorkspace.defaultTimezone);
           setAutomationEmailEnabled(updatedWorkspace.automationEmailEnabled);
-          setAutomationTelegramEnabled(updatedWorkspace.automationTelegramEnabled);
-          setAutomationTelegramBotToken(updatedWorkspace.automationTelegramBotToken ?? "");
-          setAutomationTelegramChatId(updatedWorkspace.automationTelegramChatId ?? "");
-          setAutomationEmailLevels(updatedWorkspace.automationEmailLevels ?? ["critical"]);
-          setAutomationTelegramLevels(updatedWorkspace.automationTelegramLevels ?? ["critical"]);
+          setAutomationTelegramEnabled(
+            updatedWorkspace.automationTelegramEnabled,
+          );
+          setAutomationTelegramBotToken(
+            updatedWorkspace.automationTelegramBotToken ?? "",
+          );
+          setAutomationTelegramChatId(
+            updatedWorkspace.automationTelegramChatId ?? "",
+          );
+          setAutomationEmailLevels(
+            updatedWorkspace.automationEmailLevels ?? ["critical"],
+          );
+          setAutomationTelegramLevels(
+            updatedWorkspace.automationTelegramLevels ?? ["critical"],
+          );
 
           if (workspaceSlug !== updatedWorkspace.slug) {
             setActiveWorkspaceSlug(updatedWorkspace.slug);
@@ -450,7 +480,11 @@ function SettingsPageContent({
   };
 
   const handleDeleteWorkspace = async () => {
-    if (!workspace || workspaceDeleteBlockedReason || !workspaceDeleteRequiresConfirmation) {
+    if (
+      !workspace ||
+      workspaceDeleteBlockedReason ||
+      !workspaceDeleteRequiresConfirmation
+    ) {
       return;
     }
 
@@ -577,7 +611,9 @@ function SettingsPageContent({
   const platformRestartPending = platformRestartState?.phase === "polling";
   const platformRestartTimedOut = platformRestartState?.phase === "timed_out";
   const platformActionsDisabled =
-    restartPlatformApi.isPending || platformRestartPending || platformRestartTimedOut;
+    restartPlatformApi.isPending ||
+    platformRestartPending ||
+    platformRestartTimedOut;
   const restartPhase = platformRestartState?.phase;
   const restartStartedAt = platformRestartState?.startedAt ?? null;
   const restartLastCheckedAt = platformRestartState?.lastCheckedAt ?? null;
@@ -587,7 +623,8 @@ function SettingsPageContent({
     clearSession();
     queryClient.clear();
     toast.message("API restarted", {
-      description: "Your session is no longer valid. Sign in again to continue.",
+      description:
+        "Your session is no longer valid. Sign in again to continue.",
     });
     router.replace("/login?message=api-restarted");
   });
@@ -697,11 +734,7 @@ function SettingsPageContent({
       abortController.abort();
       window.clearTimeout(timer);
     };
-  }, [
-    restartLastCheckedAt,
-    restartPhase,
-    restartStartedAt,
-  ]);
+  }, [restartLastCheckedAt, restartPhase, restartStartedAt]);
 
   const handlePlatformRestart = async () => {
     let previousBootId: string | null = null;
@@ -758,7 +791,10 @@ function SettingsPageContent({
           description="Manage your personal preferences, the active workspace, and admin-only platform runtime settings from one place."
           contentClassName="space-y-6"
         >
-          <Tabs value={activeTab} onValueChange={(value) => navigateToTab(value as SettingsTab)}>
+          <Tabs
+            value={activeTab}
+            onValueChange={(value) => navigateToTab(value as SettingsTab)}
+          >
             <TabsList variant="line">
               <TabsTrigger value="account">
                 <UserRound className="size-4" />
@@ -795,7 +831,10 @@ function SettingsPageContent({
                     Timezone: {session?.user.timezone ?? DEFAULT_TIMEZONE}
                   </Badge>
                   <Badge variant="outline" className="rounded-full px-3 py-1">
-                    MFA: {(session?.user.mfaEnabled ?? false) ? "Enabled" : "Not enabled"}
+                    MFA:{" "}
+                    {(session?.user.mfaEnabled ?? false)
+                      ? "Enabled"
+                      : "Not enabled"}
                   </Badge>
                 </div>
 
@@ -845,7 +884,8 @@ function SettingsPageContent({
                           <div>
                             <p className="font-medium">Theme mode</p>
                             <p className="text-sm text-muted-foreground">
-                              Toggle between light and dark manually at any time.
+                              Toggle between light and dark manually at any
+                              time.
                             </p>
                           </div>
                           <ThemeToggle />
@@ -869,7 +909,9 @@ function SettingsPageContent({
 
                           <div className="surface-subtle space-y-4 rounded-[18px] border p-4">
                             <div className="space-y-2">
-                              <p className="text-sm font-medium">Saved timezone</p>
+                              <p className="text-sm font-medium">
+                                Saved timezone
+                              </p>
                               <TimezonePicker
                                 value={selectedTimeZone}
                                 onValueChange={(value) =>
@@ -949,21 +991,27 @@ function SettingsPageContent({
                         </div>
                         <div className="space-y-4">
                           <div>
-                            <p className="text-sm text-muted-foreground">Name</p>
+                            <p className="text-sm text-muted-foreground">
+                              Name
+                            </p>
                             <p className="mt-1 font-medium">
                               {session?.user.name ?? "Operator"}
                             </p>
                           </div>
                           <Separator />
                           <div>
-                            <p className="text-sm text-muted-foreground">Email</p>
+                            <p className="text-sm text-muted-foreground">
+                              Email
+                            </p>
                             <p className="mt-1 font-medium">
                               {session?.user.email ?? "operator@noderax.io"}
                             </p>
                           </div>
                           <Separator />
                           <div>
-                            <p className="text-sm text-muted-foreground">Role</p>
+                            <p className="text-sm text-muted-foreground">
+                              Role
+                            </p>
                             <p className="mt-1 font-medium">
                               {session?.user.role ?? "Platform Operator"}
                             </p>
@@ -979,8 +1027,8 @@ function SettingsPageContent({
                           </div>
                         </div>
                       </SectionPanel>
-                      </div>
-                    </TabsContent>
+                    </div>
+                  </TabsContent>
 
                   <TabsContent value="security" className="pt-2">
                     <div className="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
@@ -1125,22 +1173,22 @@ function SettingsPageContent({
                           ) : null}
                         </div>
                         <div className="flex justify-end">
-                            <Button
-                              type="button"
-                              disabled={!canSubmitPasswordChange}
-                              onClick={() => void handlePasswordChange()}
-                            >
-                              {changePassword.isPending
-                                ? "Updating..."
-                                : "Update password"}
-                            </Button>
-                          </div>
-                        </SectionPanel>
-                      </div>
-                    </TabsContent>
-                  </Tabs>
-                </SectionPanel>
-              </TabsContent>
+                          <Button
+                            type="button"
+                            disabled={!canSubmitPasswordChange}
+                            onClick={() => void handlePasswordChange()}
+                          >
+                            {changePassword.isPending
+                              ? "Updating..."
+                              : "Update password"}
+                          </Button>
+                        </div>
+                      </SectionPanel>
+                    </div>
+                  </TabsContent>
+                </Tabs>
+              </SectionPanel>
+            </TabsContent>
 
             <TabsContent value="notifications" className="pt-6">
               <div className="mx-auto max-w-5xl space-y-6">
@@ -1165,17 +1213,21 @@ function SettingsPageContent({
                           </p>
                         </div>
                       </div>
-                      
+
                       <div className="space-y-3">
                         <div className="surface-subtle flex items-center justify-between rounded-[18px] border px-4 py-4">
                           <div className="min-w-0 pr-3">
-                            <p className="text-sm font-medium">Critical event emails</p>
+                            <p className="text-sm font-medium">
+                              Critical event emails
+                            </p>
                             <p className="text-xs text-muted-foreground">
                               Operational emails for critical workspace events.
                             </p>
                           </div>
                           <Switch
-                            checked={notificationPreferences.criticalEventEmailsEnabled}
+                            checked={
+                              notificationPreferences.criticalEventEmailsEnabled
+                            }
                             disabled={updatePreferences.isPending}
                             onCheckedChange={(checked) =>
                               setNotificationPreferences((current) => ({
@@ -1187,13 +1239,17 @@ function SettingsPageContent({
                         </div>
                         <div className="surface-subtle flex items-center justify-between rounded-[18px] border px-4 py-4">
                           <div className="min-w-0 pr-3">
-                            <p className="text-sm font-medium">Enrollment request emails</p>
+                            <p className="text-sm font-medium">
+                              Enrollment request emails
+                            </p>
                             <p className="text-xs text-muted-foreground">
                               Emails when node enrollments need your action.
                             </p>
                           </div>
                           <Switch
-                            checked={notificationPreferences.enrollmentEmailsEnabled}
+                            checked={
+                              notificationPreferences.enrollmentEmailsEnabled
+                            }
                             disabled={updatePreferences.isPending}
                             onCheckedChange={(checked) =>
                               setNotificationPreferences((current) => ({
@@ -1208,10 +1264,15 @@ function SettingsPageContent({
                       <div className="flex justify-end pt-2">
                         <Button
                           type="button"
-                          disabled={!hasNotificationPreferenceChanges || updatePreferences.isPending}
+                          disabled={
+                            !hasNotificationPreferenceChanges ||
+                            updatePreferences.isPending
+                          }
                           onClick={handleSaveNotificationPreferences}
                         >
-                          {updatePreferences.isPending ? "Saving..." : "Save personal preferences"}
+                          {updatePreferences.isPending
+                            ? "Saving..."
+                            : "Save personal preferences"}
                         </Button>
                       </div>
                     </div>
@@ -1236,8 +1297,12 @@ function SettingsPageContent({
                           <div className="flex items-center gap-3 min-w-0 pr-3">
                             <Mail className="size-4 text-blue-500" />
                             <div>
-                              <p className="text-sm font-medium">Email Notifications</p>
-                              <p className="text-xs text-muted-foreground">Alert all workspace admins via email.</p>
+                              <p className="text-sm font-medium">
+                                Email Notifications
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                Alert all workspace admins via email.
+                              </p>
                             </div>
                           </div>
                           <Switch
@@ -1249,17 +1314,29 @@ function SettingsPageContent({
                         {automationEmailEnabled && (
                           <div className="animate-in fade-in slide-in-from-top-2 space-y-3 rounded-xl border bg-background/50 p-4 duration-300">
                             <div className="space-y-1">
-                              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Severities to notify</p>
+                              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                                Severities to notify
+                              </p>
                               <div className="flex flex-wrap gap-2 pt-1">
-                                {(["info", "warning", "critical"] as EventSeverity[]).map((level) => (
+                                {(
+                                  [
+                                    "info",
+                                    "warning",
+                                    "critical",
+                                  ] as EventSeverity[]
+                                ).map((level) => (
                                   <Badge
                                     key={level}
-                                    variant={automationEmailLevels.includes(level) ? "default" : "outline"}
+                                    variant={
+                                      automationEmailLevels.includes(level)
+                                        ? "default"
+                                        : "outline"
+                                    }
                                     className={cn(
                                       "cursor-pointer rounded-full px-3 py-1 capitalize transition-all select-none",
                                       automationEmailLevels.includes(level)
                                         ? "tone-brand border-transparent shadow-sm"
-                                        : "hover:border-sidebar-border hover:bg-sidebar-accent"
+                                        : "hover:border-sidebar-border hover:bg-sidebar-accent",
                                     )}
                                     onClick={() => toggleEmailLevel(level)}
                                   >
@@ -1268,7 +1345,8 @@ function SettingsPageContent({
                                 ))}
                               </div>
                               <p className="pt-1 text-[10px] text-muted-foreground italic">
-                                Note: Critical events always trigger platform default alerts even if unselected here.
+                                Note: Critical events always trigger platform
+                                default alerts even if unselected here.
                               </p>
                             </div>
                           </div>
@@ -1278,8 +1356,12 @@ function SettingsPageContent({
                           <div className="flex items-center gap-3 min-w-0 pr-3">
                             <Send className="size-4 text-sky-500" />
                             <div>
-                              <p className="text-sm font-medium">Telegram Notifications</p>
-                              <p className="text-xs text-muted-foreground">Get real-time updates in a Telegram chat.</p>
+                              <p className="text-sm font-medium">
+                                Telegram Notifications
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                Get real-time updates in a Telegram chat.
+                              </p>
                             </div>
                           </div>
                           <Switch
@@ -1292,36 +1374,62 @@ function SettingsPageContent({
                       {automationTelegramEnabled && (
                         <div className="animate-in fade-in slide-in-from-top-2 space-y-4 rounded-xl border bg-background/50 p-4 duration-300">
                           <div className="space-y-2">
-                            <Label htmlFor="global-telegram-bot-token" className="text-xs uppercase tracking-wider text-muted-foreground">Bot Token</Label>
+                            <Label
+                              htmlFor="global-telegram-bot-token"
+                              className="text-xs uppercase tracking-wider text-muted-foreground"
+                            >
+                              Bot Token
+                            </Label>
                             <Input
                               id="global-telegram-bot-token"
                               placeholder="123456789:ABC..."
                               value={automationTelegramBotToken}
-                              onChange={(e) => setAutomationTelegramBotToken(e.target.value)}
+                              onChange={(e) =>
+                                setAutomationTelegramBotToken(e.target.value)
+                              }
                             />
                           </div>
                           <div className="space-y-2">
-                            <Label htmlFor="global-telegram-chat-id" className="text-xs uppercase tracking-wider text-muted-foreground">Chat ID</Label>
+                            <Label
+                              htmlFor="global-telegram-chat-id"
+                              className="text-xs uppercase tracking-wider text-muted-foreground"
+                            >
+                              Chat ID
+                            </Label>
                             <Input
                               id="global-telegram-chat-id"
                               placeholder="-100..."
                               value={automationTelegramChatId}
-                              onChange={(e) => setAutomationTelegramChatId(e.target.value)}
+                              onChange={(e) =>
+                                setAutomationTelegramChatId(e.target.value)
+                              }
                             />
                           </div>
 
                           <div className="space-y-2 pt-1">
-                            <Label className="text-xs uppercase tracking-wider text-muted-foreground">Severities to notify</Label>
+                            <Label className="text-xs uppercase tracking-wider text-muted-foreground">
+                              Severities to notify
+                            </Label>
                             <div className="flex flex-wrap gap-2">
-                              {(["info", "warning", "critical"] as EventSeverity[]).map((level) => (
+                              {(
+                                [
+                                  "info",
+                                  "warning",
+                                  "critical",
+                                ] as EventSeverity[]
+                              ).map((level) => (
                                 <Badge
                                   key={level}
-                                  variant={automationTelegramLevels.includes(level) ? "default" : "outline"}
+                                  variant={
+                                    automationTelegramLevels.includes(level)
+                                      ? "default"
+                                      : "outline"
+                                  }
                                   className={cn(
                                     "cursor-pointer rounded-full px-3 py-1 capitalize transition-all select-none",
                                     automationTelegramLevels.includes(level)
                                       ? "tone-brand border-transparent shadow-sm"
-                                      : "hover:border-sidebar-border hover:bg-sidebar-accent"
+                                      : "hover:border-sidebar-border hover:bg-sidebar-accent",
                                   )}
                                   onClick={() => toggleTelegramLevel(level)}
                                 >
@@ -1336,10 +1444,17 @@ function SettingsPageContent({
                       <div className="flex justify-end pt-2">
                         <Button
                           type="button"
-                          disabled={!hasWorkspaceChanges || updateWorkspace.isPending || !workspace || workspace.isArchived}
+                          disabled={
+                            !hasWorkspaceChanges ||
+                            updateWorkspace.isPending ||
+                            !workspace ||
+                            workspace.isArchived
+                          }
                           onClick={handleWorkspaceSave}
                         >
-                          {updateWorkspace.isPending ? "Saving..." : "Save workspace automations"}
+                          {updateWorkspace.isPending
+                            ? "Saving..."
+                            : "Save workspace automations"}
                         </Button>
                       </div>
                     </div>
@@ -1366,7 +1481,10 @@ function SettingsPageContent({
                   <div className="flex flex-col gap-4 rounded-[24px] border bg-card px-6 py-5 lg:flex-row lg:items-start lg:justify-between">
                     <div className="space-y-3">
                       <div className="flex flex-wrap items-center gap-2">
-                        <Badge variant="outline" className="rounded-full px-3 py-1">
+                        <Badge
+                          variant="outline"
+                          className="rounded-full px-3 py-1"
+                        >
                           Workspace settings
                         </Badge>
                         {workspace.isDefault ? (
@@ -1375,7 +1493,10 @@ function SettingsPageContent({
                           </Badge>
                         ) : null}
                         {workspace.isArchived ? (
-                          <Badge variant="secondary" className="rounded-full px-3 py-1">
+                          <Badge
+                            variant="secondary"
+                            className="rounded-full px-3 py-1"
+                          >
                             Archived
                           </Badge>
                         ) : null}
@@ -1402,7 +1523,9 @@ function SettingsPageContent({
                         }
                         onClick={handleWorkspaceArchiveToggle}
                       >
-                        {workspace.isArchived ? "Restore workspace" : "Archive workspace"}
+                        {workspace.isArchived
+                          ? "Restore workspace"
+                          : "Archive workspace"}
                       </Button>
                       <Button
                         type="button"
@@ -1414,7 +1537,9 @@ function SettingsPageContent({
                         }
                         onClick={handleWorkspaceSave}
                       >
-                        {updateWorkspace.isPending ? "Saving..." : "Save changes"}
+                        {updateWorkspace.isPending
+                          ? "Saving..."
+                          : "Save changes"}
                       </Button>
                     </div>
                   </div>
@@ -1435,7 +1560,9 @@ function SettingsPageContent({
                             id="workspace-settings-name"
                             value={workspaceName}
                             disabled={workspace.isArchived}
-                            onChange={(event) => setWorkspaceName(event.target.value)}
+                            onChange={(event) =>
+                              setWorkspaceName(event.target.value)
+                            }
                           />
                         </div>
                         <div className="space-y-2">
@@ -1473,10 +1600,11 @@ function SettingsPageContent({
                         </p>
                         <Separator className="my-4" />
                         <div className="space-y-2 text-sm text-muted-foreground">
-                          <p>Current role: {workspace.currentUserRole ?? "member"}</p>
                           <p>
-                            Archived: {workspace.isArchived ? "Yes" : "No"}
+                            Current role:{" "}
+                            {workspace.currentUserRole ?? "member"}
                           </p>
+                          <p>Archived: {workspace.isArchived ? "Yes" : "No"}</p>
                           <p>
                             Created{" "}
                             <TimeDisplay
@@ -1503,10 +1631,16 @@ function SettingsPageContent({
                           schedules using the workspace timezone source.
                         </p>
                         <div className="flex flex-wrap gap-2">
-                          <Badge variant="outline" className="rounded-full px-3 py-1">
+                          <Badge
+                            variant="outline"
+                            className="rounded-full px-3 py-1"
+                          >
                             Current: {workspace.defaultTimezone}
                           </Badge>
-                          <Badge variant="outline" className="rounded-full px-3 py-1">
+                          <Badge
+                            variant="outline"
+                            className="rounded-full px-3 py-1"
+                          >
                             Draft: {workspaceTimeZone}
                           </Badge>
                         </div>
@@ -1535,7 +1669,9 @@ function SettingsPageContent({
                         }
                         onClick={handleSetDefaultWorkspace}
                       >
-                        {workspace.isDefault ? "Current default" : "Set as default"}
+                        {workspace.isDefault
+                          ? "Current default"
+                          : "Set as default"}
                       </Button>
                     }
                     contentClassName="space-y-4"
@@ -1607,8 +1743,9 @@ function SettingsPageContent({
                           Permanent deletion
                         </p>
                         <p className="text-sm text-muted-foreground">
-                          Type <span className="font-mono">{workspace.slug}</span>{" "}
-                          to confirm deletion. This action cannot be undone.
+                          Type{" "}
+                          <span className="font-mono">{workspace.slug}</span> to
+                          confirm deletion. This action cannot be undone.
                         </p>
                         {workspaceDeleteBlockedReason ? (
                           <div className="rounded-[18px] border border-tone-danger/20 bg-background/80 px-4 py-3 text-sm text-muted-foreground">
@@ -1659,13 +1796,18 @@ function SettingsPageContent({
 
                             <div className="space-y-2">
                               <Label htmlFor="workspace-delete-confirmation">
-                                Confirm by typing <span className="font-mono">{workspace.slug}</span>
+                                Confirm by typing{" "}
+                                <span className="font-mono">
+                                  {workspace.slug}
+                                </span>
                               </Label>
                               <Input
                                 id="workspace-delete-confirmation"
                                 value={workspaceDeleteConfirmation}
                                 onChange={(event) =>
-                                  setWorkspaceDeleteConfirmation(event.target.value)
+                                  setWorkspaceDeleteConfirmation(
+                                    event.target.value,
+                                  )
                                 }
                                 placeholder={workspace.slug}
                               />
@@ -1679,7 +1821,11 @@ function SettingsPageContent({
                           </div>
 
                           <DialogFooter>
-                            <DialogClose render={<Button variant="outline" type="button" />}>
+                            <DialogClose
+                              render={
+                                <Button variant="outline" type="button" />
+                              }
+                            >
                               Cancel
                             </DialogClose>
                             <Button
@@ -1734,16 +1880,18 @@ function SettingsPageContent({
                         <DialogHeader>
                           <DialogTitle>Restart API</DialogTitle>
                           <DialogDescription>
-                            The API will become briefly unavailable while the current
-                            process exits. Automatic recovery depends on Docker,
-                            systemd, or another supervisor restarting it.
+                            The API will become briefly unavailable while the
+                            current process exits. Automatic recovery depends on
+                            Docker, systemd, or another supervisor restarting
+                            it.
                           </DialogDescription>
                         </DialogHeader>
 
                         <div className="space-y-4">
                           <div className="rounded-[18px] border border-tone-warning/30 bg-tone-warning/10 px-4 py-3 text-sm text-muted-foreground">
-                            Saving is not automatic here. Restarting now discards any
-                            unsaved platform settings still open in this form.
+                            Saving is not automatic here. Restarting now
+                            discards any unsaved platform settings still open in
+                            this form.
                           </div>
 
                           {hasPlatformChanges ? (
@@ -1755,7 +1903,9 @@ function SettingsPageContent({
                         </div>
 
                         <DialogFooter>
-                          <DialogClose render={<Button variant="outline" type="button" />}>
+                          <DialogClose
+                            render={<Button variant="outline" type="button" />}
+                          >
                             Cancel
                           </DialogClose>
                           <Button
@@ -1765,7 +1915,9 @@ function SettingsPageContent({
                             disabled={restartPlatformApi.isPending}
                             onClick={() => void handlePlatformRestart()}
                           >
-                            {restartPlatformApi.isPending ? "Requesting..." : "Restart API"}
+                            {restartPlatformApi.isPending
+                              ? "Requesting..."
+                              : "Restart API"}
                           </Button>
                         </DialogFooter>
                       </DialogContent>
@@ -1777,16 +1929,24 @@ function SettingsPageContent({
                       description="These values are persisted through installer state. Saving them updates the next boot configuration for the API container."
                       action={
                         <>
-                          <Button
+                          <ShimmerButton
                             type="button"
-                            variant="outline"
-                            className="border-tone-warning/30 bg-tone-warning/10 text-tone-warning hover:bg-tone-warning/16"
+                            className="action-btn border-tone-warning/30 text-tone-warning shadow-none"
+                            background="color-mix(in oklch, var(--semantic-warning) 12%, var(--card))"
                             disabled={platformActionsDisabled}
                             onClick={() => setPlatformRestartDialogOpen(true)}
                           >
-                            <RefreshCcw className="size-4" />
+                            <RefreshCcw
+                              className={cn(
+                                "size-4",
+                                restartPlatformApi.isPending ||
+                                  platformRestartPending
+                                  ? "animate-spin"
+                                  : "action-icon-spin",
+                              )}
+                            />
                             Restart API
-                          </Button>
+                          </ShimmerButton>
                           <Button
                             type="button"
                             disabled={
@@ -1816,13 +1976,23 @@ function SettingsPageContent({
                       contentClassName="space-y-6"
                     >
                       <div className="flex flex-wrap gap-2">
-                        <Badge variant="outline" className="rounded-full px-3 py-1">
-                          Source: {platformSettingsQuery.data?.source ?? "unknown"}
+                        <Badge
+                          variant="outline"
+                          className="rounded-full px-3 py-1"
+                        >
+                          Source:{" "}
+                          {platformSettingsQuery.data?.source ?? "unknown"}
                         </Badge>
-                        <Badge variant="outline" className="rounded-full px-3 py-1">
+                        <Badge
+                          variant="outline"
+                          className="rounded-full px-3 py-1"
+                        >
                           {platformEditable ? "Editable" : "Read-only"}
                         </Badge>
-                        <Badge variant="outline" className="rounded-full px-3 py-1">
+                        <Badge
+                          variant="outline"
+                          className="rounded-full px-3 py-1"
+                        >
                           {platformSettingsQuery.data?.restartRequired
                             ? "Pending restart"
                             : "Restart synced"}
@@ -1853,9 +2023,12 @@ function SettingsPageContent({
                               <p>
                                 Requested at{" "}
                                 <span className="font-medium text-foreground">
-                                  {new Date(platformRestartState.requestedAt).toLocaleTimeString()}
+                                  {new Date(
+                                    platformRestartState.requestedAt,
+                                  ).toLocaleTimeString()}
                                 </span>
-                                . {platformRestartTimedOut
+                                .{" "}
+                                {platformRestartTimedOut
                                   ? "If the supervisor restarted the API, retry the connection check."
                                   : "Waiting for the current process to exit and a new instance to report healthy."}
                               </p>
@@ -1867,7 +2040,7 @@ function SettingsPageContent({
                               variant="outline"
                               onClick={handleRetryPlatformReconnect}
                             >
-                              <RefreshCcw className="size-4" />
+                              <RefreshCcw className="action-icon-spin size-4" />
                               Retry connection
                             </Button>
                           ) : null}
@@ -1878,7 +2051,8 @@ function SettingsPageContent({
                         <div
                           className={cn(
                             "rounded-[18px] border px-4 py-3 text-sm",
-                            platformEditable && !platformSettingsQuery.data.restartRequired
+                            platformEditable &&
+                              !platformSettingsQuery.data.restartRequired
                               ? "surface-subtle border-border/70 text-muted-foreground"
                               : "border-tone-warning/40 bg-tone-warning/10 text-muted-foreground",
                           )}
@@ -1967,7 +2141,8 @@ function SettingsPageContent({
                                 <div>
                                   <p className="font-medium">Swagger enabled</p>
                                   <p className="text-sm text-muted-foreground">
-                                    Exposes the OpenAPI UI for the API container.
+                                    Exposes the OpenAPI UI for the API
+                                    container.
                                   </p>
                                 </div>
                                 <Switch
@@ -2196,7 +2371,9 @@ function SettingsPageContent({
                               </div>
                               <div className="surface-subtle flex items-center justify-between rounded-[16px] border px-4 py-3">
                                 <div>
-                                  <p className="font-medium">Use implicit TLS</p>
+                                  <p className="font-medium">
+                                    Use implicit TLS
+                                  </p>
                                   <p className="text-sm text-muted-foreground">
                                     Enable this for providers that expect secure
                                     SMTP from the initial connection, such as
@@ -2238,7 +2415,9 @@ function SettingsPageContent({
                                 <Button
                                   type="button"
                                   variant="outline"
-                                  onClick={() => void handleValidatePlatformSmtp()}
+                                  onClick={() =>
+                                    void handleValidatePlatformSmtp()
+                                  }
                                   disabled={
                                     validatePlatformSmtp.isPending ||
                                     platformActionsDisabled
@@ -2260,7 +2439,9 @@ function SettingsPageContent({
                               >
                                 <div className="grid gap-4 sm:grid-cols-2">
                                   <div className="space-y-2">
-                                    <Label htmlFor="platform-db-host">Host</Label>
+                                    <Label htmlFor="platform-db-host">
+                                      Host
+                                    </Label>
                                     <Input
                                       id="platform-db-host"
                                       value={platformDraft.database.host}
@@ -2275,12 +2456,16 @@ function SettingsPageContent({
                                     />
                                   </div>
                                   <div className="space-y-2">
-                                    <Label htmlFor="platform-db-port">Port</Label>
+                                    <Label htmlFor="platform-db-port">
+                                      Port
+                                    </Label>
                                     <Input
                                       id="platform-db-port"
                                       type="number"
                                       min={1}
-                                      value={String(platformDraft.database.port)}
+                                      value={String(
+                                        platformDraft.database.port,
+                                      )}
                                       disabled={!platformEditable}
                                       onChange={(event) =>
                                         updatePlatformField(
@@ -2359,7 +2544,9 @@ function SettingsPageContent({
                                       </p>
                                     </div>
                                     <Switch
-                                      checked={platformDraft.database.synchronize}
+                                      checked={
+                                        platformDraft.database.synchronize
+                                      }
                                       disabled={!platformEditable}
                                       onCheckedChange={(checked) =>
                                         updatePlatformField(
@@ -2585,7 +2772,8 @@ function SettingsPageContent({
                                     type="number"
                                     min={1}
                                     value={String(
-                                      platformDraft.agents.heartbeatTimeoutSeconds,
+                                      platformDraft.agents
+                                        .heartbeatTimeoutSeconds,
                                     )}
                                     disabled={!platformEditable}
                                     onChange={(event) =>
@@ -2636,7 +2824,8 @@ function SettingsPageContent({
                                     type="number"
                                     min={15}
                                     value={String(
-                                      platformDraft.agents.taskClaimLeaseSeconds,
+                                      platformDraft.agents
+                                        .taskClaimLeaseSeconds,
                                     )}
                                     disabled={!platformEditable}
                                     onChange={(event) =>
@@ -2834,13 +3023,14 @@ function SettingsPageContent({
                                     Enable realtime task dispatch
                                   </p>
                                   <p className="text-sm text-muted-foreground">
-                                    Pushes task delivery through realtime sockets
-                                    instead of HTTP polling only.
+                                    Pushes task delivery through realtime
+                                    sockets instead of HTTP polling only.
                                   </p>
                                 </div>
                                 <Switch
                                   checked={
-                                    platformDraft.agents.enableRealtimeTaskDispatch
+                                    platformDraft.agents
+                                      .enableRealtimeTaskDispatch
                                   }
                                   disabled={!platformEditable}
                                   onCheckedChange={(checked) =>

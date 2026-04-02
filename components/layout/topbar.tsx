@@ -1,16 +1,25 @@
 "use client";
 
-import { Suspense, startTransition, useDeferredValue, useEffect, useMemo, useState } from "react";
+import {
+  Suspense,
+  startTransition,
+  useDeferredValue,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   AlertTriangle,
   ArrowUpCircle,
   ChevronsUpDown,
+  KeyRound,
   LogOut,
   Menu,
   Search,
   Settings2,
   Shield,
+  SlidersHorizontal,
   SignalHigh,
   SignalLow,
   SignalZero,
@@ -32,7 +41,10 @@ import {
 import { Input } from "@/components/ui/input";
 import { apiClient } from "@/lib/api";
 import { useAuthSession } from "@/lib/hooks/use-auth-session";
-import { useAgentUpdateSummary, useWorkspaceSearch } from "@/lib/hooks/use-noderax-data";
+import {
+  useAgentUpdateSummary,
+  useWorkspaceSearch,
+} from "@/lib/hooks/use-noderax-data";
 import { useWorkspaceContext } from "@/lib/hooks/use-workspace-context";
 import { buildWorkspacePath } from "@/lib/workspace";
 import { cn } from "@/lib/utils";
@@ -65,13 +77,15 @@ const sectionDescriptions: Record<string, string> = {
   "/scheduled-tasks":
     "Manage recurring shell commands and schedule timing across nodes.",
   "/events": "Review alerts, warnings, and platform event history.",
-  "/audit": "Inspect append-only admin and security activity across the platform or current workspace.",
+  "/audit":
+    "Inspect append-only admin and security activity across the platform or current workspace.",
   "/members": "Manage who can access this workspace and which role they hold.",
   "/teams": "Organize workspace members into teams for collaboration.",
   "/workspace-settings":
     "Configure workspace name, slug, and execution timezone.",
   "/workspaces": "Create, switch, and manage isolated operational workspaces.",
-  "/updates": "Track official agent releases, rollout progress, and fleet rollback actions.",
+  "/updates":
+    "Track official agent releases, rollout progress, and fleet rollback actions.",
   "/users": "Manage global operator accounts and platform roles.",
   "/settings": "Manage appearance, session metadata, and preferences.",
 };
@@ -142,8 +156,12 @@ const TopbarContent = () => {
   const router = useRouter();
   const queryClient = useQueryClient();
   const authQuery = useAuthSession();
-  const { workspace, workspaceId, workspaceSlug, data: workspaces = [] } =
-    useWorkspaceContext();
+  const {
+    workspace,
+    workspaceId,
+    workspaceSlug,
+    data: workspaces = [],
+  } = useWorkspaceContext();
   const { session } = authQuery;
   const isPlatformAdmin = session?.user.role === "platform_admin";
   const [isLoggingOut, setIsLoggingOut] = useState(false);
@@ -172,30 +190,37 @@ const TopbarContent = () => {
   const sectionPath = resolveSectionPath(pathname);
   const currentWorkspaceChildPath = resolveWorkspaceChildPath(pathname);
   const searchResults = useMemo<
-    Array<{ key: string; label: string; route: string; hits: WorkspaceSearchHitDto[] }>
-  >(
-    () => {
-      const results = workspaceSearchQuery.data;
-      if (!results) {
-        return [];
-      }
+    Array<{
+      key: string;
+      label: string;
+      route: string;
+      hits: WorkspaceSearchHitDto[];
+    }>
+  >(() => {
+    const results = workspaceSearchQuery.data;
+    if (!results) {
+      return [];
+    }
 
-      return [
-        { key: "nodes", label: "Nodes", route: "nodes", hits: results.nodes },
-        { key: "tasks", label: "Tasks", route: "tasks", hits: results.tasks },
-        {
-          key: "scheduledTasks",
-          label: "Scheduled Tasks",
-          route: "scheduled-tasks",
-          hits: results.scheduledTasks,
-        },
-        { key: "events", label: "Events", route: "events", hits: results.events },
-        { key: "members", label: "Members", route: "members", hits: results.members },
-        { key: "teams", label: "Teams", route: "teams", hits: results.teams },
-      ].filter((group) => group.hits.length > 0);
-    },
-    [workspaceSearchQuery.data],
-  );
+    return [
+      { key: "nodes", label: "Nodes", route: "nodes", hits: results.nodes },
+      { key: "tasks", label: "Tasks", route: "tasks", hits: results.tasks },
+      {
+        key: "scheduledTasks",
+        label: "Scheduled Tasks",
+        route: "scheduled-tasks",
+        hits: results.scheduledTasks,
+      },
+      { key: "events", label: "Events", route: "events", hits: results.events },
+      {
+        key: "members",
+        label: "Members",
+        route: "members",
+        hits: results.members,
+      },
+      { key: "teams", label: "Teams", route: "teams", hits: results.teams },
+    ].filter((group) => group.hits.length > 0);
+  }, [workspaceSearchQuery.data]);
   const showWorkspaceSearchResults =
     isWorkspaceScopedRoute && isSearchFocused && deferredSearchQuery.length > 0;
   const queuedTaskHealthQuery = useQuery({
@@ -257,7 +282,9 @@ const TopbarContent = () => {
 
     setActiveWorkspaceSlug(nextWorkspaceSlug);
     startTransition(() => {
-      router.push(buildWorkspacePath(nextWorkspaceSlug, currentWorkspaceChildPath));
+      router.push(
+        buildWorkspacePath(nextWorkspaceSlug, currentWorkspaceChildPath),
+      );
     });
   };
 
@@ -358,9 +385,7 @@ const TopbarContent = () => {
         <div className="flex items-center gap-2 sm:gap-3">
           {workspace ? (
             <DropdownMenu>
-              <DropdownMenuTrigger
-                className="control-surface hidden h-10 items-center gap-3 rounded-xl border px-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:flex"
-              >
+              <DropdownMenuTrigger className="control-surface hidden h-10 items-center gap-3 rounded-xl border px-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:flex">
                 <div className="min-w-0">
                   <p className="truncate text-sm font-medium">
                     {workspace.name}
@@ -441,7 +466,9 @@ const TopbarContent = () => {
                               handleSearchResultSelect(group.route);
                             }}
                           >
-                            <span className="text-sm font-medium">{hit.title}</span>
+                            <span className="text-sm font-medium">
+                              {hit.title}
+                            </span>
                             {hit.subtitle ? (
                               <span className="text-xs text-muted-foreground">
                                 {hit.subtitle}
@@ -468,7 +495,8 @@ const TopbarContent = () => {
               variant="outline"
               className={cn(
                 "hidden rounded-xl md:inline-flex",
-                agentUpdatesSummaryQuery.data?.activeRollout?.status === "paused"
+                agentUpdatesSummaryQuery.data?.activeRollout?.status ===
+                  "paused"
                   ? "tone-warning"
                   : agentUpdatesSummaryQuery.data?.activeRollout
                     ? "tone-brand"
@@ -478,7 +506,8 @@ const TopbarContent = () => {
             >
               <ArrowUpCircle className="size-4" />
               {agentUpdatesSummaryQuery.data?.activeRollout
-                ? agentUpdatesSummaryQuery.data.activeRollout.status === "paused"
+                ? agentUpdatesSummaryQuery.data.activeRollout.status ===
+                  "paused"
                   ? "Agent rollout paused"
                   : "Agent rollout in progress"
                 : "New agent version available"}
@@ -512,6 +541,7 @@ const TopbarContent = () => {
                     })
                   }
                 >
+                  <SlidersHorizontal className="size-4" />
                   Workspace settings
                 </DropdownMenuItem>
               ) : null}
@@ -530,6 +560,7 @@ const TopbarContent = () => {
               <DropdownMenuItem
                 onClick={() => router.push("/settings#token-management")}
               >
+                <KeyRound className="size-4" />
                 Token management
               </DropdownMenuItem>
               <DropdownMenuSeparator />

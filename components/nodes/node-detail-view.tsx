@@ -15,10 +15,11 @@ import { NodePackagesScreen } from "@/components/packages/node-packages-screen";
 import { SeverityBadge } from "@/components/severity-badge";
 import { TaskStatusBadge } from "@/components/tasks/task-status-badge";
 import { Badge } from "@/components/ui/badge";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SectionPanel } from "@/components/ui/section-panel";
+import { ShimmerButton } from "@/components/ui/shimmer-button";
 import { StatStrip } from "@/components/ui/stat-strip";
 import {
   Select,
@@ -109,7 +110,8 @@ type NodeOperationDraft = {
 
 export const NodeDetailView = ({ id }: { id: string }) => {
   const router = useRouter();
-  const { buildWorkspaceHref, isWorkspaceAdmin, workspace } = useWorkspaceContext();
+  const { buildWorkspaceHref, isWorkspaceAdmin, workspace } =
+    useWorkspaceContext();
   const [operationDraft, setOperationDraft] = useState<NodeOperationDraft>({
     sourceKey: null,
     selectedTeamId: "none",
@@ -157,15 +159,16 @@ export const NodeDetailView = ({ id }: { id: string }) => {
   const selectedTeamId =
     operationDraft.sourceKey === operationSourceKey
       ? operationDraft.selectedTeamId
-      : node.teamId ?? "none";
+      : (node.teamId ?? "none");
   const maintenanceReason =
     operationDraft.sourceKey === operationSourceKey
       ? operationDraft.maintenanceReason
-      : node.maintenanceReason ?? "";
+      : (node.maintenanceReason ?? "");
   const selectedTeam =
     selectedTeamId === "none"
       ? null
-      : (teamsQuery.data ?? []).find((team) => team.id === selectedTeamId) ?? null;
+      : ((teamsQuery.data ?? []).find((team) => team.id === selectedTeamId) ??
+        null);
   const updateOperationDraft = (
     nextPatch: Partial<Omit<NodeOperationDraft, "sourceKey">>,
   ) => {
@@ -205,13 +208,19 @@ export const NodeDetailView = ({ id }: { id: string }) => {
                 Terminal unavailable
               </Button>
             ) : (
-              <Link
-                href={buildWorkspaceHref(`nodes/${node.id}/terminal`) ?? "/workspaces"}
-                className={buttonVariants({ variant: "outline" })}
+              <ShimmerButton
+                type="button"
+                className="action-btn"
+                onClick={() =>
+                  router.push(
+                    buildWorkspaceHref(`nodes/${node.id}/terminal`) ??
+                      "/workspaces",
+                  )
+                }
               >
                 <SquareTerminal className="size-4" />
                 Open terminal
-              </Link>
+              </ShimmerButton>
             )
           ) : null}
           {isAdmin ? (
@@ -220,7 +229,9 @@ export const NodeDetailView = ({ id }: { id: string }) => {
               nodeName={node.name}
               triggerLabel="Delete node"
               triggerVariant="destructive"
-              onDeleted={() => router.replace(buildWorkspaceHref("nodes") ?? "/workspaces")}
+              onDeleted={() =>
+                router.replace(buildWorkspaceHref("nodes") ?? "/workspaces")
+              }
             />
           ) : null}
         </div>
@@ -257,7 +268,8 @@ export const NodeDetailView = ({ id }: { id: string }) => {
               </p>
               {node.maintenanceReason ? (
                 <p className="mt-2 text-sm">
-                  Reason: <span className="font-medium">{node.maintenanceReason}</span>
+                  Reason:{" "}
+                  <span className="font-medium">{node.maintenanceReason}</span>
                 </p>
               ) : null}
             </div>
@@ -347,8 +359,9 @@ export const NodeDetailView = ({ id }: { id: string }) => {
                 ))}
               </SelectContent>
             </Select>
-            <Button
+            <ShimmerButton
               type="button"
+              className="action-btn"
               disabled={
                 !isAdmin ||
                 updateNodeTeam.isPending ||
@@ -358,13 +371,14 @@ export const NodeDetailView = ({ id }: { id: string }) => {
                 updateNodeTeam.mutate({
                   nodeId: node.id,
                   payload: {
-                    teamId: selectedTeamId === "none" ? undefined : selectedTeamId,
+                    teamId:
+                      selectedTeamId === "none" ? undefined : selectedTeamId,
                   },
                 })
               }
             >
               {updateNodeTeam.isPending ? "Saving..." : "Save team ownership"}
-            </Button>
+            </ShimmerButton>
           </div>
 
           <div className="space-y-3 rounded-[20px] border p-4">
@@ -391,30 +405,34 @@ export const NodeDetailView = ({ id }: { id: string }) => {
             </div>
             <div className="flex flex-wrap gap-2">
               {node.maintenanceMode ? (
-                <Button
+                <ShimmerButton
                   type="button"
+                  className="action-btn"
                   disabled={!isAdmin || disableMaintenance.isPending}
                   onClick={() => disableMaintenance.mutate(node.id)}
                 >
                   {disableMaintenance.isPending
                     ? "Clearing..."
                     : "Clear maintenance"}
-                </Button>
+                </ShimmerButton>
               ) : (
-                <Button
+                <ShimmerButton
                   type="button"
+                  className="action-btn"
                   disabled={!isAdmin || enableMaintenance.isPending}
                   onClick={() =>
                     enableMaintenance.mutate({
                       nodeId: node.id,
-                      payload: { reason: maintenanceReason.trim() || undefined },
+                      payload: {
+                        reason: maintenanceReason.trim() || undefined,
+                      },
                     })
                   }
                 >
                   {enableMaintenance.isPending
                     ? "Applying..."
                     : "Enter maintenance"}
-                </Button>
+                </ShimmerButton>
               )}
             </div>
           </div>
@@ -430,13 +448,17 @@ export const NodeDetailView = ({ id }: { id: string }) => {
             <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
               Platform version
             </p>
-            <p className="mt-2 font-medium">{node.platformVersion ?? "Unknown"}</p>
+            <p className="mt-2 font-medium">
+              {node.platformVersion ?? "Unknown"}
+            </p>
           </div>
           <div className="rounded-[18px] border bg-muted/15 px-4 py-3">
             <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
               Kernel version
             </p>
-            <p className="mt-2 font-medium">{node.kernelVersion ?? "Unknown"}</p>
+            <p className="mt-2 font-medium">
+              {node.kernelVersion ?? "Unknown"}
+            </p>
           </div>
         </div>
       </SectionPanel>

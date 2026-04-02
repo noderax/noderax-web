@@ -43,7 +43,9 @@ export const DeleteNodeDialog = ({
       onDeleted?.();
     } catch (error) {
       setSubmissionError(
-        error instanceof Error ? error.message : "Unable to delete this node right now.",
+        error instanceof Error
+          ? error.message
+          : "Unable to delete this node right now.",
       );
     }
   };
@@ -58,15 +60,29 @@ export const DeleteNodeDialog = ({
         }
       }}
     >
-      <DialogTrigger render={<Button variant={triggerVariant} size={triggerSize} />}>
+      <DialogTrigger
+        render={
+          <Button
+            variant={triggerVariant}
+            size={triggerSize}
+            className={
+              triggerVariant === "destructive"
+                ? "border-destructive bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                : undefined
+            }
+          />
+        }
+      >
         {triggerLabel}
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Delete node</DialogTitle>
           <DialogDescription>
-            Remove <span className="font-medium text-foreground">{nodeName}</span> from
-            the node inventory. This action cannot be undone from the web interface.
+            Remove{" "}
+            <span className="font-medium text-foreground">{nodeName}</span> from
+            the node inventory. This action cannot be undone from the web
+            interface.
           </DialogDescription>
         </DialogHeader>
 
@@ -80,6 +96,7 @@ export const DeleteNodeDialog = ({
           </DialogClose>
           <Button
             variant="destructive"
+            className="border-destructive bg-destructive text-destructive-foreground hover:bg-destructive/90"
             type="button"
             onClick={handleDelete}
             disabled={deleteNodeMutation.isPending}

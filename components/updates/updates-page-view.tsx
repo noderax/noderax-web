@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { SectionPanel } from "@/components/ui/section-panel";
+import { ShimmerButton } from "@/components/ui/shimmer-button";
 import {
   Select,
   SelectContent,
@@ -208,6 +209,11 @@ export const UpdatesPageView = () => {
   const recentRollouts = rolloutsQuery.data ?? EMPTY_ROLLOUTS;
   const activeRollout = summaryQuery.data?.activeRollout ?? null;
   const latestRelease = summaryQuery.data?.latestRelease ?? null;
+  const isRefreshingData =
+    summaryQuery.isFetching ||
+    releasesQuery.isFetching ||
+    rolloutsQuery.isFetching ||
+    nodesQuery.isFetching;
 
   const workspaceNameById = useMemo(
     () =>
@@ -408,18 +414,26 @@ export const UpdatesPageView = () => {
               <Badge variant="outline" className="rounded-full px-3 py-1">
                 Official source only
               </Badge>
-              <Button
-                variant="outline"
+              <ShimmerButton
+                className="action-btn border-border/70 bg-(--control-surface) text-foreground shadow-none"
+                background="var(--control-surface)"
                 onClick={() => {
                   void summaryQuery.refetch();
                   void releasesQuery.refetch();
                   void rolloutsQuery.refetch();
                   void nodesQuery.refetch();
                 }}
+                disabled={isRefreshingData}
               >
-                <RefreshCcw className="size-4" />
+                <RefreshCcw
+                  className={
+                    isRefreshingData
+                      ? "size-4 animate-spin"
+                      : "action-icon-spin size-4"
+                  }
+                />
                 Refresh data
-              </Button>
+              </ShimmerButton>
             </>
           }
         >
@@ -1157,7 +1171,7 @@ export const UpdatesPageView = () => {
                         onClick={() => resumeRollout.mutate(activeRollout.id)}
                         disabled={isBusy}
                       >
-                        <RefreshCcw className="size-4" />
+                        <RefreshCcw className="action-icon-spin size-4" />
                         Resume
                       </Button>
                     ) : null}

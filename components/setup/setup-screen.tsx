@@ -32,6 +32,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
+import { ShimmerButton } from "@/components/ui/shimmer-button";
 import { Switch } from "@/components/ui/switch";
 import { TimezonePicker } from "@/components/ui/timezone-picker";
 import { ApiError } from "@/lib/api";
@@ -171,7 +172,8 @@ export const SetupScreen = () => {
   const validateRedisMutation = useValidateSetupRedis();
   const validateSmtpMutation = useValidateSetupSmtp();
   const installMutation = useInstallSetup();
-  const [payload, setPayload] = useState<SetupInstallPayload>(buildDefaultPayload);
+  const [payload, setPayload] =
+    useState<SetupInstallPayload>(buildDefaultPayload);
   const [setupApiUrlInput, setSetupApiUrlInput] = useState("");
   const [stepIndex, setStepIndex] = useState(0);
   const [workspaceSlugTouched, setWorkspaceSlugTouched] = useState(false);
@@ -241,24 +243,24 @@ export const SetupScreen = () => {
       case "postgres":
         return Boolean(
           payload.postgres.host.trim() &&
-            payload.postgres.username.trim() &&
-            payload.postgres.database.trim() &&
-            postgresCheck?.success &&
-            postgresCheck.databaseEmpty,
+          payload.postgres.username.trim() &&
+          payload.postgres.database.trim() &&
+          postgresCheck?.success &&
+          postgresCheck.databaseEmpty,
         );
       case "redis":
         return Boolean(payload.redis.host.trim() && redisValidated);
       case "admin":
         return Boolean(
           payload.admin.name.trim().length >= 2 &&
-            payload.admin.email.includes("@") &&
-            payload.admin.password.length >= 8,
+          payload.admin.email.includes("@") &&
+          payload.admin.password.length >= 8,
         );
       case "workspace":
         return Boolean(
           payload.workspace.name.trim().length >= 2 &&
-            payload.workspace.slug.trim().length >= 2 &&
-            payload.workspace.defaultTimezone.trim().length >= 1,
+          payload.workspace.slug.trim().length >= 2 &&
+          payload.workspace.defaultTimezone.trim().length >= 1,
         );
       case "smtp":
         return isMailStepValid(payload.mail);
@@ -286,7 +288,9 @@ export const SetupScreen = () => {
     setRedisValidated(false);
 
     try {
-      const result = await validatePostgresMutation.mutateAsync(payload.postgres);
+      const result = await validatePostgresMutation.mutateAsync(
+        payload.postgres,
+      );
       setPostgresCheck(result);
 
       if (!result.databaseEmpty) {
@@ -356,7 +360,9 @@ export const SetupScreen = () => {
       toast.success("Setup completed. Restart the API service now.");
     } catch (error) {
       toast.error(
-        error instanceof ApiError ? error.message : "Setup could not be completed.",
+        error instanceof ApiError
+          ? error.message
+          : "Setup could not be completed.",
       );
     }
   };
@@ -370,7 +376,9 @@ export const SetupScreen = () => {
       return;
     }
 
-    toast.message("The API is still waiting for a restart or remains in setup mode.");
+    toast.message(
+      "The API is still waiting for a restart or remains in setup mode.",
+    );
   };
 
   const handleSaveSetupApiUrl = async (apiUrl = setupApiUrlInput.trim()) => {
@@ -399,7 +407,9 @@ export const SetupScreen = () => {
         <div className="mb-6 flex items-center gap-3">
           <BrandBadge size="lg" priority />
           <div>
-            <p className="text-sm font-semibold tracking-tight">Noderax Installer</p>
+            <p className="text-sm font-semibold tracking-tight">
+              Noderax Installer
+            </p>
             <p className="text-xs text-muted-foreground">
               Complete the self-hosted setup securely in one guided flow.
             </p>
@@ -421,9 +431,7 @@ export const SetupScreen = () => {
                 </div>
                 <div>
                   <CardTitle>Unable to load setup status</CardTitle>
-                  <CardDescription>
-                    {setupStatusErrorMessage}
-                  </CardDescription>
+                  <CardDescription>{setupStatusErrorMessage}</CardDescription>
                 </div>
               </div>
             </CardHeader>
@@ -480,13 +488,22 @@ export const SetupScreen = () => {
               </div>
             </CardContent>
             <CardFooter className="justify-end">
-              <Button
-                variant="outline"
+              <ShimmerButton
                 type="button"
+                className="action-btn border-border/70 bg-(--control-surface) text-foreground shadow-none"
+                background="var(--control-surface)"
                 onClick={() => void statusQuery.refetch()}
               >
+                <RefreshCcw
+                  className={cn(
+                    "size-4",
+                    statusQuery.isFetching
+                      ? "animate-spin"
+                      : "action-icon-spin",
+                  )}
+                />
                 Try again
-              </Button>
+              </ShimmerButton>
             </CardFooter>
           </Card>
         ) : isRestartRequiredView ? (
@@ -499,7 +516,8 @@ export const SetupScreen = () => {
                 <div>
                   <CardTitle>API restart required</CardTitle>
                   <CardDescription>
-                    The install state file has been written. Restart the API process so the system can switch to normal mode.
+                    The install state file has been written. Restart the API
+                    process so the system can switch to normal mode.
                   </CardDescription>
                 </div>
               </div>
@@ -528,19 +546,29 @@ export const SetupScreen = () => {
                 />
               </div>
               <div className="rounded-2xl border border-dashed bg-muted/20 px-4 py-4 text-sm text-muted-foreground">
-                After restarting the API service, you can recheck the status here or go directly to
+                After restarting the API service, you can recheck the status
+                here or go directly to
                 <span className="px-1 font-medium text-foreground">/login</span>
                 .
               </div>
             </CardContent>
             <CardFooter className="justify-end">
-              <Button
-                variant="outline"
+              <ShimmerButton
                 type="button"
+                className="action-btn border-border/70 bg-(--control-surface) text-foreground shadow-none"
+                background="var(--control-surface)"
                 onClick={() => void statusQuery.refetch()}
               >
+                <RefreshCcw
+                  className={cn(
+                    "size-4",
+                    statusQuery.isFetching
+                      ? "animate-spin"
+                      : "action-icon-spin",
+                  )}
+                />
                 Refresh status
-              </Button>
+              </ShimmerButton>
               <Button type="button" onClick={() => void handleCheckAgain()}>
                 Check again
               </Button>
@@ -555,12 +583,14 @@ export const SetupScreen = () => {
                     <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
                       One-time setup
                     </p>
-                    <CardTitle className="text-xl">Control plane setup</CardTitle>
+                    <CardTitle className="text-xl">
+                      Control plane setup
+                    </CardTitle>
                     <CardDescription className="max-w-3xl">
-                      PostgreSQL, Redis, the first platform admin account, the first
-                      workspace, and optional SMTP delivery settings are provisioned
-                      in one flow. JWT and enrollment secrets are generated securely
-                      by the system.
+                      PostgreSQL, Redis, the first platform admin account, the
+                      first workspace, and optional SMTP delivery settings are
+                      provisioned in one flow. JWT and enrollment secrets are
+                      generated securely by the system.
                     </CardDescription>
                   </div>
                   <div className="flex min-w-[16rem] flex-col gap-3">
@@ -643,7 +673,9 @@ export const SetupScreen = () => {
                     </div>
                     {stateDirectory ? (
                       <div className="rounded-[24px] border bg-background/70 p-5">
-                        <p className="text-sm font-medium">Installer state storage</p>
+                        <p className="text-sm font-medium">
+                          Installer state storage
+                        </p>
                         <p className="mt-3 text-sm text-muted-foreground">
                           Resolved path:
                           <span className="ml-1 font-mono text-foreground">
@@ -670,10 +702,13 @@ export const SetupScreen = () => {
                   <div className="rounded-[24px] border bg-[linear-gradient(180deg,color-mix(in_oklch,var(--primary)_12%,transparent),transparent)] p-5">
                     <p className="text-sm font-medium">Security note</p>
                     <p className="mt-3 text-sm leading-6 text-muted-foreground">
-                      This screen is only available during first-time setup. Once installation is complete, the installer is locked and requires a manual server-side reset to reopen.
+                      This screen is only available during first-time setup.
+                      Once installation is complete, the installer is locked and
+                      requires a manual server-side reset to reopen.
                     </p>
                     <div className="mt-4 rounded-2xl border bg-background/70 px-4 py-3 text-sm text-muted-foreground">
-                      The initial admin password is only used during this flow. Only its bcrypt hash is stored in the database.
+                      The initial admin password is only used during this flow.
+                      Only its bcrypt hash is stored in the database.
                     </div>
                   </div>
                 </div>
@@ -764,7 +799,8 @@ export const SetupScreen = () => {
                     <div className="min-w-0">
                       <p className="font-medium">Connection test</p>
                       <p className="text-sm text-muted-foreground">
-                        Verify database access and confirm the database is empty before continuing.
+                        Verify database access and confirm the database is empty
+                        before continuing.
                       </p>
                       {postgresCheck ? (
                         <p className="mt-2 text-sm text-muted-foreground">
@@ -807,7 +843,10 @@ export const SetupScreen = () => {
                     onChange={(value) =>
                       setPayload((current) => ({
                         ...current,
-                        redis: { ...current.redis, port: Number(value || 6379) },
+                        redis: {
+                          ...current.redis,
+                          port: Number(value || 6379),
+                        },
                       }))
                     }
                     placeholder="6379"
@@ -962,11 +1001,14 @@ export const SetupScreen = () => {
               {currentStep?.key === "smtp" ? (
                 <div className="grid gap-4 lg:grid-cols-2">
                   <div className="lg:col-span-2 rounded-[24px] border bg-muted/20 p-5">
-                    <p className="text-sm font-medium">Optional email delivery</p>
+                    <p className="text-sm font-medium">
+                      Optional email delivery
+                    </p>
                     <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                      Leave the SMTP host blank to keep email delivery disabled for
-                      now. Sender details and the public web app URL are still
-                      stored so installer-managed deployments can refine them later.
+                      Leave the SMTP host blank to keep email delivery disabled
+                      for now. Sender details and the public web app URL are
+                      still stored so installer-managed deployments can refine
+                      them later.
                     </p>
                   </div>
                   <SetupField
@@ -1098,7 +1140,9 @@ export const SetupScreen = () => {
                       onClick={() => void handleSmtpValidate()}
                       disabled={validateSmtpMutation.isPending}
                     >
-                      {validateSmtpMutation.isPending ? "Testing..." : "Test SMTP"}
+                      {validateSmtpMutation.isPending
+                        ? "Testing..."
+                        : "Test SMTP"}
                     </Button>
                   </div>
                 </div>
@@ -1122,13 +1166,19 @@ export const SetupScreen = () => {
                         ["Host", payload.redis.host],
                         ["Port", String(payload.redis.port)],
                         ["DB", String(payload.redis.db)],
-                        ["Password", payload.redis.password ? "Configured" : "Empty"],
+                        [
+                          "Password",
+                          payload.redis.password ? "Configured" : "Empty",
+                        ],
                       ]}
                     />
                     <ReviewPanel
                       title="Admin + Workspace"
                       rows={[
-                        ["Admin", `${payload.admin.name} <${payload.admin.email}>`],
+                        [
+                          "Admin",
+                          `${payload.admin.name} <${payload.admin.email}>`,
+                        ],
                         ["Workspace", payload.workspace.name],
                         ["Slug", payload.workspace.slug],
                         ["Timezone", payload.workspace.defaultTimezone],
@@ -1142,10 +1192,16 @@ export const SetupScreen = () => {
                               ["Status", "Configured"],
                               ["Host", payload.mail.smtpHost],
                               ["Port", String(payload.mail.smtpPort)],
-                              ["Secure", payload.mail.smtpSecure ? "Enabled" : "Disabled"],
+                              [
+                                "Secure",
+                                payload.mail.smtpSecure
+                                  ? "Enabled"
+                                  : "Disabled",
+                              ],
                               [
                                 "Credentials",
-                                payload.mail.smtpUsername || payload.mail.smtpPassword
+                                payload.mail.smtpUsername ||
+                                payload.mail.smtpPassword
                                   ? "Configured"
                                   : "Not set",
                               ],
@@ -1180,10 +1236,7 @@ export const SetupScreen = () => {
                               ? "NODERAX_STATE_DIR"
                               : "Default application path",
                           ],
-                          [
-                            "Writable",
-                            stateDirectory.writable ? "Yes" : "No",
-                          ],
+                          ["Writable", stateDirectory.writable ? "Yes" : "No"],
                         ]}
                       />
                     ) : null}
@@ -1221,9 +1274,13 @@ export const SetupScreen = () => {
                   <Button
                     type="button"
                     onClick={() => void handleInstall()}
-                    disabled={installMutation.isPending || isStateDirectoryBlocked}
+                    disabled={
+                      installMutation.isPending || isStateDirectoryBlocked
+                    }
                   >
-                    {installMutation.isPending ? "Installing..." : "Install Noderax"}
+                    {installMutation.isPending
+                      ? "Installing..."
+                      : "Install Noderax"}
                   </Button>
                 ) : (
                   <Button
@@ -1318,7 +1375,9 @@ const StateDirectoryNotice = ({
       <AlertTriangle
         className={cn(
           "mt-0.5 size-4 shrink-0",
-          writable ? "text-emerald-700 dark:text-emerald-300" : "text-amber-700 dark:text-amber-300",
+          writable
+            ? "text-emerald-700 dark:text-emerald-300"
+            : "text-amber-700 dark:text-amber-300",
         )}
       />
       <div className="min-w-0 space-y-1.5">
@@ -1342,8 +1401,8 @@ const StateDirectoryNotice = ({
         <p className="text-current/80">
           {writable
             ? "This location is writable and ready for installation."
-            : error ??
-              "This location is not writable. Configure NODERAX_STATE_DIR before continuing."}
+            : (error ??
+              "This location is not writable. Configure NODERAX_STATE_DIR before continuing.")}
         </p>
       </div>
     </div>
