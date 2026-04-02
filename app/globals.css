@@ -7,9 +7,16 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
+  --animate-gradient: gradient 8s linear infinite;
   --animate-shimmer-slide: shimmer-slide var(--speed) ease-in-out infinite
     alternate;
   --animate-spin-around: spin-around calc(var(--speed) * 2) infinite linear;
+
+  @keyframes gradient {
+    to {
+      background-position: var(--bg-size, 300%) 0;
+    }
+  }
 
   @keyframes shimmer-slide {
     to {

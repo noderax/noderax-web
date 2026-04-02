@@ -11,7 +11,6 @@ import {
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   AlertTriangle,
-  ArrowUpCircle,
   ChevronsUpDown,
   KeyRound,
   LogOut,
@@ -27,6 +26,7 @@ import {
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { ThemeToggle } from "@/components/layout/theme-toggle";
+import { AnimatedGradientTextButton } from "@/components/ui/animated-gradient-text-button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
@@ -491,27 +491,37 @@ const TopbarContent = () => {
           {isPlatformAdmin &&
           (agentUpdatesSummaryQuery.data?.activeRollout ||
             (agentUpdatesSummaryQuery.data?.outdatedNodeCount ?? 0) > 0) ? (
-            <Button
-              variant="outline"
-              className={cn(
-                "hidden rounded-xl md:inline-flex",
-                agentUpdatesSummaryQuery.data?.activeRollout?.status ===
+            agentUpdatesSummaryQuery.data?.activeRollout ? (
+              <AnimatedGradientTextButton
+                className="hidden md:inline-flex"
+                onClick={() => router.push("/updates")}
+                prefixContent={
+                  agentUpdatesSummaryQuery.data.activeRollout.status ===
                   "paused"
-                  ? "tone-warning"
-                  : agentUpdatesSummaryQuery.data?.activeRollout
-                    ? "tone-brand"
-                    : "tone-success",
-              )}
-              onClick={() => router.push("/updates")}
-            >
-              <ArrowUpCircle className="size-4" />
-              {agentUpdatesSummaryQuery.data?.activeRollout
-                ? agentUpdatesSummaryQuery.data.activeRollout.status ===
+                    ? "⏸️"
+                    : "🔄"
+                }
+                speed={1.2}
+                colorFrom="oklch(0.63 0.22 28)"
+                colorTo="oklch(0.52 0.13 72)"
+                label={
+                  agentUpdatesSummaryQuery.data.activeRollout.status ===
                   "paused"
-                  ? "Agent rollout paused"
-                  : "Agent rollout in progress"
-                : "New agent version available"}
-            </Button>
+                    ? "Agent rollout paused"
+                    : "Agent rollout in progress"
+                }
+              />
+            ) : (
+              <AnimatedGradientTextButton
+                className="hidden md:inline-flex"
+                onClick={() => router.push("/updates")}
+                prefixContent="✨"
+                speed={1.2}
+                colorFrom="oklch(0.63 0.22 28)"
+                colorTo="oklch(0.52 0.13 72)"
+                label="New version available"
+              />
+            )
           ) : null}
           <DropdownMenu>
             <DropdownMenuTrigger
