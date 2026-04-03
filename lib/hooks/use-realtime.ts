@@ -123,6 +123,12 @@ const isTaskDetailQuery = (query: Query) =>
 const isDashboardOverviewQuery = (query: Query) =>
   query.queryKey[0] === "dashboard" && query.queryKey[1] === "overview";
 
+const isTrackedNodeSourceQuery = (query: Query) =>
+  isNodeListQuery(query) ||
+  isNodeDetailQuery(query) ||
+  isTaskDetailQuery(query) ||
+  isDashboardOverviewQuery(query);
+
 const collectTrackedNodeIds = (queryClient: QueryClient) => {
   const trackedNodeIds = new Set<string>();
 
@@ -865,8 +871,13 @@ export const useRealtimeBridge = () => {
 
     const client = getRealtimeClient();
     const subscribedNodeIds = new Set<string>();
+    let animationFrameId: number | null = null;
+    let syncQueued = false;
 
     const syncNodeSubscriptions = () => {
+      syncQueued = false;
+      animationFrameId = null;
+
       const nextNodeIds = collectTrackedNodeIds(queryClient);
 
       subscribedNodeIds.forEach((nodeId) => {
@@ -884,14 +895,36 @@ export const useRealtimeBridge = () => {
       });
     };
 
+    const queueNodeSubscriptionSync = () => {
+      if (syncQueued) {
+        return;
+      }
+
+      syncQueued = true;
+      animationFrameId = window.requestAnimationFrame(() => {
+        syncNodeSubscriptions();
+      });
+    };
+
     syncNodeSubscriptions();
 
-    const unsubscribeCache = queryClient.getQueryCache().subscribe(() => {
-      syncNodeSubscriptions();
-    });
+    const unsubscribeCache = queryClient.getQueryCache().subscribe(
+      (event?: { query?: Query }) => {
+        if (event?.query && !isTrackedNodeSourceQuery(event.query)) {
+          return;
+        }
+
+        queueNodeSubscriptionSync();
+      },
+    );
 
     return () => {
       unsubscribeCache();
+
+      if (animationFrameId !== null) {
+        window.cancelAnimationFrame(animationFrameId);
+      }
+
       subscribedNodeIds.forEach((nodeId) => client.unsubscribeNode(nodeId));
     };
   }, [queryClient, session?.user.id]);
