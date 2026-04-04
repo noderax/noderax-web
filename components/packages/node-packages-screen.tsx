@@ -7,7 +7,7 @@ import { PackageMarket } from "@/components/packages/package-market";
 import { PackagesPage } from "@/components/packages/packages-page";
 import { useNode } from "@/lib/hooks/use-noderax-data";
 import { useWorkspaceContext } from "@/lib/hooks/use-workspace-context";
-import { profileAllowsSurface } from "@/lib/root-access";
+import { getOperationalRootAccessState } from "@/lib/root-access";
 
 export const NodePackagesScreen = ({
   nodeId,
@@ -22,20 +22,14 @@ export const NodePackagesScreen = ({
   const nodeQuery = useNode(nodeId);
   const isAdmin = isWorkspaceAdmin;
   const resolvedNodeName = nodeName ?? nodeQuery.data?.name ?? "this node";
-  const hasOperationalRoot = Boolean(
-    nodeQuery.data &&
-    (profileAllowsSurface(
-      nodeQuery.data.rootAccessAppliedProfile,
-      "operational",
-    ) ||
-      profileAllowsSurface(nodeQuery.data.rootAccessProfile, "operational")),
-  );
+  const operationalRoot = getOperationalRootAccessState(nodeQuery.data);
+  const hasOperationalRoot = operationalRoot.allowed;
   const canManagePackages = Boolean(isAdmin) && hasOperationalRoot;
   const manageDisabledReason = !isAdmin
     ? "You can browse installed packages and search the package market, but only administrators can install or remove packages."
     : !nodeQuery.data
       ? "Package management availability is loading."
-      : "This node needs Operational root or All root enabled before package actions can run from the panel.";
+      : operationalRoot.reason;
 
   return (
     <div className="space-y-6">

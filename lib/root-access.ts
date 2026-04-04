@@ -122,6 +122,57 @@ export const profileAllowsSurface = (
   return selection?.[surface] ?? false;
 };
 
+type OperationalRootAccessStateInput = {
+  rootAccessProfile: RootAccessProfile;
+  rootAccessAppliedProfile: RootAccessProfile;
+  rootAccessSyncStatus: RootAccessSyncStatus;
+  rootAccessLastError?: string | null;
+};
+
+export const getOperationalRootAccessState = (
+  node: OperationalRootAccessStateInput | null | undefined,
+) => {
+  if (!node) {
+    return {
+      allowed: false,
+      reason: "Operational root availability is loading.",
+    };
+  }
+
+  if (profileAllowsSurface(node.rootAccessAppliedProfile, "operational")) {
+    return {
+      allowed: true,
+      reason: null,
+    };
+  }
+
+  if (profileAllowsSurface(node.rootAccessProfile, "operational")) {
+    if (node.rootAccessSyncStatus === "pending") {
+      return {
+        allowed: false,
+        reason:
+          "Operational root is configured but still waiting for agent sync. Package actions, restart, and reboot stay locked until the applied profile updates.",
+      };
+    }
+
+    if (node.rootAccessSyncStatus === "failed") {
+      const syncError = node.rootAccessLastError?.trim();
+      return {
+        allowed: false,
+        reason: syncError
+          ? `Operational root could not be applied. Last sync error: ${syncError}`
+          : "Operational root could not be applied on this node. Package actions, restart, and reboot stay locked until the sync issue is fixed.",
+      };
+    }
+  }
+
+  return {
+    allowed: false,
+    reason:
+      "Operational root must be applied on this node before package actions, restart, or reboot can run.",
+  };
+};
+
 export const profileToSurfaceSelection = (
   profile: RootAccessProfile,
 ): RootAccessSurfaceSelection => {

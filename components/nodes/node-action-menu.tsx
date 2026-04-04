@@ -22,7 +22,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useCreateTask } from "@/lib/hooks/use-noderax-data";
-import { profileAllowsSurface } from "@/lib/root-access";
+import { getOperationalRootAccessState } from "@/lib/root-access";
 import type { NodeSummary } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -71,7 +71,12 @@ export const NodeActionMenu = ({
 }: {
   node: Pick<
     NodeSummary,
-    "id" | "name" | "rootAccessAppliedProfile" | "rootAccessProfile"
+    | "id"
+    | "name"
+    | "rootAccessAppliedProfile"
+    | "rootAccessProfile"
+    | "rootAccessSyncStatus"
+    | "rootAccessLastError"
   >;
   variant?: "icon" | "outline";
   className?: string;
@@ -79,12 +84,9 @@ export const NodeActionMenu = ({
   const createTask = useCreateTask();
   const [pendingAction, setPendingAction] = useState<NodeAction | null>(null);
   const meta = pendingAction ? actionMeta[pendingAction] : null;
-  const canRunOperationalActions =
-    profileAllowsSurface(node.rootAccessAppliedProfile, "operational") ||
-    profileAllowsSurface(node.rootAccessProfile, "operational");
-  const disabledReason = canRunOperationalActions
-    ? null
-    : "Operational root or All root must be enabled on this node before these actions can run.";
+  const operationalRoot = getOperationalRootAccessState(node);
+  const canRunOperationalActions = operationalRoot.allowed;
+  const disabledReason = canRunOperationalActions ? null : operationalRoot.reason;
 
   const handleActionClick = (action: NodeAction) => {
     if (!canRunOperationalActions) {
