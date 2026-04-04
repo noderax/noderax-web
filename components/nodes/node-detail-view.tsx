@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import {
@@ -62,6 +63,10 @@ import {
 } from "@/lib/root-access";
 import type { RootAccessProfile } from "@/lib/types";
 import { TimeDisplay } from "@/components/ui/time-display";
+
+const ReactSpeedometer = dynamic(() => import("react-d3-speedometer"), {
+  ssr: false,
+});
 
 const readFirstNumber = (
   record: Record<string, unknown> | null,
@@ -140,6 +145,60 @@ const rootAccessSyncTone = (status: string) => {
 const readRootAccessStatusDescription = (profile: RootAccessProfile) => {
   const capabilities = ROOT_ACCESS_PROFILE_CAPABILITIES[profile] ?? [];
   return capabilities[0] ?? "No capabilities available for this profile.";
+};
+
+const clampMetric = (value: number | null, max: number) => {
+  if (value === null || !Number.isFinite(value)) {
+    return 0;
+  }
+
+  return Math.min(Math.max(value, 0), max);
+};
+
+const MetricGauge = ({
+  value,
+  max,
+  decimals = 0,
+  suffix = "%",
+  startColor,
+  endColor,
+  ariaLabel,
+}: {
+  value: number | null;
+  max: number;
+  decimals?: number;
+  suffix?: string;
+  startColor: string;
+  endColor: string;
+  ariaLabel: string;
+}) => {
+  const hasValue = value !== null && Number.isFinite(value);
+  const gaugeValue = clampMetric(value, max);
+
+  return (
+    <div className="w-full max-w-55">
+      <ReactSpeedometer
+        minValue={0}
+        maxValue={max}
+        value={gaugeValue}
+        segments={5}
+        ringWidth={16}
+        needleHeightRatio={0.7}
+        startColor={startColor}
+        endColor={endColor}
+        needleColor="var(--foreground)"
+        textColor="var(--muted-foreground)"
+        valueTextFontSize="12px"
+        labelFontSize="10px"
+        height={110}
+        fluidWidth
+        currentValueText={
+          hasValue ? `${gaugeValue.toFixed(decimals)}${suffix}` : "N/A"
+        }
+        svgAriaLabel={ariaLabel}
+      />
+    </div>
+  );
 };
 
 type NodeOperationDraft = {
@@ -333,19 +392,52 @@ export const NodeDetailView = ({ id }: { id: string }) => {
           {
             label: "Latest CPU",
             value: node.latestMetric ? `${node.latestMetric.cpu}%` : "N/A",
-            description: "Most recent reported CPU usage.",
+            description: (
+              <div className="space-y-2">
+                <p>Most recent reported CPU usage.</p>
+                <MetricGauge
+                  value={node.latestMetric?.cpu ?? null}
+                  max={100}
+                  startColor="#2b8cff"
+                  endColor="#0f4fbf"
+                  ariaLabel="Latest CPU usage gauge"
+                />
+              </div>
+            ),
             tone: "brand",
           },
           {
             label: "Latest memory",
             value: node.latestMetric ? `${node.latestMetric.memory}%` : "N/A",
-            description: "Most recent reported memory usage.",
+            description: (
+              <div className="space-y-2">
+                <p>Most recent reported memory usage.</p>
+                <MetricGauge
+                  value={node.latestMetric?.memory ?? null}
+                  max={100}
+                  startColor="#2ea97a"
+                  endColor="#0f7a53"
+                  ariaLabel="Latest memory usage gauge"
+                />
+              </div>
+            ),
             tone: "success",
           },
           {
             label: "Latest disk",
             value: node.latestMetric ? `${node.latestMetric.disk}%` : "N/A",
-            description: "Most recent reported disk usage.",
+            description: (
+              <div className="space-y-2">
+                <p>Most recent reported disk usage.</p>
+                <MetricGauge
+                  value={node.latestMetric?.disk ?? null}
+                  max={100}
+                  startColor="#f2a71b"
+                  endColor="#c86b11"
+                  ariaLabel="Latest disk usage gauge"
+                />
+              </div>
+            ),
             tone: "warning",
           },
           {
@@ -355,7 +447,20 @@ export const NodeDetailView = ({ id }: { id: string }) => {
               node.latestMetric?.temperature !== undefined
                 ? `${node.latestMetric.temperature.toFixed(1)}°C`
                 : "N/A",
-            description: "Most recent reported CPU temperature.",
+            description: (
+              <div className="space-y-2">
+                <p>Most recent reported CPU temperature.</p>
+                <MetricGauge
+                  value={node.latestMetric?.temperature ?? null}
+                  max={120}
+                  decimals={1}
+                  suffix="°C"
+                  startColor="#f59b29"
+                  endColor="#d94824"
+                  ariaLabel="Latest CPU temperature gauge"
+                />
+              </div>
+            ),
             tone: "brand",
           },
           {
@@ -374,203 +479,210 @@ export const NodeDetailView = ({ id }: { id: string }) => {
         contentClassName="space-y-4"
       >
         <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-          <div className="space-y-3 rounded-[20px] border p-4">
-            <div className="space-y-1">
-              <p className="font-medium">Team ownership</p>
-              <p className="text-sm text-muted-foreground">
-                Team-targeted tasks and schedules resolve against nodes assigned
-                to that team.
-              </p>
-            </div>
-            <Select
-              value={selectedTeamId}
-              onValueChange={(value) =>
-                updateOperationDraft({
-                  selectedTeamId: value ?? "none",
-                })
-              }
-              disabled={!isAdmin}
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Select a team">
-                  {selectedTeamId === "none" ? "No team" : selectedTeam?.name}
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">No team</SelectItem>
-                {(teamsQuery.data ?? []).map((team) => (
-                  <SelectItem key={team.id} value={team.id}>
-                    {team.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <ShimmerButton
-              type="button"
-              className="action-btn"
-              disabled={
-                !isAdmin ||
-                updateNodeTeam.isPending ||
-                selectedTeamId === (node.teamId ?? "none")
-              }
-              onClick={() =>
-                updateNodeTeam.mutate({
-                  nodeId: node.id,
-                  payload: {
-                    teamId:
-                      selectedTeamId === "none" ? undefined : selectedTeamId,
-                  },
-                })
-              }
-            >
-              {updateNodeTeam.isPending ? "Saving..." : "Save team ownership"}
-            </ShimmerButton>
-          </div>
-
-          <div className="space-y-3 rounded-[20px] border p-4">
-            <div className="space-y-1">
-              <p className="font-medium">Maintenance mode</p>
-              <p className="text-sm text-muted-foreground">
-                Maintenance blocks new tasks, team broadcasts, scheduled runs,
-                and claim flow for this node.
-              </p>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="node-maintenance-reason">Reason</Label>
-              <Input
-                id="node-maintenance-reason"
-                value={maintenanceReason}
-                disabled={!isAdmin}
-                onChange={(event) =>
+          <div className="space-y-4">
+            <div className="space-y-3 rounded-[20px] border p-4">
+              <div className="space-y-1">
+                <p className="font-medium">Team ownership</p>
+                <p className="text-sm text-muted-foreground">
+                  Team-targeted tasks and schedules resolve against nodes
+                  assigned to that team.
+                </p>
+              </div>
+              <Select
+                value={selectedTeamId}
+                onValueChange={(value) =>
                   updateOperationDraft({
-                    maintenanceReason: event.target.value,
+                    selectedTeamId: value ?? "none",
                   })
                 }
-                placeholder="Kernel upgrade, package maintenance, host reboot..."
-              />
+                disabled={!isAdmin}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select a team">
+                    {selectedTeamId === "none" ? "No team" : selectedTeam?.name}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">No team</SelectItem>
+                  {(teamsQuery.data ?? []).map((team) => (
+                    <SelectItem key={team.id} value={team.id}>
+                      {team.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button
+                type="button"
+                className="action-btn"
+                disabled={
+                  !isAdmin ||
+                  updateNodeTeam.isPending ||
+                  selectedTeamId === (node.teamId ?? "none")
+                }
+                onClick={() =>
+                  updateNodeTeam.mutate({
+                    nodeId: node.id,
+                    payload: {
+                      teamId:
+                        selectedTeamId === "none" ? undefined : selectedTeamId,
+                    },
+                  })
+                }
+              >
+                {updateNodeTeam.isPending ? "Saving..." : "Save team ownership"}
+              </Button>
             </div>
-            <div className="flex flex-wrap gap-2">
-              {node.maintenanceMode ? (
-                <ShimmerButton
-                  type="button"
-                  className="action-btn"
-                  disabled={!isAdmin || disableMaintenance.isPending}
-                  onClick={() => disableMaintenance.mutate(node.id)}
-                >
-                  {disableMaintenance.isPending
-                    ? "Clearing..."
-                    : "Clear maintenance"}
-                </ShimmerButton>
-              ) : (
-                <ShimmerButton
-                  type="button"
-                  className="action-btn"
-                  disabled={!isAdmin || enableMaintenance.isPending}
-                  onClick={() =>
-                    enableMaintenance.mutate({
-                      nodeId: node.id,
-                      payload: {
-                        reason: maintenanceReason.trim() || undefined,
-                      },
+
+            <div className="space-y-3 rounded-[20px] border p-4">
+              <div className="space-y-1">
+                <p className="font-medium">Maintenance mode</p>
+                <p className="text-sm text-muted-foreground">
+                  Maintenance blocks new tasks, team broadcasts, scheduled runs,
+                  and claim flow for this node.
+                </p>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="node-maintenance-reason">Reason</Label>
+                <Input
+                  id="node-maintenance-reason"
+                  value={maintenanceReason}
+                  disabled={!isAdmin}
+                  onChange={(event) =>
+                    updateOperationDraft({
+                      maintenanceReason: event.target.value,
                     })
                   }
-                >
-                  {enableMaintenance.isPending
-                    ? "Applying..."
-                    : "Enter maintenance"}
-                </ShimmerButton>
-              )}
+                  placeholder="Kernel upgrade, package maintenance, host reboot..."
+                />
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {node.maintenanceMode ? (
+                  <Button
+                    type="button"
+                    className="action-btn"
+                    disabled={!isAdmin || disableMaintenance.isPending}
+                    onClick={() => disableMaintenance.mutate(node.id)}
+                  >
+                    {disableMaintenance.isPending
+                      ? "Clearing..."
+                      : "Clear maintenance"}
+                  </Button>
+                ) : (
+                  <Button
+                    type="button"
+                    className="action-btn"
+                    disabled={!isAdmin || enableMaintenance.isPending}
+                    onClick={() =>
+                      enableMaintenance.mutate({
+                        nodeId: node.id,
+                        payload: {
+                          reason: maintenanceReason.trim() || undefined,
+                        },
+                      })
+                    }
+                  >
+                    {enableMaintenance.isPending
+                      ? "Applying..."
+                      : "Enter maintenance"}
+                  </Button>
+                )}
+              </div>
             </div>
           </div>
-        </div>
-        <div className="rounded-[20px] border p-4">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-            <div className="space-y-1">
-              <div className="flex items-center gap-2">
-                <div className="surface-subtle flex size-10 items-center justify-center rounded-2xl border">
-                  <Shield className="size-4" />
+          <div className="rounded-[20px] border p-4">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <div className="surface-subtle flex size-10 items-center justify-center rounded-2xl border">
+                    <Shield className="size-4" />
+                  </div>
+                  <div>
+                    <p className="font-medium">Root access profile</p>
+                    <p className="text-sm text-muted-foreground">
+                      Choose which privileged panel surfaces this node should
+                      allow without interactive sudo prompts.
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <p className="font-medium">Root access profile</p>
-                  <p className="text-sm text-muted-foreground">
-                    Choose which privileged panel surfaces this node should allow
-                    without interactive sudo prompts.
+              </div>
+
+              <ShimmerButton
+                type="button"
+                className="action-btn border-tone-danger/30 text-tone-danger shadow-none"
+                background="color-mix(in oklch, var(--destructive) 12%, var(--card))"
+                shimmerColor="var(--destructive)"
+                disabled={!isAdmin || updateNodeRootAccess.isPending}
+                onClick={() => {
+                  setPendingRootAccessProfile(node.rootAccessProfile);
+                  setRootAccessDialogOpen(true);
+                }}
+              >
+                {updateNodeRootAccess.isPending
+                  ? "Saving..."
+                  : "Manage root access"}
+              </ShimmerButton>
+            </div>
+
+            <div className="mt-4 flex flex-wrap gap-2">
+              <Badge variant="outline">
+                Desired: {formatRootAccessProfile(node.rootAccessProfile)}
+              </Badge>
+              <Badge variant="outline">
+                Applied:{" "}
+                {formatRootAccessProfile(node.rootAccessAppliedProfile)}
+              </Badge>
+              <Badge variant={rootAccessSyncTone(node.rootAccessSyncStatus)}>
+                {formatRootAccessSyncStatus(node.rootAccessSyncStatus)}
+              </Badge>
+            </div>
+
+            <div className="mt-4 grid gap-4 lg:grid-cols-3">
+              <div className="rounded-[18px] border bg-muted/15 px-4 py-3">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                  Desired capabilities
+                </p>
+                <p className="mt-2 text-sm text-foreground">
+                  {readRootAccessStatusDescription(node.rootAccessProfile)}
+                </p>
+              </div>
+              <div className="rounded-[18px] border bg-muted/15 px-4 py-3">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                  Last change
+                </p>
+                <p className="mt-2 text-sm font-medium">
+                  <TimeDisplay
+                    value={node.rootAccessUpdatedAt ?? null}
+                    mode="relative"
+                    emptyLabel="Not changed yet"
+                  />
+                </p>
+              </div>
+              <div className="rounded-[18px] border bg-muted/15 px-4 py-3">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                  Last applied
+                </p>
+                <p className="mt-2 text-sm font-medium">
+                  <TimeDisplay
+                    value={node.rootAccessLastAppliedAt ?? null}
+                    mode="relative"
+                    emptyLabel="Waiting for first sync"
+                  />
+                </p>
+              </div>
+            </div>
+
+            {node.rootAccessLastError ? (
+              <div className="mt-4 flex items-start gap-3 rounded-[18px] border border-tone-danger/30 bg-tone-danger/8 px-4 py-3 text-sm">
+                <AlertTriangle className="mt-0.5 size-4 shrink-0 text-tone-danger" />
+                <div className="space-y-1">
+                  <p className="font-medium text-foreground">Last sync error</p>
+                  <p className="text-muted-foreground">
+                    {node.rootAccessLastError}
                   </p>
                 </div>
               </div>
-            </div>
-
-            <ShimmerButton
-              type="button"
-              className="action-btn"
-              disabled={!isAdmin || updateNodeRootAccess.isPending}
-              onClick={() => {
-                setPendingRootAccessProfile(node.rootAccessProfile);
-                setRootAccessDialogOpen(true);
-              }}
-            >
-              {updateNodeRootAccess.isPending
-                ? "Saving..."
-                : "Manage root access"}
-            </ShimmerButton>
+            ) : null}
           </div>
-
-          <div className="mt-4 flex flex-wrap gap-2">
-            <Badge variant="outline">
-              Desired: {formatRootAccessProfile(node.rootAccessProfile)}
-            </Badge>
-            <Badge variant="outline">
-              Applied: {formatRootAccessProfile(node.rootAccessAppliedProfile)}
-            </Badge>
-            <Badge variant={rootAccessSyncTone(node.rootAccessSyncStatus)}>
-              {formatRootAccessSyncStatus(node.rootAccessSyncStatus)}
-            </Badge>
-          </div>
-
-          <div className="mt-4 grid gap-4 lg:grid-cols-3">
-            <div className="rounded-[18px] border bg-muted/15 px-4 py-3">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-                Desired capabilities
-              </p>
-              <p className="mt-2 text-sm text-foreground">
-                {readRootAccessStatusDescription(node.rootAccessProfile)}
-              </p>
-            </div>
-            <div className="rounded-[18px] border bg-muted/15 px-4 py-3">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-                Last change
-              </p>
-              <p className="mt-2 text-sm font-medium">
-                <TimeDisplay
-                  value={node.rootAccessUpdatedAt ?? null}
-                  mode="relative"
-                  emptyLabel="Not changed yet"
-                />
-              </p>
-            </div>
-            <div className="rounded-[18px] border bg-muted/15 px-4 py-3">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-                Last applied
-              </p>
-              <p className="mt-2 text-sm font-medium">
-                <TimeDisplay
-                  value={node.rootAccessLastAppliedAt ?? null}
-                  mode="relative"
-                  emptyLabel="Waiting for first sync"
-                />
-              </p>
-            </div>
-          </div>
-
-          {node.rootAccessLastError ? (
-            <div className="mt-4 flex items-start gap-3 rounded-[18px] border border-tone-danger/30 bg-tone-danger/8 px-4 py-3 text-sm">
-              <AlertTriangle className="mt-0.5 size-4 shrink-0 text-tone-danger" />
-              <div className="space-y-1">
-                <p className="font-medium text-foreground">Last sync error</p>
-                <p className="text-muted-foreground">{node.rootAccessLastError}</p>
-              </div>
-            </div>
-          ) : null}
         </div>
         <div className="grid gap-4 lg:grid-cols-3">
           <div className="rounded-[18px] border bg-muted/15 px-4 py-3">

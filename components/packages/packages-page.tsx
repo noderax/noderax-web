@@ -15,7 +15,6 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SectionPanel } from "@/components/ui/section-panel";
-import { ShimmerButton } from "@/components/ui/shimmer-button";
 import {
   Select,
   SelectContent,
@@ -114,9 +113,10 @@ export const PackagesPage = ({
           ))}
         </SelectContent>
       </Select>
-      <ShimmerButton
-        className="action-btn-sm border-border/70 bg-(--control-surface) text-foreground shadow-none"
-        background="var(--control-surface)"
+      <Button
+        type="button"
+        variant="outline"
+        className="action-btn-sm"
         onClick={() => void packagesQuery.refetch()}
         disabled={packagesQuery.isFetching}
       >
@@ -128,7 +128,7 @@ export const PackagesPage = ({
           }
         />
         Refresh
-      </ShimmerButton>
+      </Button>
       {headerAction}
     </div>
   );
@@ -143,7 +143,8 @@ export const PackagesPage = ({
     >
       {!canManage ? (
         <div className="surface-subtle rounded-[18px] border px-4 py-3 text-sm text-muted-foreground">
-          {manageDisabledReason ?? "Only administrators can install or remove packages."}
+          {manageDisabledReason ??
+            "Only administrators can install or remove packages."}
         </div>
       ) : null}
 

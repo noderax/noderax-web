@@ -35,7 +35,7 @@ export const StatStrip = ({
       return (
         <div
           key={`${item.label}-${index}`}
-          className="surface-panel flex min-h-[140px] flex-col justify-between rounded-2xl border p-5"
+          className="surface-panel flex min-h-35 flex-col justify-between rounded-2xl border p-5"
         >
           <div className="flex items-start justify-between gap-3">
             <div className="space-y-2">
@@ -58,7 +58,9 @@ export const StatStrip = ({
             ) : null}
           </div>
           {item.description ? (
-            <p className="mt-4 text-sm leading-6 text-muted-foreground">{item.description}</p>
+            <div className="mt-4 text-sm leading-6 text-muted-foreground">
+              {item.description}
+            </div>
           ) : null}
         </div>
       );

@@ -69,20 +69,22 @@ export const NodeActionMenu = ({
   variant = "icon",
   className,
 }: {
-  node: Pick<NodeSummary, "id" | "name" | "rootAccessAppliedProfile">;
+  node: Pick<
+    NodeSummary,
+    "id" | "name" | "rootAccessAppliedProfile" | "rootAccessProfile"
+  >;
   variant?: "icon" | "outline";
   className?: string;
 }) => {
   const createTask = useCreateTask();
   const [pendingAction, setPendingAction] = useState<NodeAction | null>(null);
   const meta = pendingAction ? actionMeta[pendingAction] : null;
-  const canRunOperationalActions = profileAllowsSurface(
-    node.rootAccessAppliedProfile,
-    "operational",
-  );
+  const canRunOperationalActions =
+    profileAllowsSurface(node.rootAccessAppliedProfile, "operational") ||
+    profileAllowsSurface(node.rootAccessProfile, "operational");
   const disabledReason = canRunOperationalActions
     ? null
-    : "Operational root or All root must be applied on this node before these actions can run.";
+    : "Operational root or All root must be enabled on this node before these actions can run.";
 
   const handleActionClick = (action: NodeAction) => {
     if (!canRunOperationalActions) {
