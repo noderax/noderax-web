@@ -147,9 +147,9 @@ export const NodeActionMenu = ({
           <DropdownMenuSeparator />
           {disabledReason ? (
             <>
-              <DropdownMenuLabel className="whitespace-normal text-xs font-normal leading-5 text-muted-foreground">
+              <p className="px-2 py-1 whitespace-normal text-xs font-normal leading-5 text-muted-foreground">
                 {disabledReason}
-              </DropdownMenuLabel>
+              </p>
               <DropdownMenuSeparator />
             </>
           ) : null}
