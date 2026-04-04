@@ -1616,6 +1616,14 @@ export const UpdatesPageView = () => {
                                 >
                                   Ready
                                 </Badge>
+                              ) : selectedTargetVersion &&
+                                node.agentVersion === selectedTargetVersion ? (
+                                <Badge
+                                  variant="outline"
+                                  className="rounded-full px-3 py-1 tone-success"
+                                >
+                                  Latest
+                                </Badge>
                               ) : (
                                 <div className="space-y-1">
                                   <Badge
