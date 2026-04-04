@@ -36,7 +36,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SectionPanel } from "@/components/ui/section-panel";
 import { ShimmerButton } from "@/components/ui/shimmer-button";
-import { StatStrip } from "@/components/ui/stat-strip";
 import {
   Select,
   SelectContent,
@@ -64,9 +63,12 @@ import {
 import type { RootAccessProfile } from "@/lib/types";
 import { TimeDisplay } from "@/components/ui/time-display";
 
-const ReactSpeedometer = dynamic(() => import("react-d3-speedometer"), {
-  ssr: false,
-});
+const ReactSpeedometer = dynamic(
+  () => import("react-d3-speedometer").then((module) => module.default),
+  {
+    ssr: false,
+  },
+);
 
 const readFirstNumber = (
   record: Record<string, unknown> | null,
@@ -155,6 +157,17 @@ const clampMetric = (value: number | null, max: number) => {
   return Math.min(Math.max(value, 0), max);
 };
 
+type GaugeMetricKey = "cpu" | "memory" | "disk" | "temperature";
+
+const gaugeCardAccentClasses: Record<GaugeMetricKey, string> = {
+  cpu: "border-[#2b8cff]/35 bg-gradient-to-br from-[#2b8cff]/16 to-transparent",
+  memory:
+    "border-[#2ea97a]/35 bg-gradient-to-br from-[#2ea97a]/16 to-transparent",
+  disk: "border-[#f2a71b]/35 bg-gradient-to-br from-[#f2a71b]/16 to-transparent",
+  temperature:
+    "border-[#d94824]/35 bg-gradient-to-br from-[#d94824]/16 to-transparent",
+};
+
 const MetricGauge = ({
   value,
   max,
@@ -176,22 +189,23 @@ const MetricGauge = ({
   const gaugeValue = clampMetric(value, max);
 
   return (
-    <div className="w-full max-w-55">
+    <div className="mx-auto flex w-full items-center justify-center bg-transparent">
       <ReactSpeedometer
         minValue={0}
         maxValue={max}
         value={gaugeValue}
-        segments={5}
-        ringWidth={16}
-        needleHeightRatio={0.7}
+        forceRender
+        segments={7}
+        ringWidth={18}
+        needleHeightRatio={0.64}
         startColor={startColor}
         endColor={endColor}
-        needleColor="var(--foreground)"
-        textColor="var(--muted-foreground)"
-        valueTextFontSize="12px"
-        labelFontSize="10px"
-        height={110}
-        fluidWidth
+        needleColor="#f8fafc"
+        textColor="var(--foreground)"
+        valueTextFontSize="11px"
+        labelFontSize="9px"
+        width={170}
+        height={96}
         currentValueText={
           hasValue ? `${gaugeValue.toFixed(decimals)}${suffix}` : "N/A"
         }
@@ -283,6 +297,80 @@ export const NodeDetailView = ({ id }: { id: string }) => {
   };
   const rootAccessCapabilities =
     ROOT_ACCESS_PROFILE_CAPABILITIES[pendingRootAccessProfile] ?? [];
+  const telemetryCards: Array<{
+    key: GaugeMetricKey;
+    label: string;
+    value: string;
+    description: string;
+    gauge: {
+      value: number | null;
+      max: number;
+      decimals?: number;
+      suffix?: string;
+      startColor: string;
+      endColor: string;
+      ariaLabel: string;
+    };
+  }> = [
+    {
+      key: "cpu",
+      label: "Latest CPU",
+      value: node.latestMetric ? `${node.latestMetric.cpu}%` : "N/A",
+      description: "Most recent reported CPU usage.",
+      gauge: {
+        value: node.latestMetric?.cpu ?? null,
+        max: 100,
+        startColor: "#2b8cff",
+        endColor: "#0f4fbf",
+        ariaLabel: "Latest CPU usage gauge",
+      },
+    },
+    {
+      key: "memory",
+      label: "Latest memory",
+      value: node.latestMetric ? `${node.latestMetric.memory}%` : "N/A",
+      description: "Most recent reported memory usage.",
+      gauge: {
+        value: node.latestMetric?.memory ?? null,
+        max: 100,
+        startColor: "#2ea97a",
+        endColor: "#0f7a53",
+        ariaLabel: "Latest memory usage gauge",
+      },
+    },
+    {
+      key: "disk",
+      label: "Latest disk",
+      value: node.latestMetric ? `${node.latestMetric.disk}%` : "N/A",
+      description: "Most recent reported disk usage.",
+      gauge: {
+        value: node.latestMetric?.disk ?? null,
+        max: 100,
+        startColor: "#f2a71b",
+        endColor: "#c86b11",
+        ariaLabel: "Latest disk usage gauge",
+      },
+    },
+    {
+      key: "temperature",
+      label: "Latest temperature",
+      value:
+        node.latestMetric?.temperature !== null &&
+        node.latestMetric?.temperature !== undefined
+          ? `${node.latestMetric.temperature.toFixed(1)}°C`
+          : "N/A",
+      description: "Most recent reported CPU temperature.",
+      gauge: {
+        value: node.latestMetric?.temperature ?? null,
+        max: 120,
+        decimals: 1,
+        suffix: "°C",
+        startColor: "#f59b29",
+        endColor: "#d94824",
+        ariaLabel: "Latest CPU temperature gauge",
+      },
+    },
+  ];
 
   return (
     <AppShell>
@@ -382,339 +470,51 @@ export const NodeDetailView = ({ id }: { id: string }) => {
         </div>
       ) : null}
 
-      <StatStrip
-        className={cn(
-          "xl:grid-cols-5",
-          // On smaller screens, allow 2 columns to avoid being too cramped
-          "md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5",
-        )}
-        items={[
-          {
-            label: "Latest CPU",
-            value: node.latestMetric ? `${node.latestMetric.cpu}%` : "N/A",
-            description: (
-              <div className="space-y-2">
-                <p>Most recent reported CPU usage.</p>
-                <MetricGauge
-                  value={node.latestMetric?.cpu ?? null}
-                  max={100}
-                  startColor="#2b8cff"
-                  endColor="#0f4fbf"
-                  ariaLabel="Latest CPU usage gauge"
-                />
-              </div>
-            ),
-            tone: "brand",
-          },
-          {
-            label: "Latest memory",
-            value: node.latestMetric ? `${node.latestMetric.memory}%` : "N/A",
-            description: (
-              <div className="space-y-2">
-                <p>Most recent reported memory usage.</p>
-                <MetricGauge
-                  value={node.latestMetric?.memory ?? null}
-                  max={100}
-                  startColor="#2ea97a"
-                  endColor="#0f7a53"
-                  ariaLabel="Latest memory usage gauge"
-                />
-              </div>
-            ),
-            tone: "success",
-          },
-          {
-            label: "Latest disk",
-            value: node.latestMetric ? `${node.latestMetric.disk}%` : "N/A",
-            description: (
-              <div className="space-y-2">
-                <p>Most recent reported disk usage.</p>
-                <MetricGauge
-                  value={node.latestMetric?.disk ?? null}
-                  max={100}
-                  startColor="#f2a71b"
-                  endColor="#c86b11"
-                  ariaLabel="Latest disk usage gauge"
-                />
-              </div>
-            ),
-            tone: "warning",
-          },
-          {
-            label: "Latest temperature",
-            value:
-              node.latestMetric?.temperature !== null &&
-              node.latestMetric?.temperature !== undefined
-                ? `${node.latestMetric.temperature.toFixed(1)}°C`
-                : "N/A",
-            description: (
-              <div className="space-y-2">
-                <p>Most recent reported CPU temperature.</p>
-                <MetricGauge
-                  value={node.latestMetric?.temperature ?? null}
-                  max={120}
-                  decimals={1}
-                  suffix="°C"
-                  startColor="#f59b29"
-                  endColor="#d94824"
-                  ariaLabel="Latest CPU temperature gauge"
-                />
-              </div>
-            ),
-            tone: "brand",
-          },
-          {
-            label: "Network summary",
-            value: formatNetworkSummary(node.networkStats),
-            description: "RX bytes / TX bytes from the latest metric sample.",
-            tone: "neutral",
-          },
-        ]}
-      />
-
-      <SectionPanel
-        eyebrow="Operations"
-        title="Ownership and availability"
-        description="Assign the node to a team and control whether it can receive new work."
-        contentClassName="space-y-4"
-      >
-        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-          <div className="space-y-4">
-            <div className="space-y-3 rounded-[20px] border p-4">
-              <div className="space-y-1">
-                <p className="font-medium">Team ownership</p>
-                <p className="text-sm text-muted-foreground">
-                  Team-targeted tasks and schedules resolve against nodes
-                  assigned to that team.
-                </p>
-              </div>
-              <Select
-                value={selectedTeamId}
-                onValueChange={(value) =>
-                  updateOperationDraft({
-                    selectedTeamId: value ?? "none",
-                  })
-                }
-                disabled={!isAdmin}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select a team">
-                    {selectedTeamId === "none" ? "No team" : selectedTeam?.name}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">No team</SelectItem>
-                  {(teamsQuery.data ?? []).map((team) => (
-                    <SelectItem key={team.id} value={team.id}>
-                      {team.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Button
-                type="button"
-                className="action-btn"
-                disabled={
-                  !isAdmin ||
-                  updateNodeTeam.isPending ||
-                  selectedTeamId === (node.teamId ?? "none")
-                }
-                onClick={() =>
-                  updateNodeTeam.mutate({
-                    nodeId: node.id,
-                    payload: {
-                      teamId:
-                        selectedTeamId === "none" ? undefined : selectedTeamId,
-                    },
-                  })
-                }
-              >
-                {updateNodeTeam.isPending ? "Saving..." : "Save team ownership"}
-              </Button>
-            </div>
-
-            <div className="space-y-3 rounded-[20px] border p-4">
-              <div className="space-y-1">
-                <p className="font-medium">Maintenance mode</p>
-                <p className="text-sm text-muted-foreground">
-                  Maintenance blocks new tasks, team broadcasts, scheduled runs,
-                  and claim flow for this node.
-                </p>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="node-maintenance-reason">Reason</Label>
-                <Input
-                  id="node-maintenance-reason"
-                  value={maintenanceReason}
-                  disabled={!isAdmin}
-                  onChange={(event) =>
-                    updateOperationDraft({
-                      maintenanceReason: event.target.value,
-                    })
-                  }
-                  placeholder="Kernel upgrade, package maintenance, host reboot..."
-                />
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {node.maintenanceMode ? (
-                  <Button
-                    type="button"
-                    className="action-btn"
-                    disabled={!isAdmin || disableMaintenance.isPending}
-                    onClick={() => disableMaintenance.mutate(node.id)}
-                  >
-                    {disableMaintenance.isPending
-                      ? "Clearing..."
-                      : "Clear maintenance"}
-                  </Button>
-                ) : (
-                  <Button
-                    type="button"
-                    className="action-btn"
-                    disabled={!isAdmin || enableMaintenance.isPending}
-                    onClick={() =>
-                      enableMaintenance.mutate({
-                        nodeId: node.id,
-                        payload: {
-                          reason: maintenanceReason.trim() || undefined,
-                        },
-                      })
-                    }
-                  >
-                    {enableMaintenance.isPending
-                      ? "Applying..."
-                      : "Enter maintenance"}
-                  </Button>
-                )}
-              </div>
-            </div>
-          </div>
-          <div className="rounded-[20px] border p-4">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-              <div className="space-y-1">
-                <div className="flex items-center gap-2">
-                  <div className="surface-subtle flex size-10 items-center justify-center rounded-2xl border">
-                    <Shield className="size-4" />
-                  </div>
-                  <div>
-                    <p className="font-medium">Root access profile</p>
-                    <p className="text-sm text-muted-foreground">
-                      Choose which privileged panel surfaces this node should
-                      allow without interactive sudo prompts.
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <ShimmerButton
-                type="button"
-                className="action-btn border-tone-danger/30 text-tone-danger shadow-none"
-                background="color-mix(in oklch, var(--destructive) 12%, var(--card))"
-                shimmerColor="var(--destructive)"
-                disabled={!isAdmin || updateNodeRootAccess.isPending}
-                onClick={() => {
-                  setPendingRootAccessProfile(node.rootAccessProfile);
-                  setRootAccessDialogOpen(true);
-                }}
-              >
-                {updateNodeRootAccess.isPending
-                  ? "Saving..."
-                  : "Manage root access"}
-              </ShimmerButton>
-            </div>
-
-            <div className="mt-4 flex flex-wrap gap-2">
-              <Badge variant="outline">
-                Desired: {formatRootAccessProfile(node.rootAccessProfile)}
-              </Badge>
-              <Badge variant="outline">
-                Applied:{" "}
-                {formatRootAccessProfile(node.rootAccessAppliedProfile)}
-              </Badge>
-              <Badge variant={rootAccessSyncTone(node.rootAccessSyncStatus)}>
-                {formatRootAccessSyncStatus(node.rootAccessSyncStatus)}
-              </Badge>
-            </div>
-
-            <div className="mt-4 grid gap-4 lg:grid-cols-3">
-              <div className="rounded-[18px] border bg-muted/15 px-4 py-3">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-                  Desired capabilities
-                </p>
-                <p className="mt-2 text-sm text-foreground">
-                  {readRootAccessStatusDescription(node.rootAccessProfile)}
-                </p>
-              </div>
-              <div className="rounded-[18px] border bg-muted/15 px-4 py-3">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-                  Last change
-                </p>
-                <p className="mt-2 text-sm font-medium">
-                  <TimeDisplay
-                    value={node.rootAccessUpdatedAt ?? null}
-                    mode="relative"
-                    emptyLabel="Not changed yet"
-                  />
-                </p>
-              </div>
-              <div className="rounded-[18px] border bg-muted/15 px-4 py-3">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-                  Last applied
-                </p>
-                <p className="mt-2 text-sm font-medium">
-                  <TimeDisplay
-                    value={node.rootAccessLastAppliedAt ?? null}
-                    mode="relative"
-                    emptyLabel="Waiting for first sync"
-                  />
-                </p>
-              </div>
-            </div>
-
-            {node.rootAccessLastError ? (
-              <div className="mt-4 flex items-start gap-3 rounded-[18px] border border-tone-danger/30 bg-tone-danger/8 px-4 py-3 text-sm">
-                <AlertTriangle className="mt-0.5 size-4 shrink-0 text-tone-danger" />
-                <div className="space-y-1">
-                  <p className="font-medium text-foreground">Last sync error</p>
-                  <p className="text-muted-foreground">
-                    {node.rootAccessLastError}
-                  </p>
-                </div>
-              </div>
-            ) : null}
-          </div>
-        </div>
-        <div className="grid gap-4 lg:grid-cols-3">
-          <div className="rounded-[18px] border bg-muted/15 px-4 py-3">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-              Agent version
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        {telemetryCards.map((metric) => (
+          <div
+            key={metric.key}
+            className={cn(
+              "relative overflow-hidden rounded-2xl border px-4 py-3",
+              gaugeCardAccentClasses[metric.key],
+            )}
+          >
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+              {metric.label}
             </p>
-            <p className="mt-2 font-medium">{node.agentVersion ?? "Unknown"}</p>
-          </div>
-          <div className="rounded-[18px] border bg-muted/15 px-4 py-3">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-              Platform version
+            <p className="mt-1 text-2xl font-semibold tracking-tight text-foreground">
+              {metric.value}
             </p>
-            <p className="mt-2 font-medium">
-              {node.platformVersion ?? "Unknown"}
+            <div className="mt-2">
+              <MetricGauge {...metric.gauge} />
+            </div>
+            <p className="mt-1 text-center text-xs leading-5 text-muted-foreground">
+              {metric.description}
             </p>
           </div>
-          <div className="rounded-[18px] border bg-muted/15 px-4 py-3">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-              Kernel version
-            </p>
-            <p className="mt-2 font-medium">
-              {node.kernelVersion ?? "Unknown"}
-            </p>
-          </div>
-        </div>
-      </SectionPanel>
+        ))}
+      </div>
 
-      <Tabs defaultValue="metrics" className="space-y-4">
+      <div className="surface-subtle flex flex-col gap-2 rounded-2xl border px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+          Network summary
+        </p>
+        <p className="text-sm font-medium text-foreground">
+          {formatNetworkSummary(node.networkStats)}
+        </p>
+      </div>
+
+      <Tabs defaultValue="operations" className="space-y-4">
         <TabsList
           variant="line"
           className="w-full gap-1 overflow-x-auto rounded-xl bg-muted/70 p-1 sm:w-fit"
         >
+          <TabsTrigger
+            value="operations"
+            className="rounded-lg px-3 py-1.5 text-xs"
+          >
+            Operations
+          </TabsTrigger>
           <TabsTrigger
             value="metrics"
             className="rounded-lg px-3 py-1.5 text-xs"
@@ -737,6 +537,257 @@ export const NodeDetailView = ({ id }: { id: string }) => {
             Event history
           </TabsTrigger>
         </TabsList>
+        <TabsContent value="operations" className="mt-0">
+          <SectionPanel
+            eyebrow="Operations"
+            title="Ownership and availability"
+            description="Assign the node to a team and control whether it can receive new work."
+            contentClassName="space-y-4"
+          >
+            <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+              <div className="space-y-4">
+                <div className="space-y-3 rounded-[20px] border p-4">
+                  <div className="space-y-1">
+                    <p className="font-medium">Team ownership</p>
+                    <p className="text-sm text-muted-foreground">
+                      Team-targeted tasks and schedules resolve against nodes
+                      assigned to that team.
+                    </p>
+                  </div>
+                  <Select
+                    value={selectedTeamId}
+                    onValueChange={(value) =>
+                      updateOperationDraft({
+                        selectedTeamId: value ?? "none",
+                      })
+                    }
+                    disabled={!isAdmin}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Select a team">
+                        {selectedTeamId === "none"
+                          ? "No team"
+                          : selectedTeam?.name}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">No team</SelectItem>
+                      {(teamsQuery.data ?? []).map((team) => (
+                        <SelectItem key={team.id} value={team.id}>
+                          {team.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    type="button"
+                    className="action-btn"
+                    disabled={
+                      !isAdmin ||
+                      updateNodeTeam.isPending ||
+                      selectedTeamId === (node.teamId ?? "none")
+                    }
+                    onClick={() =>
+                      updateNodeTeam.mutate({
+                        nodeId: node.id,
+                        payload: {
+                          teamId:
+                            selectedTeamId === "none"
+                              ? undefined
+                              : selectedTeamId,
+                        },
+                      })
+                    }
+                  >
+                    {updateNodeTeam.isPending
+                      ? "Saving..."
+                      : "Save team ownership"}
+                  </Button>
+                </div>
+
+                <div className="space-y-3 rounded-[20px] border p-4">
+                  <div className="space-y-1">
+                    <p className="font-medium">Maintenance mode</p>
+                    <p className="text-sm text-muted-foreground">
+                      Maintenance blocks new tasks, team broadcasts, scheduled
+                      runs, and claim flow for this node.
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="node-maintenance-reason">Reason</Label>
+                    <Input
+                      id="node-maintenance-reason"
+                      value={maintenanceReason}
+                      disabled={!isAdmin}
+                      onChange={(event) =>
+                        updateOperationDraft({
+                          maintenanceReason: event.target.value,
+                        })
+                      }
+                      placeholder="Kernel upgrade, package maintenance, host reboot..."
+                    />
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {node.maintenanceMode ? (
+                      <Button
+                        type="button"
+                        className="action-btn"
+                        disabled={!isAdmin || disableMaintenance.isPending}
+                        onClick={() => disableMaintenance.mutate(node.id)}
+                      >
+                        {disableMaintenance.isPending
+                          ? "Clearing..."
+                          : "Clear maintenance"}
+                      </Button>
+                    ) : (
+                      <Button
+                        type="button"
+                        className="action-btn"
+                        disabled={!isAdmin || enableMaintenance.isPending}
+                        onClick={() =>
+                          enableMaintenance.mutate({
+                            nodeId: node.id,
+                            payload: {
+                              reason: maintenanceReason.trim() || undefined,
+                            },
+                          })
+                        }
+                      >
+                        {enableMaintenance.isPending
+                          ? "Applying..."
+                          : "Enter maintenance"}
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </div>
+              <div className="rounded-[20px] border p-4">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <div className="surface-subtle flex size-10 items-center justify-center rounded-2xl border">
+                        <Shield className="size-4" />
+                      </div>
+                      <div>
+                        <p className="font-medium">Root access profile</p>
+                        <p className="text-sm text-muted-foreground">
+                          Choose which privileged panel surfaces this node
+                          should allow without interactive sudo prompts.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <ShimmerButton
+                    type="button"
+                    className="action-btn border-tone-danger/30 text-tone-danger shadow-none"
+                    background="color-mix(in oklch, var(--destructive) 12%, var(--card))"
+                    shimmerColor="var(--destructive)"
+                    disabled={!isAdmin || updateNodeRootAccess.isPending}
+                    onClick={() => {
+                      setPendingRootAccessProfile(node.rootAccessProfile);
+                      setRootAccessDialogOpen(true);
+                    }}
+                  >
+                    {updateNodeRootAccess.isPending
+                      ? "Saving..."
+                      : "Manage root access"}
+                  </ShimmerButton>
+                </div>
+
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <Badge variant="outline">
+                    Desired: {formatRootAccessProfile(node.rootAccessProfile)}
+                  </Badge>
+                  <Badge variant="outline">
+                    Applied:{" "}
+                    {formatRootAccessProfile(node.rootAccessAppliedProfile)}
+                  </Badge>
+                  <Badge
+                    variant={rootAccessSyncTone(node.rootAccessSyncStatus)}
+                  >
+                    {formatRootAccessSyncStatus(node.rootAccessSyncStatus)}
+                  </Badge>
+                </div>
+
+                <div className="mt-4 grid gap-4 lg:grid-cols-3">
+                  <div className="rounded-[18px] border bg-muted/15 px-4 py-3">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                      Desired capabilities
+                    </p>
+                    <p className="mt-2 text-sm text-foreground">
+                      {readRootAccessStatusDescription(node.rootAccessProfile)}
+                    </p>
+                  </div>
+                  <div className="rounded-[18px] border bg-muted/15 px-4 py-3">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                      Last change
+                    </p>
+                    <p className="mt-2 text-sm font-medium">
+                      <TimeDisplay
+                        value={node.rootAccessUpdatedAt ?? null}
+                        mode="relative"
+                        emptyLabel="Not changed yet"
+                      />
+                    </p>
+                  </div>
+                  <div className="rounded-[18px] border bg-muted/15 px-4 py-3">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                      Last applied
+                    </p>
+                    <p className="mt-2 text-sm font-medium">
+                      <TimeDisplay
+                        value={node.rootAccessLastAppliedAt ?? null}
+                        mode="relative"
+                        emptyLabel="Waiting for first sync"
+                      />
+                    </p>
+                  </div>
+                </div>
+
+                {node.rootAccessLastError ? (
+                  <div className="mt-4 flex items-start gap-3 rounded-[18px] border border-tone-danger/30 bg-tone-danger/8 px-4 py-3 text-sm">
+                    <AlertTriangle className="mt-0.5 size-4 shrink-0 text-tone-danger" />
+                    <div className="space-y-1">
+                      <p className="font-medium text-foreground">
+                        Last sync error
+                      </p>
+                      <p className="text-muted-foreground">
+                        {node.rootAccessLastError}
+                      </p>
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            </div>
+            <div className="grid gap-4 lg:grid-cols-3">
+              <div className="rounded-[18px] border bg-muted/15 px-4 py-3">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                  Agent version
+                </p>
+                <p className="mt-2 font-medium">
+                  {node.agentVersion ?? "Unknown"}
+                </p>
+              </div>
+              <div className="rounded-[18px] border bg-muted/15 px-4 py-3">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                  Platform version
+                </p>
+                <p className="mt-2 font-medium">
+                  {node.platformVersion ?? "Unknown"}
+                </p>
+              </div>
+              <div className="rounded-[18px] border bg-muted/15 px-4 py-3">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                  Kernel version
+                </p>
+                <p className="mt-2 font-medium">
+                  {node.kernelVersion ?? "Unknown"}
+                </p>
+              </div>
+            </div>
+          </SectionPanel>
+        </TabsContent>
         <TabsContent value="metrics" className="mt-0">
           <MetricsChart
             data={node.metrics}
