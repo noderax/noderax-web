@@ -194,10 +194,10 @@ const MetricGauge = ({
         minValue={0}
         maxValue={max}
         value={gaugeValue}
-        forceRender
         segments={7}
         ringWidth={18}
         needleHeightRatio={0.64}
+        needleTransitionDuration={280}
         startColor={startColor}
         endColor={endColor}
         needleColor="#f8fafc"
