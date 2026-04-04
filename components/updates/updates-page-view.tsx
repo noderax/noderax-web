@@ -1,11 +1,6 @@
 "use client";
 
-import {
-  type ReactNode,
-  useDeferredValue,
-  useMemo,
-  useState,
-} from "react";
+import { type ReactNode, useDeferredValue, useMemo, useState } from "react";
 import {
   Activity,
   AlertTriangle,
@@ -252,7 +247,9 @@ const UpdateStatCard = ({
         <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
           {label}
         </p>
-        <div className="mt-3 text-2xl font-semibold tracking-tight">{value}</div>
+        <div className="mt-3 text-2xl font-semibold tracking-tight">
+          {value}
+        </div>
       </div>
       <div
         className={cn(
@@ -263,7 +260,9 @@ const UpdateStatCard = ({
         {icon}
       </div>
     </div>
-    <p className="mt-3 text-sm leading-6 text-muted-foreground">{description}</p>
+    <p className="mt-3 text-sm leading-6 text-muted-foreground">
+      {description}
+    </p>
   </div>
 );
 
@@ -349,8 +348,7 @@ const TablePaginationBar = ({
             <span className="font-semibold text-foreground">
               {rangeStart}-{rangeEnd}
             </span>{" "}
-            of{" "}
-            <span className="font-semibold text-foreground">{total}</span>{" "}
+            of <span className="font-semibold text-foreground">{total}</span>{" "}
             {itemLabel}
           </>
         ) : (
@@ -432,13 +430,11 @@ export const UpdatesPageView = () => {
   >("all");
   const [archFilter, setArchFilter] = useState("all");
   const [versionFilter, setVersionFilter] = useState("all");
-  const [nodePageSize, setNodePageSize] = useState<
-    (typeof TABLE_PAGE_SIZE_OPTIONS)[number]
-  >(10);
+  const [nodePageSize, setNodePageSize] =
+    useState<(typeof TABLE_PAGE_SIZE_OPTIONS)[number]>(10);
   const [nodePageIndex, setNodePageIndex] = useState(0);
-  const [historyPageSize, setHistoryPageSize] = useState<
-    (typeof TABLE_PAGE_SIZE_OPTIONS)[number]
-  >(10);
+  const [historyPageSize, setHistoryPageSize] =
+    useState<(typeof TABLE_PAGE_SIZE_OPTIONS)[number]>(10);
   const [historyPageIndex, setHistoryPageIndex] = useState(0);
   const deferredSearch = useDeferredValue(search);
 
@@ -682,7 +678,10 @@ export const UpdatesPageView = () => {
     1,
     Math.ceil(recentRollouts.length / historyPageSize),
   );
-  const currentHistoryPageIndex = Math.min(historyPageIndex, historyPageCount - 1);
+  const currentHistoryPageIndex = Math.min(
+    historyPageIndex,
+    historyPageCount - 1,
+  );
   const historyPageStart = currentHistoryPageIndex * historyPageSize;
   const paginatedRollouts = recentRollouts.slice(
     historyPageStart,
@@ -787,22 +786,23 @@ export const UpdatesPageView = () => {
             ))}
             {effectiveSelectedNodeIds.length > selectedNodesPreview.length ? (
               <Badge variant="outline" className="rounded-full px-3 py-1">
-                +{effectiveSelectedNodeIds.length - selectedNodesPreview.length} more
+                +{effectiveSelectedNodeIds.length - selectedNodesPreview.length}{" "}
+                more
               </Badge>
             ) : null}
           </div>
         ) : (
           <p className="mt-3 text-sm text-muted-foreground">
-            Select one or more eligible nodes from the fleet board to stage
-            the next rollout.
+            Select one or more eligible nodes from the fleet board to stage the
+            next rollout.
           </p>
         )}
       </div>
 
       {activeRollout ? (
         <p className="mt-4 text-sm text-muted-foreground">
-          A rollout is already active. Finish, skip, retry, or cancel it
-          before starting another one.
+          A rollout is already active. Finish, skip, retry, or cancel it before
+          starting another one.
         </p>
       ) : null}
     </SectionPanel>
@@ -858,13 +858,15 @@ export const UpdatesPageView = () => {
       {!activeRollout ? (
         <div className="mt-4 grid gap-3 md:grid-cols-2">
           <div className="rounded-[20px] border border-border/70 bg-background/85 p-4">
-            <p className="text-xs text-muted-foreground">Current latest target</p>
+            <p className="text-xs text-muted-foreground">
+              Current latest target
+            </p>
             <p className="mt-1 font-semibold">
               {latestRelease?.version ?? "Waiting for release metadata"}
             </p>
             <p className="mt-2 text-sm text-muted-foreground">
-              When a rollout starts, the active queue and node progress will land
-              here without moving you away from the target summary.
+              When a rollout starts, the active queue and node progress will
+              land here without moving you away from the target summary.
             </p>
           </div>
           <div className="rounded-[20px] border border-border/70 bg-background/85 p-4">
@@ -899,10 +901,12 @@ export const UpdatesPageView = () => {
             <div className="rounded-[20px] border border-border/70 bg-background/85 p-4">
               <p className="text-xs text-muted-foreground">Queue mix</p>
               <p className="mt-1 font-semibold">
-                {activeRollout.counts.completed}/{activeRollout.counts.total} complete
+                {activeRollout.counts.completed}/{activeRollout.counts.total}{" "}
+                complete
               </p>
               <p className="mt-2 text-sm text-muted-foreground">
-                {activeRollout.counts.active} active, {activeRollout.counts.pending} pending,{" "}
+                {activeRollout.counts.active} active,{" "}
+                {activeRollout.counts.pending} pending,{" "}
                 {activeRollout.counts.failed} failed
               </p>
             </div>
@@ -910,8 +914,8 @@ export const UpdatesPageView = () => {
               <p className="text-xs text-muted-foreground">Targets</p>
               <p className="mt-1 font-semibold">{activeRollout.counts.total}</p>
               <p className="mt-2 text-sm text-muted-foreground">
-                {activeRollout.rollback ? "Rollback" : "Update"} queue is live and
-                streaming into the board below.
+                {activeRollout.rollback ? "Rollback" : "Update"} queue is live
+                and streaming into the board below.
               </p>
             </div>
           </div>
@@ -1094,13 +1098,15 @@ export const UpdatesPageView = () => {
                   >
                     Stage, watch, and confirm
                   </AnimatedGradientText>
-                  <span className="block">every agent version change in one place.</span>
+                  <span className="block">
+                    every agent version change in one place.
+                  </span>
                 </h2>
                 <p className="mt-3 max-w-2xl text-sm leading-7 text-muted-foreground">
-                  The board below is tuned for live operations: version shifts land
-                  in-place, rollout pressure stays visible, and selection controls
-                  remain docked on the right so you can act without losing the fleet
-                  table.
+                  The board below is tuned for live operations: version shifts
+                  land in-place, rollout pressure stays visible, and selection
+                  controls remain docked on the right so you can act without
+                  losing the fleet table.
                 </p>
               </div>
 
@@ -1205,7 +1211,9 @@ export const UpdatesPageView = () => {
                       </p>
                     </div>
                     <div className="rounded-[20px] border border-border/70 bg-background/85 p-4">
-                      <p className="text-xs text-muted-foreground">Visible ready</p>
+                      <p className="text-xs text-muted-foreground">
+                        Visible ready
+                      </p>
                       <p className="mt-1 text-lg font-semibold">
                         {selectableFilteredNodes.length}
                       </p>
@@ -1214,7 +1222,9 @@ export const UpdatesPageView = () => {
                       </p>
                     </div>
                     <div className="rounded-[20px] border border-border/70 bg-background/85 p-4">
-                      <p className="text-xs text-muted-foreground">Live board</p>
+                      <p className="text-xs text-muted-foreground">
+                        Live board
+                      </p>
                       <p className="mt-1 text-lg font-semibold">
                         {visibleTransitionCount}
                       </p>
@@ -1231,7 +1241,9 @@ export const UpdatesPageView = () => {
                   </p>
                   <div className="mt-4 space-y-4">
                     <div className="rounded-[20px] border border-border/70 bg-background/85 p-4">
-                      <p className="text-xs text-muted-foreground">Catalog sync</p>
+                      <p className="text-xs text-muted-foreground">
+                        Catalog sync
+                      </p>
                       <p className="mt-1 font-medium">
                         {summaryQuery.data?.releaseCheckedAt ? (
                           <TimeDisplay
@@ -1244,9 +1256,12 @@ export const UpdatesPageView = () => {
                       </p>
                     </div>
                     <div className="rounded-[20px] border border-border/70 bg-background/85 p-4">
-                      <p className="text-xs text-muted-foreground">Current live node</p>
+                      <p className="text-xs text-muted-foreground">
+                        Current live node
+                      </p>
                       <p className="mt-1 font-medium">
-                        {currentRolloutTarget?.nodeNameSnapshot ?? "No active target"}
+                        {currentRolloutTarget?.nodeNameSnapshot ??
+                          "No active target"}
                       </p>
                       <p className="mt-2 text-sm text-muted-foreground">
                         {currentRolloutTarget?.statusMessage ??
@@ -1263,7 +1278,9 @@ export const UpdatesPageView = () => {
             <div className="space-y-4">
               <SectionPanel
                 eyebrow="Live pulse"
-                title={activeRollout ? activeRollout.targetVersion : "Rollout watch"}
+                title={
+                  activeRollout ? activeRollout.targetVersion : "Rollout watch"
+                }
                 description="Realtime status, queue pressure, and the node currently carrying update work."
               >
                 {activeRollout ? (
@@ -1278,7 +1295,10 @@ export const UpdatesPageView = () => {
                       >
                         {activeRollout.status}
                       </Badge>
-                      <Badge variant="outline" className="rounded-full px-3 py-1">
+                      <Badge
+                        variant="outline"
+                        className="rounded-full px-3 py-1"
+                      >
                         {activeRollout.counts.total} targets
                       </Badge>
                     </div>
@@ -1290,7 +1310,9 @@ export const UpdatesPageView = () => {
                     </Progress>
                     <div className="grid gap-3 sm:grid-cols-2">
                       <div className="rounded-[20px] border border-border/70 bg-background/85 p-4">
-                        <p className="text-xs text-muted-foreground">Current node</p>
+                        <p className="text-xs text-muted-foreground">
+                          Current node
+                        </p>
                         <p className="mt-1 font-semibold">
                           {currentRolloutTarget?.nodeNameSnapshot ?? "Queued"}
                         </p>
@@ -1300,9 +1322,12 @@ export const UpdatesPageView = () => {
                         </p>
                       </div>
                       <div className="rounded-[20px] border border-border/70 bg-background/85 p-4">
-                        <p className="text-xs text-muted-foreground">Queue mix</p>
+                        <p className="text-xs text-muted-foreground">
+                          Queue mix
+                        </p>
                         <p className="mt-1 font-semibold">
-                          {activeRollout.counts.completed}/{activeRollout.counts.total} complete
+                          {activeRollout.counts.completed}/
+                          {activeRollout.counts.total} complete
                         </p>
                         <p className="mt-2 text-sm text-muted-foreground">
                           {activeRollout.counts.active} active,{" "}
@@ -1318,18 +1343,21 @@ export const UpdatesPageView = () => {
                 ) : (
                   <div className="space-y-4">
                     <p className="text-sm text-muted-foreground">
-                      No rollout is active right now. Build a selection on the left,
-                      choose the target release on the right, and start the next update
-                      or rollback from the command deck.
+                      No rollout is active right now. Build a selection on the
+                      left, choose the target release on the right, and start
+                      the next update or rollback from the command deck.
                     </p>
                     <div className="rounded-[20px] border border-border/70 bg-background/85 p-4">
-                      <p className="text-xs text-muted-foreground">Current latest target</p>
+                      <p className="text-xs text-muted-foreground">
+                        Current latest target
+                      </p>
                       <p className="mt-1 font-semibold">
-                        {latestRelease?.version ?? "Waiting for release metadata"}
+                        {latestRelease?.version ??
+                          "Waiting for release metadata"}
                       </p>
                       <p className="mt-2 text-sm text-muted-foreground">
-                        Only official tagged releases appear here. Preview or main
-                        channel binaries stay out of the operator flow.
+                        Only official tagged releases appear here. Preview or
+                        main channel binaries stay out of the operator flow.
                       </p>
                     </div>
                   </div>
@@ -1429,7 +1457,9 @@ export const UpdatesPageView = () => {
                     <SelectContent>
                       <SelectItem value="all">All availability</SelectItem>
                       <SelectItem value="active">Accepting work</SelectItem>
-                      <SelectItem value="maintenance">Maintenance only</SelectItem>
+                      <SelectItem value="maintenance">
+                        Maintenance only
+                      </SelectItem>
                     </SelectContent>
                   </Select>
                   <Select
@@ -1518,11 +1548,15 @@ export const UpdatesPageView = () => {
                     </TableHeader>
                     <TableBody>
                       {paginatedNodes.map((node) => {
-                        const eligibility = eligibilityByNodeId.get(node.id) ?? {
+                        const eligibility = eligibilityByNodeId.get(
+                          node.id,
+                        ) ?? {
                           selectable: false,
                           reason: "Unknown state.",
                         };
-                        const selected = effectiveSelectedNodeIds.includes(node.id);
+                        const selected = effectiveSelectedNodeIds.includes(
+                          node.id,
+                        );
                         const rolloutTarget = activeTargetByNodeId.get(node.id);
 
                         return (
@@ -1539,7 +1573,8 @@ export const UpdatesPageView = () => {
                                         getTargetTone(rolloutTarget.status),
                                       )}
                                     >
-                                      {rolloutTarget.status} {rolloutTarget.progressPercent}%
+                                      {rolloutTarget.status}{" "}
+                                      {rolloutTarget.progressPercent}%
                                     </Badge>
                                   ) : null}
                                 </div>
@@ -1550,7 +1585,8 @@ export const UpdatesPageView = () => {
                             </TableCell>
                             <TableCell className="align-top text-sm text-muted-foreground">
                               <p>
-                                {workspaceNameById.get(node.workspaceId) ?? node.workspaceId}
+                                {workspaceNameById.get(node.workspaceId) ??
+                                  node.workspaceId}
                               </p>
                               <p className="mt-1 text-xs">
                                 {node.teamName ?? "Unassigned"}
@@ -1563,7 +1599,8 @@ export const UpdatesPageView = () => {
                                     {node.agentVersion ?? "Unknown"}
                                   </Badge>
                                   {selectedTargetVersion &&
-                                  node.agentVersion !== selectedTargetVersion ? (
+                                  node.agentVersion !==
+                                    selectedTargetVersion ? (
                                     <Badge
                                       variant="outline"
                                       className="rounded-full px-3 py-1"
@@ -1601,7 +1638,10 @@ export const UpdatesPageView = () => {
                                 {node.lastSeenAt ? (
                                   <>
                                     Seen{" "}
-                                    <TimeDisplay value={node.lastSeenAt} mode="datetime" />
+                                    <TimeDisplay
+                                      value={node.lastSeenAt}
+                                      mode="datetime"
+                                    />
                                   </>
                                 ) : (
                                   "No heartbeat yet"
@@ -1643,12 +1683,15 @@ export const UpdatesPageView = () => {
                                 size="sm"
                                 variant={selected ? "default" : "outline"}
                                 disabled={
-                                  !eligibility.selectable || Boolean(activeRollout)
+                                  !eligibility.selectable ||
+                                  Boolean(activeRollout)
                                 }
                                 onClick={() =>
                                   setSelectedNodeIds((current) =>
                                     current.includes(node.id)
-                                      ? current.filter((value) => value !== node.id)
+                                      ? current.filter(
+                                          (value) => value !== node.id,
+                                        )
                                       : [...current, node.id],
                                   )
                                 }
@@ -1714,7 +1757,9 @@ export const UpdatesPageView = () => {
                   <div className="space-y-3">
                     <div className="grid gap-3 md:grid-cols-3">
                       <div className="rounded-[20px] border border-border/70 bg-background/82 p-4">
-                        <p className="text-xs text-muted-foreground">Published</p>
+                        <p className="text-xs text-muted-foreground">
+                          Published
+                        </p>
                         <p className="mt-2 text-sm font-medium">
                           <TimeDisplay
                             value={selectedRelease.publishedAt}
@@ -1807,7 +1852,8 @@ export const UpdatesPageView = () => {
                                   <Badge className="rounded-full">
                                     {release.version}
                                   </Badge>
-                                  {release.version === latestRelease?.version ? (
+                                  {release.version ===
+                                  latestRelease?.version ? (
                                     <Badge
                                       variant="outline"
                                       className="rounded-full px-3 py-1 tone-success"
@@ -1880,7 +1926,10 @@ export const UpdatesPageView = () => {
                       {paginatedRollouts.map((rollout) => (
                         <TableRow key={rollout.id}>
                           <TableCell className="text-muted-foreground">
-                            <TimeDisplay value={rollout.createdAt} mode="datetime" />
+                            <TimeDisplay
+                              value={rollout.createdAt}
+                              mode="datetime"
+                            />
                           </TableCell>
                           <TableCell className="font-medium">
                             {rollout.targetVersion}
@@ -1900,8 +1949,9 @@ export const UpdatesPageView = () => {
                             {rollout.rollback ? "Rollback" : "Update"}
                           </TableCell>
                           <TableCell className="text-sm text-muted-foreground">
-                            {rollout.counts.completed}/{rollout.counts.total} complete,{" "}
-                            {rollout.counts.failed} failed, {rollout.counts.skipped} skipped
+                            {rollout.counts.completed}/{rollout.counts.total}{" "}
+                            complete, {rollout.counts.failed} failed,{" "}
+                            {rollout.counts.skipped} skipped
                           </TableCell>
                           <TableCell className="text-sm text-muted-foreground">
                             {rollout.requestedByEmailSnapshot ?? "System"}
@@ -1938,7 +1988,6 @@ export const UpdatesPageView = () => {
               ) : null}
             </SectionPanel>
           </div>
-
         </div>
       </div>
     </AppShell>
