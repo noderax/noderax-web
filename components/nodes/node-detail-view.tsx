@@ -43,6 +43,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   useDisableNodeMaintenance,
@@ -57,8 +58,11 @@ import { useWorkspaceContext } from "@/lib/hooks/use-workspace-context";
 import {
   formatRootAccessProfile,
   formatRootAccessSyncStatus,
+  profileToSurfaceSelection,
   ROOT_ACCESS_PROFILE_CAPABILITIES,
-  ROOT_ACCESS_PROFILE_OPTIONS,
+  surfaceSelectionToProfile,
+  type RootAccessSurface,
+  type RootAccessSurfaceSelection,
 } from "@/lib/root-access";
 import type { RootAccessProfile } from "@/lib/types";
 import { TimeDisplay } from "@/components/ui/time-display";
@@ -149,6 +153,30 @@ const readRootAccessStatusDescription = (profile: RootAccessProfile) => {
   return capabilities[0] ?? "No capabilities available for this profile.";
 };
 
+const ROOT_ACCESS_SURFACE_OPTIONS: Array<{
+  key: RootAccessSurface;
+  label: string;
+  description: string;
+}> = [
+  {
+    key: "operational",
+    label: "Operational root",
+    description:
+      "Allows package install/remove/purge and operational node actions such as apt-get update, restart agent, and reboot.",
+  },
+  {
+    key: "task",
+    label: "Task root",
+    description:
+      "Allows shell.exec tasks and shell-based scheduled tasks to run as root.",
+  },
+  {
+    key: "terminal",
+    label: "Terminal root",
+    description: "Allows interactive terminal sessions to start as root.",
+  },
+];
+
 const clampMetric = (value: number | null, max: number) => {
   if (value === null || !Number.isFinite(value)) {
     return 0;
@@ -231,8 +259,14 @@ export const NodeDetailView = ({ id }: { id: string }) => {
     maintenanceReason: "",
   });
   const [rootAccessDialogOpen, setRootAccessDialogOpen] = useState(false);
-  const [pendingRootAccessProfile, setPendingRootAccessProfile] =
-    useState<RootAccessProfile>("off");
+  const [
+    pendingRootAccessSurfaceSelection,
+    setPendingRootAccessSurfaceSelection,
+  ] = useState<RootAccessSurfaceSelection>({
+    operational: false,
+    task: false,
+    terminal: false,
+  });
 
   useNodeRealtimeSubscription(id);
 
@@ -295,6 +329,9 @@ export const NodeDetailView = ({ id }: { id: string }) => {
       maintenanceReason: nextPatch.maintenanceReason ?? maintenanceReason,
     });
   };
+  const pendingRootAccessProfile = surfaceSelectionToProfile(
+    pendingRootAccessSurfaceSelection,
+  );
   const rootAccessCapabilities =
     ROOT_ACCESS_PROFILE_CAPABILITIES[pendingRootAccessProfile] ?? [];
   const telemetryCards: Array<{
@@ -685,7 +722,9 @@ export const NodeDetailView = ({ id }: { id: string }) => {
                     shimmerColor="var(--destructive)"
                     disabled={!isAdmin || updateNodeRootAccess.isPending}
                     onClick={() => {
-                      setPendingRootAccessProfile(node.rootAccessProfile);
+                      setPendingRootAccessSurfaceSelection(
+                        profileToSurfaceSelection(node.rootAccessProfile),
+                      );
                       setRootAccessDialogOpen(true);
                     }}
                   >
@@ -877,40 +916,55 @@ export const NodeDetailView = ({ id }: { id: string }) => {
         onOpenChange={(open) => {
           setRootAccessDialogOpen(open);
           if (open) {
-            setPendingRootAccessProfile(node.rootAccessProfile);
+            setPendingRootAccessSurfaceSelection(
+              profileToSurfaceSelection(node.rootAccessProfile),
+            );
           }
         }}
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Update root access profile</DialogTitle>
+            <DialogTitle>Update root access settings</DialogTitle>
             <DialogDescription>
-              Root access profiles allow panel-managed operations to run without
-              typing sudo on the node. Choose the smallest profile that fits
-              this node.
+              Enable only the root surfaces this node needs. Settings are mapped
+              to a root profile and reconciled by the agent on next control
+              sync.
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="node-root-access-profile">Profile</Label>
-              <Select
-                value={pendingRootAccessProfile}
-                onValueChange={(value) =>
-                  setPendingRootAccessProfile(value as RootAccessProfile)
-                }
-              >
-                <SelectTrigger id="node-root-access-profile" className="w-full">
-                  <SelectValue placeholder="Select a root profile" />
-                </SelectTrigger>
-                <SelectContent>
-                  {ROOT_ACCESS_PROFILE_OPTIONS.map((profile) => (
-                    <SelectItem key={profile} value={profile}>
-                      {formatRootAccessProfile(profile)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <div className="space-y-3">
+              {ROOT_ACCESS_SURFACE_OPTIONS.map((surfaceOption) => {
+                const id = `node-root-access-${surfaceOption.key}`;
+                const checked =
+                  pendingRootAccessSurfaceSelection[surfaceOption.key];
+
+                return (
+                  <div
+                    key={surfaceOption.key}
+                    className="flex items-start justify-between gap-3 rounded-[16px] border px-4 py-3"
+                  >
+                    <div className="space-y-1">
+                      <Label htmlFor={id} className="font-medium">
+                        {surfaceOption.label}
+                      </Label>
+                      <p className="text-sm text-muted-foreground">
+                        {surfaceOption.description}
+                      </p>
+                    </div>
+                    <Switch
+                      id={id}
+                      checked={checked}
+                      onCheckedChange={(nextChecked) =>
+                        setPendingRootAccessSurfaceSelection((previous) => ({
+                          ...previous,
+                          [surfaceOption.key]: nextChecked,
+                        }))
+                      }
+                    />
+                  </div>
+                );
+              })}
             </div>
 
             <div className="rounded-[18px] border border-tone-warning/30 bg-tone-warning/10 px-4 py-3 text-sm">
@@ -924,7 +978,10 @@ export const NodeDetailView = ({ id }: { id: string }) => {
 
             <div className="rounded-[18px] border px-4 py-3">
               <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-                Profile capabilities
+                Effective profile
+              </p>
+              <p className="mt-2 text-sm font-medium text-foreground">
+                {formatRootAccessProfile(pendingRootAccessProfile)}
               </p>
               <div className="mt-3 space-y-2 text-sm text-muted-foreground">
                 {rootAccessCapabilities.map((capability) => (
@@ -960,7 +1017,9 @@ export const NodeDetailView = ({ id }: { id: string }) => {
                 }
               }}
             >
-              {updateNodeRootAccess.isPending ? "Applying..." : "Apply profile"}
+              {updateNodeRootAccess.isPending
+                ? "Applying..."
+                : "Apply settings"}
             </Button>
           </DialogFooter>
         </DialogContent>

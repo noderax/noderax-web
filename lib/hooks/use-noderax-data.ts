@@ -5,7 +5,11 @@ import { toast } from "sonner";
 
 import { ApiError, apiClient } from "@/lib/api";
 import { sessionQueryKey } from "@/lib/hooks/use-auth-session";
-import { useWorkspaceContext, workspacesQueryKey } from "@/lib/hooks/use-workspace-context";
+import {
+  useWorkspaceContext,
+  workspacesQueryKey,
+} from "@/lib/hooks/use-workspace-context";
+import { formatRootAccessProfile } from "@/lib/root-access";
 import type {
   ChangePasswordPayload,
   AddTeamMemberPayload,
@@ -92,18 +96,22 @@ const requireWorkspaceId = (workspaceId: string | null) => {
 export const queryKeys = {
   workspaces: {
     all: workspacesQueryKey,
-    detail: (workspaceId: string) => ["workspaces", "detail", workspaceId] as const,
-    members: (workspaceId: string) => ["workspaces", workspaceId, "members"] as const,
+    detail: (workspaceId: string) =>
+      ["workspaces", "detail", workspaceId] as const,
+    members: (workspaceId: string) =>
+      ["workspaces", workspaceId, "members"] as const,
     assignableUsers: (workspaceId: string) =>
       ["workspaces", workspaceId, "assignable-users"] as const,
     search: (workspaceId: string, q: string, limit: number) =>
       ["workspaces", workspaceId, "search", q, limit] as const,
-    teams: (workspaceId: string) => ["workspaces", workspaceId, "teams"] as const,
+    teams: (workspaceId: string) =>
+      ["workspaces", workspaceId, "teams"] as const,
     teamMembers: (workspaceId: string, teamId: string) =>
       ["workspaces", workspaceId, "teams", teamId, "members"] as const,
   },
   dashboard: {
-    overview: (workspaceId: string) => ["dashboard", "overview", workspaceId] as const,
+    overview: (workspaceId: string) =>
+      ["dashboard", "overview", workspaceId] as const,
   },
   users: {
     all: ["users", "list"] as const,
@@ -115,7 +123,8 @@ export const queryKeys = {
     summary: ["agent-updates", "summary"] as const,
     releases: ["agent-updates", "releases"] as const,
     rollouts: ["agent-updates", "rollouts"] as const,
-    rollout: (rolloutId: string) => ["agent-updates", "rollout", rolloutId] as const,
+    rollout: (rolloutId: string) =>
+      ["agent-updates", "rollout", rolloutId] as const,
   },
   audit: {
     platform: (filters?: AuditLogFilters) =>
@@ -130,22 +139,39 @@ export const queryKeys = {
     all: ["auth", "oidc-providers"] as const,
   },
   nodes: {
-    platform: (filters?: NodeFilters) => ["nodes", "platform", "list", filters ?? {}] as const,
+    platform: (filters?: NodeFilters) =>
+      ["nodes", "platform", "list", filters ?? {}] as const,
     all: (workspaceId: string, filters?: NodeFilters) =>
       ["nodes", workspaceId, "list", filters ?? {}] as const,
-    detail: (workspaceId: string, id: string) => ["nodes", workspaceId, "detail", id] as const,
+    detail: (workspaceId: string, id: string) =>
+      ["nodes", workspaceId, "detail", id] as const,
     terminalSessions: (
       workspaceId: string,
       nodeId: string,
       options?: { limit?: number; offset?: number },
-    ) => ["nodes", workspaceId, nodeId, "terminal-sessions", options ?? {}] as const,
+    ) =>
+      [
+        "nodes",
+        workspaceId,
+        nodeId,
+        "terminal-sessions",
+        options ?? {},
+      ] as const,
     terminalSession: (workspaceId: string, sessionId: string) =>
       ["nodes", workspaceId, "terminal-session", sessionId] as const,
     terminalChunks: (
       workspaceId: string,
       sessionId: string,
       options?: { limit?: number; offset?: number },
-    ) => ["nodes", workspaceId, "terminal-session", sessionId, "chunks", options ?? {}] as const,
+    ) =>
+      [
+        "nodes",
+        workspaceId,
+        "terminal-session",
+        sessionId,
+        "chunks",
+        options ?? {},
+      ] as const,
   },
   tasks: {
     all: (workspaceId: string, filters?: TaskFilters) =>
@@ -156,7 +182,8 @@ export const queryKeys = {
       ["tasks", workspaceId, "logs", id, limit] as const,
   },
   scheduledTasks: {
-    all: (workspaceId: string) => ["scheduled-tasks", workspaceId, "list"] as const,
+    all: (workspaceId: string) =>
+      ["scheduled-tasks", workspaceId, "list"] as const,
   },
   events: {
     all: (workspaceId: string, filters?: EventFilters) =>
@@ -271,7 +298,8 @@ export const useWorkspaceSearch = (q: string, limit = 5, enabled = true) => {
       workspaceId && normalizedQuery
         ? queryKeys.workspaces.search(workspaceId, normalizedQuery, limit)
         : ["workspaces", "search", "idle", normalizedQuery, limit],
-    queryFn: () => apiClient.searchWorkspace(workspaceId!, normalizedQuery, limit),
+    queryFn: () =>
+      apiClient.searchWorkspace(workspaceId!, normalizedQuery, limit),
     enabled: enabled && Boolean(workspaceId && normalizedQuery),
     staleTime: 15_000,
   });
@@ -284,7 +312,8 @@ export const useUpdateUser = () => {
     mutationFn: (input: { userId: string; payload: UpdateUserPayload }) =>
       apiClient.updateUser(input.userId, input.payload),
     onSuccess: async (user) => {
-      const currentSession = queryClient.getQueryData<AuthSession>(sessionQueryKey);
+      const currentSession =
+        queryClient.getQueryData<AuthSession>(sessionQueryKey);
 
       if (currentSession?.user.id === user.id) {
         const nextSession: AuthSession = {
@@ -473,10 +502,9 @@ export const useWorkspaceAuditLogs = (
   const { workspaceId } = useWorkspaceContext();
 
   return useQuery({
-    queryKey:
-      workspaceId
-        ? queryKeys.audit.workspace(workspaceId, filters)
-        : ["audit-logs", "workspace", "idle", filters ?? {}],
+    queryKey: workspaceId
+      ? queryKeys.audit.workspace(workspaceId, filters)
+      : ["audit-logs", "workspace", "idle", filters ?? {}],
     queryFn: () =>
       apiClient.getWorkspaceAuditLogs(requireWorkspaceId(workspaceId), filters),
     enabled: enabled && Boolean(workspaceId),
@@ -499,10 +527,9 @@ export const useTaskTemplates = (enabled = true) => {
   const { workspaceId } = useWorkspaceContext();
 
   return useQuery({
-    queryKey:
-      workspaceId
-        ? queryKeys.taskTemplates.all(workspaceId)
-        : ["task-templates", "idle"],
+    queryKey: workspaceId
+      ? queryKeys.taskTemplates.all(workspaceId)
+      : ["task-templates", "idle"],
     queryFn: () => apiClient.getTaskTemplates(requireWorkspaceId(workspaceId)),
     enabled: enabled && Boolean(workspaceId),
     staleTime: 15_000,
@@ -560,10 +587,9 @@ export const useWorkspaceAssignableUsers = (enabled = true) => {
   const { workspaceId } = useWorkspaceContext();
 
   return useQuery<AssignableUserDto[]>({
-    queryKey:
-      workspaceId
-        ? queryKeys.workspaces.assignableUsers(workspaceId)
-        : ["workspaces", "assignable-users", "idle"],
+    queryKey: workspaceId
+      ? queryKeys.workspaces.assignableUsers(workspaceId)
+      : ["workspaces", "assignable-users", "idle"],
     queryFn: () => apiClient.getWorkspaceAssignableUsers(workspaceId!),
     enabled: enabled && Boolean(workspaceId),
     staleTime: 15_000,
@@ -588,7 +614,8 @@ export const useNodes = (filters?: NodeFilters) => {
     queryKey: workspaceId
       ? queryKeys.nodes.all(workspaceId, filters)
       : ["nodes", "idle", filters ?? {}],
-    queryFn: () => apiClient.getNodeSummaries(filters, workspaceId ?? undefined),
+    queryFn: () =>
+      apiClient.getNodeSummaries(filters, workspaceId ?? undefined),
     enabled: Boolean(workspaceId),
     staleTime: Infinity,
     refetchOnWindowFocus: false,
@@ -672,7 +699,14 @@ export const useTerminalSessionChunks = (
     queryKey:
       workspaceId && sessionId
         ? queryKeys.nodes.terminalChunks(workspaceId, sessionId, options)
-        : ["nodes", "terminal-session", "chunks", "idle", sessionId, options ?? {}],
+        : [
+            "nodes",
+            "terminal-session",
+            "chunks",
+            "idle",
+            sessionId,
+            options ?? {},
+          ],
     queryFn: () =>
       apiClient.getTerminalSessionChunks(sessionId, workspaceId!, options),
     enabled: enabled && Boolean(workspaceId && sessionId),
@@ -690,7 +724,8 @@ export const useTasks = (filters?: TaskFilters) => {
     queryKey: workspaceId
       ? queryKeys.tasks.all(workspaceId, filters)
       : ["tasks", "idle", filters ?? {}],
-    queryFn: () => apiClient.getTaskSummaries(filters, workspaceId ?? undefined),
+    queryFn: () =>
+      apiClient.getTaskSummaries(filters, workspaceId ?? undefined),
     enabled: Boolean(workspaceId),
     staleTime: Infinity,
     refetchOnWindowFocus: false,
@@ -719,7 +754,8 @@ export const useScheduledTasks = (enabled = true) => {
     queryKey: workspaceId
       ? queryKeys.scheduledTasks.all(workspaceId)
       : ["scheduled-tasks", "idle"],
-    queryFn: () => apiClient.getScheduledTaskSummaries(workspaceId ?? undefined),
+    queryFn: () =>
+      apiClient.getScheduledTaskSummaries(workspaceId ?? undefined),
     enabled: enabled && Boolean(workspaceId),
     staleTime: Infinity,
     refetchOnWindowFocus: false,
@@ -1009,7 +1045,8 @@ export const useResumeAgentUpdateRollout = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (rolloutId: string) => apiClient.resumeAgentUpdateRollout(rolloutId),
+    mutationFn: (rolloutId: string) =>
+      apiClient.resumeAgentUpdateRollout(rolloutId),
     onSuccess: async (rollout) => {
       toast.success("Agent rollout resumed", {
         description: rollout.targetVersion,
@@ -1028,7 +1065,8 @@ export const useCancelAgentUpdateRollout = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (rolloutId: string) => apiClient.cancelAgentUpdateRollout(rolloutId),
+    mutationFn: (rolloutId: string) =>
+      apiClient.cancelAgentUpdateRollout(rolloutId),
     onSuccess: async (rollout) => {
       toast.success("Agent rollout cancelled", {
         description: rollout.targetVersion,
@@ -1083,7 +1121,6 @@ export const useSkipAgentUpdateRolloutTarget = () => {
   });
 };
 
-
 export const useCreateNode = () => {
   const queryClient = useQueryClient();
   const { workspaceId } = useWorkspaceContext();
@@ -1101,7 +1138,9 @@ export const useCreateNode = () => {
           refetchType: "active",
         }),
         queryClient.invalidateQueries({
-          queryKey: workspaceId ? queryKeys.dashboard.overview(workspaceId) : ["dashboard"],
+          queryKey: workspaceId
+            ? queryKeys.dashboard.overview(workspaceId)
+            : ["dashboard"],
           refetchType: "active",
         }),
       ]);
@@ -1135,7 +1174,12 @@ export const useCreateTerminalSession = () => {
 
       await Promise.all([
         queryClient.invalidateQueries({
-          queryKey: ["nodes", session.workspaceId, session.nodeId, "terminal-sessions"],
+          queryKey: [
+            "nodes",
+            session.workspaceId,
+            session.nodeId,
+            "terminal-sessions",
+          ],
           refetchType: "active",
         }),
         queryClient.invalidateQueries({
@@ -1174,15 +1218,29 @@ export const useTerminateTerminalSession = () => {
 
       await Promise.all([
         queryClient.invalidateQueries({
-          queryKey: ["nodes", session.workspaceId, variables.nodeId, "terminal-sessions"],
+          queryKey: [
+            "nodes",
+            session.workspaceId,
+            variables.nodeId,
+            "terminal-sessions",
+          ],
           refetchType: "active",
         }),
         queryClient.invalidateQueries({
-          queryKey: queryKeys.nodes.terminalSession(session.workspaceId, session.id),
+          queryKey: queryKeys.nodes.terminalSession(
+            session.workspaceId,
+            session.id,
+          ),
           refetchType: "active",
         }),
         queryClient.invalidateQueries({
-          queryKey: ["nodes", session.workspaceId, "terminal-session", session.id, "chunks"],
+          queryKey: [
+            "nodes",
+            session.workspaceId,
+            "terminal-session",
+            session.id,
+            "chunks",
+          ],
           refetchType: "active",
         }),
       ]);
@@ -1207,7 +1265,9 @@ export const useDeleteNode = () => {
         description: "The node was removed from inventory.",
       });
       queryClient.removeQueries({
-        queryKey: workspaceId ? queryKeys.nodes.detail(workspaceId, nodeId) : ["nodes", "detail", nodeId],
+        queryKey: workspaceId
+          ? queryKeys.nodes.detail(workspaceId, nodeId)
+          : ["nodes", "detail", nodeId],
       });
       await Promise.all([
         queryClient.invalidateQueries({
@@ -1215,7 +1275,9 @@ export const useDeleteNode = () => {
           refetchType: "active",
         }),
         queryClient.invalidateQueries({
-          queryKey: workspaceId ? queryKeys.dashboard.overview(workspaceId) : ["dashboard"],
+          queryKey: workspaceId
+            ? queryKeys.dashboard.overview(workspaceId)
+            : ["dashboard"],
           refetchType: "active",
         }),
         queryClient.invalidateQueries({
@@ -1297,7 +1359,7 @@ export const useUpdateNodeRootAccess = () => {
         description:
           node.rootAccessProfile === "off"
             ? `${node.name} root access has been disabled and is waiting for agent sync.`
-            : `${node.name} is switching to ${node.rootAccessProfile} root access.`,
+            : `${node.name} is switching to ${formatRootAccessProfile(node.rootAccessProfile)}.`,
       });
       await Promise.all([
         queryClient.invalidateQueries({
@@ -1334,7 +1396,10 @@ export const useEnableNodeMaintenance = () => {
   const { workspaceId } = useWorkspaceContext();
 
   return useMutation({
-    mutationFn: (input: { nodeId: string; payload: EnableNodeMaintenancePayload }) =>
+    mutationFn: (input: {
+      nodeId: string;
+      payload: EnableNodeMaintenancePayload;
+    }) =>
       apiClient.enableNodeMaintenance(
         input.nodeId,
         input.payload,
@@ -1417,10 +1482,9 @@ export const useCreateTask = () => {
     onSuccess: async (task, payload) => {
       const nodeDetailQuery = payload.nodeId
         ? queryClient.invalidateQueries({
-            queryKey:
-              workspaceId
-                ? queryKeys.nodes.detail(workspaceId, payload.nodeId)
-                : ["nodes", "detail", payload.nodeId],
+            queryKey: workspaceId
+              ? queryKeys.nodes.detail(workspaceId, payload.nodeId)
+              : ["nodes", "detail", payload.nodeId],
             refetchType: "active",
           })
         : Promise.resolve();
@@ -1434,7 +1498,9 @@ export const useCreateTask = () => {
           refetchType: "active",
         }),
         queryClient.invalidateQueries({
-          queryKey: workspaceId ? queryKeys.dashboard.overview(workspaceId) : ["dashboard"],
+          queryKey: workspaceId
+            ? queryKeys.dashboard.overview(workspaceId)
+            : ["dashboard"],
           refetchType: "active",
         }),
         queryClient.invalidateQueries({
@@ -1519,7 +1585,10 @@ export const useUpdateTaskTemplate = () => {
   const { workspaceId } = useWorkspaceContext();
 
   return useMutation({
-    mutationFn: (input: { templateId: string; payload: UpdateTaskTemplatePayload }) =>
+    mutationFn: (input: {
+      templateId: string;
+      payload: UpdateTaskTemplatePayload;
+    }) =>
       apiClient.updateTaskTemplate(
         requireWorkspaceId(workspaceId),
         input.templateId,
@@ -1571,7 +1640,9 @@ export const useCreateBatchTasks = () => {
           refetchType: "active",
         }),
         queryClient.invalidateQueries({
-          queryKey: workspaceId ? queryKeys.dashboard.overview(workspaceId) : ["dashboard"],
+          queryKey: workspaceId
+            ? queryKeys.dashboard.overview(workspaceId)
+            : ["dashboard"],
           refetchType: "active",
         }),
         queryClient.invalidateQueries({
@@ -1580,10 +1651,9 @@ export const useCreateBatchTasks = () => {
         }),
         ...payload.nodeIds.map((nodeId) =>
           queryClient.invalidateQueries({
-            queryKey:
-              workspaceId
-                ? queryKeys.nodes.detail(workspaceId, nodeId)
-                : ["nodes", "detail", nodeId],
+            queryKey: workspaceId
+              ? queryKeys.nodes.detail(workspaceId, nodeId)
+              : ["nodes", "detail", nodeId],
             refetchType: "active",
           }),
         ),
@@ -1610,8 +1680,9 @@ export const useCreateScheduledTask = () => {
       });
       await Promise.all([
         queryClient.invalidateQueries({
-          queryKey:
-            workspaceId ? queryKeys.scheduledTasks.all(workspaceId) : ["scheduled-tasks"],
+          queryKey: workspaceId
+            ? queryKeys.scheduledTasks.all(workspaceId)
+            : ["scheduled-tasks"],
           refetchType: "active",
         }),
         queryClient.invalidateQueries({
@@ -1619,7 +1690,9 @@ export const useCreateScheduledTask = () => {
           refetchType: "active",
         }),
         queryClient.invalidateQueries({
-          queryKey: workspaceId ? queryKeys.dashboard.overview(workspaceId) : ["dashboard"],
+          queryKey: workspaceId
+            ? queryKeys.dashboard.overview(workspaceId)
+            : ["dashboard"],
           refetchType: "active",
         }),
         queryClient.invalidateQueries({
@@ -1642,7 +1715,10 @@ export const useCreateBatchScheduledTasks = () => {
 
   return useMutation({
     mutationFn: (payload: CreateBatchScheduledTaskPayload) =>
-      apiClient.createBatchScheduledTasks(payload, requireWorkspaceId(workspaceId)),
+      apiClient.createBatchScheduledTasks(
+        payload,
+        requireWorkspaceId(workspaceId),
+      ),
     onSuccess: async (schedules, payload) => {
       const timezone = schedules[0]?.timezone;
 
@@ -1651,8 +1727,9 @@ export const useCreateBatchScheduledTasks = () => {
       });
       await Promise.all([
         queryClient.invalidateQueries({
-          queryKey:
-            workspaceId ? queryKeys.scheduledTasks.all(workspaceId) : ["scheduled-tasks"],
+          queryKey: workspaceId
+            ? queryKeys.scheduledTasks.all(workspaceId)
+            : ["scheduled-tasks"],
           refetchType: "active",
         }),
         queryClient.invalidateQueries({
@@ -1660,7 +1737,9 @@ export const useCreateBatchScheduledTasks = () => {
           refetchType: "active",
         }),
         queryClient.invalidateQueries({
-          queryKey: workspaceId ? queryKeys.dashboard.overview(workspaceId) : ["dashboard"],
+          queryKey: workspaceId
+            ? queryKeys.dashboard.overview(workspaceId)
+            : ["dashboard"],
           refetchType: "active",
         }),
         queryClient.invalidateQueries({
@@ -1669,10 +1748,9 @@ export const useCreateBatchScheduledTasks = () => {
         }),
         ...payload.nodeIds.map((nodeId) =>
           queryClient.invalidateQueries({
-            queryKey:
-              workspaceId
-                ? queryKeys.nodes.detail(workspaceId, nodeId)
-                : ["nodes", "detail", nodeId],
+            queryKey: workspaceId
+              ? queryKeys.nodes.detail(workspaceId, nodeId)
+              : ["nodes", "detail", nodeId],
             refetchType: "active",
           }),
         ),
@@ -1706,8 +1784,9 @@ export const useUpdateScheduledTask = () => {
       );
       await Promise.all([
         queryClient.invalidateQueries({
-          queryKey:
-            workspaceId ? queryKeys.scheduledTasks.all(workspaceId) : ["scheduled-tasks"],
+          queryKey: workspaceId
+            ? queryKeys.scheduledTasks.all(workspaceId)
+            : ["scheduled-tasks"],
           refetchType: "active",
         }),
         queryClient.invalidateQueries({
@@ -1715,7 +1794,9 @@ export const useUpdateScheduledTask = () => {
           refetchType: "active",
         }),
         queryClient.invalidateQueries({
-          queryKey: workspaceId ? queryKeys.dashboard.overview(workspaceId) : ["dashboard"],
+          queryKey: workspaceId
+            ? queryKeys.dashboard.overview(workspaceId)
+            : ["dashboard"],
           refetchType: "active",
         }),
         queryClient.invalidateQueries({
@@ -1743,8 +1824,9 @@ export const useDeleteScheduledTask = () => {
       toast.success("Scheduled task deleted");
       await Promise.all([
         queryClient.invalidateQueries({
-          queryKey:
-            workspaceId ? queryKeys.scheduledTasks.all(workspaceId) : ["scheduled-tasks"],
+          queryKey: workspaceId
+            ? queryKeys.scheduledTasks.all(workspaceId)
+            : ["scheduled-tasks"],
           refetchType: "active",
         }),
         queryClient.invalidateQueries({
@@ -1752,7 +1834,9 @@ export const useDeleteScheduledTask = () => {
           refetchType: "active",
         }),
         queryClient.invalidateQueries({
-          queryKey: workspaceId ? queryKeys.dashboard.overview(workspaceId) : ["dashboard"],
+          queryKey: workspaceId
+            ? queryKeys.dashboard.overview(workspaceId)
+            : ["dashboard"],
           refetchType: "active",
         }),
         queryClient.invalidateQueries({
@@ -1789,14 +1873,15 @@ export const useCancelTask = () => {
           refetchType: "active",
         }),
         queryClient.invalidateQueries({
-          queryKey:
-            workspaceId
-              ? queryKeys.tasks.detail(workspaceId, variables.taskId)
-              : ["tasks", "detail", variables.taskId],
+          queryKey: workspaceId
+            ? queryKeys.tasks.detail(workspaceId, variables.taskId)
+            : ["tasks", "detail", variables.taskId],
           refetchType: "active",
         }),
         queryClient.invalidateQueries({
-          queryKey: workspaceId ? queryKeys.dashboard.overview(workspaceId) : ["dashboard"],
+          queryKey: workspaceId
+            ? queryKeys.dashboard.overview(workspaceId)
+            : ["dashboard"],
           refetchType: "active",
         }),
       ]);
@@ -1844,14 +1929,15 @@ export const useFinalizeEnrollment = () => {
           refetchType: "active",
         }),
         queryClient.invalidateQueries({
-          queryKey: workspaceId ? queryKeys.dashboard.overview(workspaceId) : ["dashboard"],
+          queryKey: workspaceId
+            ? queryKeys.dashboard.overview(workspaceId)
+            : ["dashboard"],
           refetchType: "active",
         }),
         queryClient.invalidateQueries({
-          queryKey:
-            workspaceId
-              ? queryKeys.nodes.detail(workspaceId, enrollment.nodeId)
-              : ["nodes", "detail", enrollment.nodeId],
+          queryKey: workspaceId
+            ? queryKeys.nodes.detail(workspaceId, enrollment.nodeId)
+            : ["nodes", "detail", enrollment.nodeId],
           refetchType: "active",
         }),
       ]);
@@ -1994,10 +2080,9 @@ export const useWorkspaceMembers = (enabled = true) => {
   const { workspaceId } = useWorkspaceContext();
 
   return useQuery({
-    queryKey:
-      workspaceId
-        ? queryKeys.workspaces.members(workspaceId)
-        : ["workspaces", "members", "idle"],
+    queryKey: workspaceId
+      ? queryKeys.workspaces.members(workspaceId)
+      : ["workspaces", "members", "idle"],
     queryFn: () => apiClient.getWorkspaceMembers(workspaceId!),
     enabled: enabled && Boolean(workspaceId),
     staleTime: 15_000,
@@ -2008,10 +2093,9 @@ export const useWorkspaceTeams = (enabled = true) => {
   const { workspaceId } = useWorkspaceContext();
 
   return useQuery({
-    queryKey:
-      workspaceId
-        ? queryKeys.workspaces.teams(workspaceId)
-        : ["workspaces", "teams", "idle"],
+    queryKey: workspaceId
+      ? queryKeys.workspaces.teams(workspaceId)
+      : ["workspaces", "teams", "idle"],
     queryFn: () => apiClient.getWorkspaceTeams(workspaceId!),
     enabled: enabled && Boolean(workspaceId),
     staleTime: 15_000,
@@ -2036,7 +2120,8 @@ export const useCreateWorkspace = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (payload: CreateWorkspacePayload) => apiClient.createWorkspace(payload),
+    mutationFn: (payload: CreateWorkspacePayload) =>
+      apiClient.createWorkspace(payload),
     onSuccess: async (workspace) => {
       toast.success("Workspace created", {
         description: workspace.name,
@@ -2088,8 +2173,10 @@ export const useUpdateWorkspaceRecord = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (input: { workspaceId: string; payload: UpdateWorkspacePayload }) =>
-      apiClient.updateWorkspace(input.workspaceId, input.payload),
+    mutationFn: (input: {
+      workspaceId: string;
+      payload: UpdateWorkspacePayload;
+    }) => apiClient.updateWorkspace(input.workspaceId, input.payload),
     onSuccess: async (workspace) => {
       toast.success("Workspace updated", {
         description: workspace.name,
@@ -2171,7 +2258,10 @@ export const useCreateWorkspaceMember = () => {
       apiClient.createWorkspaceMember(requireWorkspaceId(workspaceId), payload),
     onSuccess: async (membership: WorkspaceMembershipDto) => {
       toast.success("Member added", {
-        description: membership.userEmail ?? membership.userName ?? "Workspace member added.",
+        description:
+          membership.userEmail ??
+          membership.userName ??
+          "Workspace member added.",
       });
       await invalidateWorkspaceUserQueries(
         queryClient,
@@ -2191,7 +2281,10 @@ export const useUpdateWorkspaceMember = () => {
   const { workspaceId } = useWorkspaceContext();
 
   return useMutation({
-    mutationFn: (input: { membershipId: string; payload: UpdateWorkspaceMemberPayload }) =>
+    mutationFn: (input: {
+      membershipId: string;
+      payload: UpdateWorkspaceMemberPayload;
+    }) =>
       apiClient.updateWorkspaceMember(
         requireWorkspaceId(workspaceId),
         input.membershipId,
@@ -2371,8 +2464,10 @@ export const useUpdateOidcProvider = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (input: { providerId: string; payload: UpdateOidcProviderPayload }) =>
-      apiClient.updateOidcProvider(input.providerId, input.payload),
+    mutationFn: (input: {
+      providerId: string;
+      payload: UpdateOidcProviderPayload;
+    }) => apiClient.updateOidcProvider(input.providerId, input.payload),
     onSuccess: async (provider) => {
       toast.success("SSO provider updated", {
         description: provider.name,
@@ -2389,7 +2484,8 @@ export const useDeleteOidcProvider = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (providerId: string) => apiClient.deleteOidcProvider(providerId),
+    mutationFn: (providerId: string) =>
+      apiClient.deleteOidcProvider(providerId),
     onSuccess: async () => {
       toast.success("SSO provider deleted");
       await queryClient.invalidateQueries({

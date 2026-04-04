@@ -14,11 +14,7 @@ export type ScheduledTaskCadence =
 export type EventSeverity = "info" | "warning" | "critical";
 export type TaskLogLevel = "info" | "stdout" | "stderr" | "error";
 export type UserRole = "platform_admin" | "user";
-export type WorkspaceMembershipRole =
-  | "owner"
-  | "admin"
-  | "member"
-  | "viewer";
+export type WorkspaceMembershipRole = "owner" | "admin" | "member" | "viewer";
 export type EnrollmentStatus = "pending" | "approved" | "revoked";
 export type NodeInstallStatus =
   | "pending"
@@ -38,6 +34,9 @@ export type RootAccessProfile =
   | "operational"
   | "task"
   | "terminal"
+  | "operational_task"
+  | "operational_terminal"
+  | "task_terminal"
   | "all";
 export type RootAccessSyncStatus = "pending" | "applied" | "failed";
 export type RootScope = "task" | "operational";
