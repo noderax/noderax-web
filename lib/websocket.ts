@@ -7,6 +7,8 @@ import type {
   EventDto,
   MetricDto,
   NodeInstallDto,
+  RootAccessProfile,
+  RootAccessSyncStatus,
   NodeStatus,
   RealtimeEventMeta,
   RealtimeStatus,
@@ -25,6 +27,22 @@ export type RealtimeMessage =
         lastSeenAt: string | null;
         agentVersion?: string | null;
         lastVersionReportedAt?: string | null;
+      };
+    }
+  | {
+      type: "node.root-access.updated";
+      timestamp: string;
+      meta?: RealtimeEventMeta;
+      data: {
+        nodeId: string;
+        workspaceId: string;
+        rootAccessProfile: RootAccessProfile;
+        rootAccessAppliedProfile: RootAccessProfile;
+        rootAccessSyncStatus: RootAccessSyncStatus;
+        rootAccessUpdatedAt?: string | null;
+        rootAccessUpdatedByUserId?: string | null;
+        rootAccessLastAppliedAt?: string | null;
+        rootAccessLastError?: string | null;
       };
     }
   | {
@@ -62,6 +80,20 @@ type NodeStatusUpdatedPayload = {
   lastSeenAt?: string | null;
   agentVersion?: string | null;
   lastVersionReportedAt?: string | null;
+  sequence?: number;
+  sourceInstance?: string;
+};
+
+type NodeRootAccessUpdatedPayload = {
+  nodeId: string;
+  workspaceId: string;
+  rootAccessProfile: RootAccessProfile;
+  rootAccessAppliedProfile: RootAccessProfile;
+  rootAccessSyncStatus: RootAccessSyncStatus;
+  rootAccessUpdatedAt?: string | null;
+  rootAccessUpdatedByUserId?: string | null;
+  rootAccessLastAppliedAt?: string | null;
+  rootAccessLastError?: string | null;
   sequence?: number;
   sourceInstance?: string;
 };
@@ -452,6 +484,32 @@ class NoderaxRealtimeClient {
     });
   };
 
+  private readonly handleNodeRootAccessUpdated = (
+    payload: NodeRootAccessUpdatedPayload,
+  ) => {
+    this.emit({
+      type: "node.root-access.updated",
+      timestamp: asTimestamp(
+        payload.rootAccessLastAppliedAt ?? payload.rootAccessUpdatedAt,
+      ),
+      meta: {
+        sequence: payload.sequence,
+        sourceInstance: payload.sourceInstance,
+      },
+      data: {
+        nodeId: payload.nodeId,
+        workspaceId: payload.workspaceId,
+        rootAccessProfile: payload.rootAccessProfile,
+        rootAccessAppliedProfile: payload.rootAccessAppliedProfile,
+        rootAccessSyncStatus: payload.rootAccessSyncStatus,
+        rootAccessUpdatedAt: payload.rootAccessUpdatedAt ?? null,
+        rootAccessUpdatedByUserId: payload.rootAccessUpdatedByUserId ?? null,
+        rootAccessLastAppliedAt: payload.rootAccessLastAppliedAt ?? null,
+        rootAccessLastError: payload.rootAccessLastError ?? null,
+      },
+    });
+  };
+
   private readonly handleMetricsIngested = (payload: MetricDto) => {
     this.emit({
       type: "metrics.ingested",
@@ -538,6 +596,7 @@ class NoderaxRealtimeClient {
     socket.io.on("reconnect_failed", this.handleReconnectFailed);
     socket.onAny(this.handleAnySignal);
     socket.on("node.status.updated", this.handleNodeStatusUpdated);
+    socket.on("node.root-access.updated", this.handleNodeRootAccessUpdated);
     socket.on("metrics.ingested", this.handleMetricsIngested);
     socket.on("task.created", this.handleTaskCreated);
     socket.on("task.updated", this.handleTaskUpdated);
@@ -554,6 +613,7 @@ class NoderaxRealtimeClient {
     socket.io.off("reconnect_failed", this.handleReconnectFailed);
     socket.offAny(this.handleAnySignal);
     socket.off("node.status.updated", this.handleNodeStatusUpdated);
+    socket.off("node.root-access.updated", this.handleNodeRootAccessUpdated);
     socket.off("metrics.ingested", this.handleMetricsIngested);
     socket.off("task.created", this.handleTaskCreated);
     socket.off("task.updated", this.handleTaskUpdated);

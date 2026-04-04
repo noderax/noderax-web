@@ -7,6 +7,7 @@ import { PackageMarket } from "@/components/packages/package-market";
 import { PackagesPage } from "@/components/packages/packages-page";
 import { useNode } from "@/lib/hooks/use-noderax-data";
 import { useWorkspaceContext } from "@/lib/hooks/use-workspace-context";
+import { profileAllowsSurface } from "@/lib/root-access";
 
 export const NodePackagesScreen = ({
   nodeId,
@@ -21,6 +22,20 @@ export const NodePackagesScreen = ({
   const nodeQuery = useNode(nodeId);
   const isAdmin = isWorkspaceAdmin;
   const resolvedNodeName = nodeName ?? nodeQuery.data?.name ?? "this node";
+  const canManagePackages =
+    Boolean(isAdmin) &&
+    Boolean(
+      nodeQuery.data &&
+        profileAllowsSurface(
+          nodeQuery.data.rootAccessAppliedProfile,
+          "operational",
+        ),
+    );
+  const manageDisabledReason = !isAdmin
+    ? "You can browse installed packages and search the package market, but only administrators can install or remove packages."
+    : !nodeQuery.data
+      ? "Package management availability is loading."
+      : "This node needs Operational root or All root applied before package actions can run from the panel.";
 
   return (
     <div className="space-y-6">
@@ -50,16 +65,15 @@ export const NodePackagesScreen = ({
         </div>
       ) : null}
 
-      {!isAdmin ? (
+      {!canManagePackages ? (
         <div className="surface-subtle flex items-start gap-3 rounded-[18px] border px-4 py-3">
           <div className="tone-warning flex size-10 items-center justify-center rounded-2xl border">
             <ShieldAlert className="size-4" />
           </div>
           <div className="min-w-0">
-            <p className="font-medium">Read-only package access</p>
+            <p className="font-medium">Package actions are restricted</p>
             <p className="mt-1 text-sm leading-6 text-muted-foreground">
-              You can browse installed packages and search the package market, but
-              only administrators can install or remove packages.
+              {manageDisabledReason}
             </p>
           </div>
         </div>
@@ -69,7 +83,8 @@ export const NodePackagesScreen = ({
         <PackagesPage
           nodeId={nodeId}
           nodeLabel={resolvedNodeName}
-          canManage={Boolean(isAdmin)}
+          canManage={canManagePackages}
+          manageDisabledReason={manageDisabledReason}
           headerAction={
             standalone ? null : (
               <Link
@@ -85,7 +100,8 @@ export const NodePackagesScreen = ({
         <PackageMarket
           nodeId={nodeId}
           nodeLabel={resolvedNodeName}
-          canManage={Boolean(isAdmin)}
+          canManage={canManagePackages}
+          manageDisabledReason={manageDisabledReason}
         />
       </div>
     </div>

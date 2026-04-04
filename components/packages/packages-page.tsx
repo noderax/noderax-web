@@ -51,11 +51,13 @@ export const PackagesPage = ({
   nodeId,
   nodeLabel,
   canManage,
+  manageDisabledReason,
   headerAction,
 }: {
   nodeId: string;
   nodeLabel?: string;
   canManage: boolean;
+  manageDisabledReason?: string | null;
   headerAction?: React.ReactNode;
 }) => {
   const packagesQuery = useNodePackages(nodeId);
@@ -141,7 +143,7 @@ export const PackagesPage = ({
     >
       {!canManage ? (
         <div className="surface-subtle rounded-[18px] border px-4 py-3 text-sm text-muted-foreground">
-          Only administrators can install or remove packages.
+          {manageDisabledReason ?? "Only administrators can install or remove packages."}
         </div>
       ) : null}
 

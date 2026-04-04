@@ -22,6 +22,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useCreateTask } from "@/lib/hooks/use-noderax-data";
+import { profileAllowsSurface } from "@/lib/root-access";
+import type { NodeSummary } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 type NodeAction = "reboot" | "restart-agent" | "update-packages";
@@ -40,7 +42,7 @@ const actionMeta: Record<
     label: "Reboot node",
     description:
       "This will reboot the server immediately. The node will go offline and come back after the system restarts.",
-    command: "sudo reboot",
+    command: "reboot",
     icon: Power,
     tone: "text-destructive",
   },
@@ -48,36 +50,45 @@ const actionMeta: Record<
     label: "Restart Noderax agent",
     description:
       "This will restart the noderax-agent systemd service. The node may briefly disconnect while the agent restarts.",
-    command: "sudo systemctl restart noderax-agent",
+    command: "systemctl restart noderax-agent",
     icon: RotateCcw,
     tone: "text-orange-500",
   },
   "update-packages": {
     label: "Update packages",
     description:
-      "This will run 'sudo apt-get update' on the node to synchronize the package index from their sources.",
-    command: "sudo apt-get update",
+      "This will run 'apt-get update' on the node to synchronize the package index from its package sources.",
+    command: "apt-get update",
     icon: RefreshCw,
     tone: "text-blue-500",
   },
 };
 
 export const NodeActionMenu = ({
-  nodeId,
-  nodeName,
+  node,
   variant = "icon",
   className,
 }: {
-  nodeId: string;
-  nodeName?: string;
+  node: Pick<NodeSummary, "id" | "name" | "rootAccessAppliedProfile">;
   variant?: "icon" | "outline";
   className?: string;
 }) => {
   const createTask = useCreateTask();
   const [pendingAction, setPendingAction] = useState<NodeAction | null>(null);
   const meta = pendingAction ? actionMeta[pendingAction] : null;
+  const canRunOperationalActions = profileAllowsSurface(
+    node.rootAccessAppliedProfile,
+    "operational",
+  );
+  const disabledReason = canRunOperationalActions
+    ? null
+    : "Operational root or All root must be applied on this node before these actions can run.";
 
   const handleActionClick = (action: NodeAction) => {
+    if (!canRunOperationalActions) {
+      return;
+    }
+
     // We use a small timeout to let the dropdown close before opening the dialog
     // to avoid potential focus trap/portal conflicts in Base UI
     setTimeout(() => {
@@ -90,9 +101,13 @@ export const NodeActionMenu = ({
 
     createTask.mutate(
       {
-        nodeId,
+        nodeId: node.id,
         type: "shell.exec",
-        payload: { command: meta.command },
+        payload: {
+          command: meta.command,
+          runAsRoot: true,
+          rootScope: "operational",
+        },
       },
       {
         onSettled: () => {
@@ -126,16 +141,25 @@ export const NodeActionMenu = ({
         <DropdownMenuContent align="end" className="w-52">
           <DropdownMenuGroup>
             <DropdownMenuLabel className="text-xs text-muted-foreground">
-              {nodeName ?? "Node"} actions
+              {node.name ?? "Node"} actions
             </DropdownMenuLabel>
           </DropdownMenuGroup>
           <DropdownMenuSeparator />
+          {disabledReason ? (
+            <>
+              <DropdownMenuLabel className="whitespace-normal text-xs font-normal leading-5 text-muted-foreground">
+                {disabledReason}
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+            </>
+          ) : null}
           {(Object.keys(actionMeta) as NodeAction[]).map((action) => {
             const { label, icon: Icon, tone } = actionMeta[action];
 
             return (
               <DropdownMenuItem
                 key={action}
+                disabled={!canRunOperationalActions}
                 onClick={(e) => {
                   e.stopPropagation();
                   handleActionClick(action);

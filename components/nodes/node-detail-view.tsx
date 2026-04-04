@@ -3,7 +3,14 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { Network, SquareTerminal, Timer, Wrench } from "lucide-react";
+import {
+  AlertTriangle,
+  Network,
+  Shield,
+  SquareTerminal,
+  Timer,
+  Wrench,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 
 import { DeleteNodeDialog } from "@/components/nodes/delete-node-dialog";
@@ -16,6 +23,14 @@ import { SeverityBadge } from "@/components/severity-badge";
 import { TaskStatusBadge } from "@/components/tasks/task-status-badge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SectionPanel } from "@/components/ui/section-panel";
@@ -33,11 +48,20 @@ import {
   useDisableNodeMaintenance,
   useEnableNodeMaintenance,
   useNode,
+  useUpdateNodeRootAccess,
   useUpdateNodeTeam,
   useWorkspaceTeams,
 } from "@/lib/hooks/use-noderax-data";
 import { useNodeRealtimeSubscription } from "@/lib/hooks/use-realtime";
 import { useWorkspaceContext } from "@/lib/hooks/use-workspace-context";
+import {
+  formatRootAccessProfile,
+  formatRootAccessSyncStatus,
+  ROOT_ACCESS_PROFILE_CAPABILITIES,
+  ROOT_ACCESS_PROFILE_OPTIONS,
+} from "@/lib/root-access";
+import type { RootAccessProfile } from "@/lib/types";
+import { TimeDisplay } from "@/components/ui/time-display";
 
 const readFirstNumber = (
   record: Record<string, unknown> | null,
@@ -102,6 +126,22 @@ const formatNetworkSummary = (stats: Record<string, unknown> | null) => {
   return `RX ${formatBytes(rxBytes)} / TX ${formatBytes(txBytes)}`;
 };
 
+const rootAccessSyncTone = (status: string) => {
+  switch (status) {
+    case "applied":
+      return "default";
+    case "failed":
+      return "destructive";
+    default:
+      return "secondary";
+  }
+};
+
+const readRootAccessStatusDescription = (profile: RootAccessProfile) => {
+  const capabilities = ROOT_ACCESS_PROFILE_CAPABILITIES[profile] ?? [];
+  return capabilities[0] ?? "No capabilities available for this profile.";
+};
+
 type NodeOperationDraft = {
   sourceKey: string | null;
   selectedTeamId: "none" | string;
@@ -117,12 +157,16 @@ export const NodeDetailView = ({ id }: { id: string }) => {
     selectedTeamId: "none",
     maintenanceReason: "",
   });
+  const [rootAccessDialogOpen, setRootAccessDialogOpen] = useState(false);
+  const [pendingRootAccessProfile, setPendingRootAccessProfile] =
+    useState<RootAccessProfile>("off");
 
   useNodeRealtimeSubscription(id);
 
   const nodeQuery = useNode(id);
   const teamsQuery = useWorkspaceTeams();
   const updateNodeTeam = useUpdateNodeTeam();
+  const updateNodeRootAccess = useUpdateNodeRootAccess();
   const enableMaintenance = useEnableNodeMaintenance();
   const disableMaintenance = useDisableNodeMaintenance();
   const node = nodeQuery.data;
@@ -178,6 +222,8 @@ export const NodeDetailView = ({ id }: { id: string }) => {
       maintenanceReason: nextPatch.maintenanceReason ?? maintenanceReason,
     });
   };
+  const rootAccessCapabilities =
+    ROOT_ACCESS_PROFILE_CAPABILITIES[pendingRootAccessProfile] ?? [];
 
   return (
     <AppShell>
@@ -437,6 +483,95 @@ export const NodeDetailView = ({ id }: { id: string }) => {
             </div>
           </div>
         </div>
+        <div className="rounded-[20px] border p-4">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <div className="surface-subtle flex size-10 items-center justify-center rounded-2xl border">
+                  <Shield className="size-4" />
+                </div>
+                <div>
+                  <p className="font-medium">Root access profile</p>
+                  <p className="text-sm text-muted-foreground">
+                    Choose which privileged panel surfaces this node should allow
+                    without interactive sudo prompts.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <ShimmerButton
+              type="button"
+              className="action-btn"
+              disabled={!isAdmin || updateNodeRootAccess.isPending}
+              onClick={() => {
+                setPendingRootAccessProfile(node.rootAccessProfile);
+                setRootAccessDialogOpen(true);
+              }}
+            >
+              {updateNodeRootAccess.isPending
+                ? "Saving..."
+                : "Manage root access"}
+            </ShimmerButton>
+          </div>
+
+          <div className="mt-4 flex flex-wrap gap-2">
+            <Badge variant="outline">
+              Desired: {formatRootAccessProfile(node.rootAccessProfile)}
+            </Badge>
+            <Badge variant="outline">
+              Applied: {formatRootAccessProfile(node.rootAccessAppliedProfile)}
+            </Badge>
+            <Badge variant={rootAccessSyncTone(node.rootAccessSyncStatus)}>
+              {formatRootAccessSyncStatus(node.rootAccessSyncStatus)}
+            </Badge>
+          </div>
+
+          <div className="mt-4 grid gap-4 lg:grid-cols-3">
+            <div className="rounded-[18px] border bg-muted/15 px-4 py-3">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                Desired capabilities
+              </p>
+              <p className="mt-2 text-sm text-foreground">
+                {readRootAccessStatusDescription(node.rootAccessProfile)}
+              </p>
+            </div>
+            <div className="rounded-[18px] border bg-muted/15 px-4 py-3">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                Last change
+              </p>
+              <p className="mt-2 text-sm font-medium">
+                <TimeDisplay
+                  value={node.rootAccessUpdatedAt ?? null}
+                  mode="relative"
+                  emptyLabel="Not changed yet"
+                />
+              </p>
+            </div>
+            <div className="rounded-[18px] border bg-muted/15 px-4 py-3">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                Last applied
+              </p>
+              <p className="mt-2 text-sm font-medium">
+                <TimeDisplay
+                  value={node.rootAccessLastAppliedAt ?? null}
+                  mode="relative"
+                  emptyLabel="Waiting for first sync"
+                />
+              </p>
+            </div>
+          </div>
+
+          {node.rootAccessLastError ? (
+            <div className="mt-4 flex items-start gap-3 rounded-[18px] border border-tone-danger/30 bg-tone-danger/8 px-4 py-3 text-sm">
+              <AlertTriangle className="mt-0.5 size-4 shrink-0 text-tone-danger" />
+              <div className="space-y-1">
+                <p className="font-medium text-foreground">Last sync error</p>
+                <p className="text-muted-foreground">{node.rootAccessLastError}</p>
+              </div>
+            </div>
+          ) : null}
+        </div>
         <div className="grid gap-4 lg:grid-cols-3">
           <div className="rounded-[18px] border bg-muted/15 px-4 py-3">
             <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
@@ -573,6 +708,100 @@ export const NodeDetailView = ({ id }: { id: string }) => {
           </SectionPanel>
         </TabsContent>
       </Tabs>
+
+      <Dialog
+        open={rootAccessDialogOpen}
+        onOpenChange={(open) => {
+          setRootAccessDialogOpen(open);
+          if (open) {
+            setPendingRootAccessProfile(node.rootAccessProfile);
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Update root access profile</DialogTitle>
+            <DialogDescription>
+              Root access profiles allow panel-managed operations to run without
+              typing sudo on the node. Choose the smallest profile that fits
+              this node.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="node-root-access-profile">Profile</Label>
+              <Select
+                value={pendingRootAccessProfile}
+                onValueChange={(value) =>
+                  setPendingRootAccessProfile(value as RootAccessProfile)
+                }
+              >
+                <SelectTrigger id="node-root-access-profile" className="w-full">
+                  <SelectValue placeholder="Select a root profile" />
+                </SelectTrigger>
+                <SelectContent>
+                  {ROOT_ACCESS_PROFILE_OPTIONS.map((profile) => (
+                    <SelectItem key={profile} value={profile}>
+                      {formatRootAccessProfile(profile)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="rounded-[18px] border border-tone-warning/30 bg-tone-warning/10 px-4 py-3 text-sm">
+              <p className="font-medium text-foreground">Warning</p>
+              <p className="mt-1 text-muted-foreground">
+                Enabling root access changes the sudo permissions granted to the
+                `noderax` user on this node. The agent will reconcile the new
+                profile on its next control sync.
+              </p>
+            </div>
+
+            <div className="rounded-[18px] border px-4 py-3">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                Profile capabilities
+              </p>
+              <div className="mt-3 space-y-2 text-sm text-muted-foreground">
+                {rootAccessCapabilities.map((capability) => (
+                  <p key={capability}>{capability}</p>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setRootAccessDialogOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              disabled={
+                updateNodeRootAccess.isPending ||
+                pendingRootAccessProfile === node.rootAccessProfile
+              }
+              onClick={async () => {
+                try {
+                  await updateNodeRootAccess.mutateAsync({
+                    nodeId: node.id,
+                    payload: {
+                      profile: pendingRootAccessProfile,
+                    },
+                  });
+                  setRootAccessDialogOpen(false);
+                } catch {
+                  // Mutation toast already surfaces the backend error.
+                }
+              }}
+            >
+              {updateNodeRootAccess.isPending ? "Applying..." : "Apply profile"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </AppShell>
   );
 };

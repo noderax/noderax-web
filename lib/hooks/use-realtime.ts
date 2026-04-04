@@ -11,6 +11,8 @@ import type {
   EventRecord,
   NodeInstallDto,
   NodeDetail,
+  RootAccessProfile,
+  RootAccessSyncStatus,
   NodeSummary,
   TaskDetail,
 } from "@/lib/types";
@@ -185,6 +187,17 @@ type TrackedNodePresencePatch = Partial<
   >
 >;
 
+type TrackedNodeRootAccessPatch = Pick<
+  NodeSummary,
+  | "rootAccessProfile"
+  | "rootAccessAppliedProfile"
+  | "rootAccessSyncStatus"
+  | "rootAccessUpdatedAt"
+  | "rootAccessUpdatedByUserId"
+  | "rootAccessLastAppliedAt"
+  | "rootAccessLastError"
+>;
+
 const readTrackedNodeVersionSnapshot = (
   queryClient: QueryClient,
   nodeId: string,
@@ -262,6 +275,63 @@ const updateTrackedNodePresence = (
   queryClient: QueryClient,
   nodeId: string,
   patch: TrackedNodePresencePatch,
+) => {
+  queryClient.setQueriesData<NodeSummary[]>(
+    { predicate: isNodeListQuery },
+    (current) =>
+      current?.map((node) =>
+        node.id === nodeId
+          ? {
+              ...node,
+              ...patch,
+            }
+          : node,
+      ),
+  );
+
+  queryClient.setQueriesData<NodeDetail | undefined>(
+    { predicate: isNodeDetailQuery },
+    (current) =>
+      current?.id === nodeId
+        ? {
+            ...current,
+            ...patch,
+          }
+        : current,
+  );
+
+  queryClient.setQueriesData<DashboardOverview | undefined>(
+    { queryKey: ["dashboard", "overview"] },
+    (current) =>
+      updateDashboardNodes(current, (node) =>
+        node.id === nodeId
+          ? {
+              ...node,
+              ...patch,
+            }
+          : node,
+      ),
+  );
+
+  queryClient.setQueriesData<TaskDetail | undefined>(
+    { predicate: isTaskDetailQuery },
+    (current) =>
+      current?.node?.id === nodeId
+        ? {
+            ...current,
+            node: {
+              ...current.node,
+              ...patch,
+            },
+          }
+        : current,
+  );
+};
+
+const updateTrackedNodeRootAccess = (
+  queryClient: QueryClient,
+  nodeId: string,
+  patch: TrackedNodeRootAccessPatch,
 ) => {
   queryClient.setQueriesData<NodeSummary[]>(
     { predicate: isNodeListQuery },
@@ -609,6 +679,32 @@ export const useRealtimeBridge = () => {
         });
         refreshAgentUpdateQueries();
       }
+      return;
+    }
+
+    if (message.type === "node.root-access.updated") {
+      if (
+        !shouldAcceptMessage(
+          `node.root-access:${message.data.nodeId}`,
+          message,
+        )
+      ) {
+        return;
+      }
+
+      updateTrackedNodeRootAccess(queryClient, message.data.nodeId, {
+        rootAccessProfile: message.data.rootAccessProfile as RootAccessProfile,
+        rootAccessAppliedProfile:
+          message.data.rootAccessAppliedProfile as RootAccessProfile,
+        rootAccessSyncStatus:
+          message.data.rootAccessSyncStatus as RootAccessSyncStatus,
+        rootAccessUpdatedAt: message.data.rootAccessUpdatedAt ?? null,
+        rootAccessUpdatedByUserId:
+          message.data.rootAccessUpdatedByUserId ?? null,
+        rootAccessLastAppliedAt: message.data.rootAccessLastAppliedAt ?? null,
+        rootAccessLastError: message.data.rootAccessLastError ?? null,
+      });
+
       return;
     }
 

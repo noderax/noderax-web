@@ -472,8 +472,7 @@ export const NodesTable = ({
                         <SquareTerminal className="size-4" />
                       </ShimmerButton>
                       <NodeActionMenu
-                        nodeId={node.id}
-                        nodeName={node.name}
+                        node={node}
                         variant="outline"
                       />
                       <DeleteNodeDialog

@@ -111,6 +111,7 @@ import type {
   TestOidcProviderPayload,
   TestOidcProviderResponse,
   UpdateNodeTeamPayload,
+  UpdateNodeRootAccessPayload,
   UpdateOidcProviderPayload,
   UpdateTaskTemplatePayload,
   VerifyMfaChallengePayload,
@@ -1075,6 +1076,21 @@ export const apiClient = {
       workspaceId
         ? buildWorkspaceApiPath(workspaceId, `/nodes/${nodeId}/team`)
         : `/api/proxy/nodes/${nodeId}/team`,
+      {
+        method: "POST",
+        body: JSON.stringify(payload),
+      },
+    );
+  },
+  updateNodeRootAccess(
+    nodeId: string,
+    payload: UpdateNodeRootAccessPayload,
+    workspaceId?: string,
+  ) {
+    return request<NodeDto>(
+      workspaceId
+        ? buildWorkspaceApiPath(workspaceId, `/nodes/${nodeId}/root-access`)
+        : `/api/proxy/nodes/${nodeId}/root-access`,
       {
         method: "POST",
         body: JSON.stringify(payload),

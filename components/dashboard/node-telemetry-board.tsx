@@ -267,8 +267,7 @@ export const NodeTelemetryBoard = ({ nodes }: { nodes: NodeSummary[] }) => {
                           </div>
                           <div className="action-menu-area flex items-center gap-2">
                             <NodeActionMenu
-                              nodeId={activeMobileNode.id}
-                              nodeName={activeMobileNode.name}
+                              node={activeMobileNode}
                             />
                             <NodeStatusBadge status={activeMobileNode.status} />
                           </div>
@@ -448,8 +447,7 @@ export const NodeTelemetryBoard = ({ nodes }: { nodes: NodeSummary[] }) => {
                           </div>
                           <div className="action-menu-area flex items-center gap-2">
                             <NodeActionMenu
-                              nodeId={node.id}
-                              nodeName={node.name}
+                              node={node}
                             />
                             <NodeStatusBadge status={node.status} />
                           </div>

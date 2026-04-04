@@ -17,6 +17,7 @@ import {
   History,
   LoaderCircle,
   PlugZap,
+  Shield,
   ShieldAlert,
   SquareTerminal,
   XCircle,
@@ -49,6 +50,7 @@ import type {
   TerminalSessionStatus,
   TerminalTranscriptChunk,
 } from "@/lib/types";
+import { profileAllowsSurface } from "@/lib/root-access";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/store/useAppStore";
 import { Switch } from "@/components/ui/switch";
@@ -186,6 +188,7 @@ export const NodeTerminalView = ({ id }: { id: string }) => {
     Record<string, TerminalSession>
   >({});
   const [transcriptTerminalMode, setTranscriptTerminalMode] = useState(false);
+  const [startAsRoot, setStartAsRoot] = useState(false);
 
   const terminalElementRef = useRef<HTMLDivElement | null>(null);
   const terminalRef = useRef<Terminal | null>(null);
@@ -762,11 +765,29 @@ export const NodeTerminalView = ({ id }: { id: string }) => {
   }, []);
 
   const node = nodeQuery.data;
+  const canUseRootTerminalProfile = Boolean(
+    node && profileAllowsSurface(node.rootAccessAppliedProfile, "terminal"),
+  );
   const canStartTerminal =
     Boolean(node) &&
     isWorkspaceAdmin &&
     !workspace?.isArchived &&
     node?.status === "online";
+  const rootTerminalDisabledReason = !node
+    ? "Node details are still loading."
+    : !isWorkspaceAdmin
+      ? "Only workspace administrators can start terminal sessions."
+      : workspace?.isArchived
+        ? "Archived workspaces cannot start new terminal sessions."
+        : node.status !== "online"
+          ? "The node must be online before any terminal session can start."
+          : "This node needs Terminal root or All root applied before a root shell can start.";
+
+  useEffect(() => {
+    if (!canUseRootTerminalProfile && startAsRoot) {
+      setStartAsRoot(false);
+    }
+  }, [canUseRootTerminalProfile, startAsRoot]);
 
   const handleCreateSession = async () => {
     if (!node) {
@@ -779,6 +800,7 @@ export const NodeTerminalView = ({ id }: { id: string }) => {
         payload: {
           cols: terminalRef.current?.cols || DEFAULT_COLS,
           rows: terminalRef.current?.rows || DEFAULT_ROWS,
+          runAsRoot: startAsRoot,
         },
       });
 
@@ -862,6 +884,11 @@ export const NodeTerminalView = ({ id }: { id: string }) => {
                 <Badge variant="outline">
                   {workspace?.name ?? "Workspace"} / {workspace?.currentUserRole ?? "viewer"}
                 </Badge>
+                <Badge variant={canUseRootTerminalProfile ? "default" : "outline"}>
+                  {canUseRootTerminalProfile
+                    ? "Root terminal available"
+                    : "User terminal only"}
+                </Badge>
                 {node.maintenanceMode ? (
                   <Badge variant="secondary">Maintenance mode</Badge>
                 ) : null}
@@ -876,11 +903,23 @@ export const NodeTerminalView = ({ id }: { id: string }) => {
             >
               Back to node
             </Link>
+            <div className="flex items-center gap-2 rounded-full border border-border/80 px-3 py-2 text-xs text-muted-foreground">
+              <Switch
+                checked={startAsRoot}
+                onCheckedChange={setStartAsRoot}
+                disabled={!canUseRootTerminalProfile}
+              />
+              <span>{startAsRoot ? "Start as root" : "Start as noderax"}</span>
+            </div>
             <Button
               onClick={() => void handleCreateSession()}
               disabled={!canStartTerminal || createTerminalSession.isPending}
             >
-              {createTerminalSession.isPending ? "Starting..." : "Start terminal"}
+              {createTerminalSession.isPending
+                ? "Starting..."
+                : startAsRoot
+                  ? "Start root terminal"
+                  : "Start terminal"}
             </Button>
             <Button
               variant="destructive"
@@ -924,6 +963,32 @@ export const NodeTerminalView = ({ id }: { id: string }) => {
           />
         ) : null}
 
+        {!canUseRootTerminalProfile ? (
+          <div className="surface-subtle flex items-start gap-3 rounded-[20px] border px-4 py-3 text-sm text-muted-foreground">
+            <div className="tone-warning flex size-10 shrink-0 items-center justify-center rounded-2xl border">
+              <Shield className="size-4" />
+            </div>
+            <div className="space-y-1">
+              <p className="font-medium text-foreground">Root shell is disabled</p>
+              <p>{rootTerminalDisabledReason}</p>
+            </div>
+          </div>
+        ) : (
+          <div className="surface-subtle flex items-start gap-3 rounded-[20px] border px-4 py-3 text-sm text-muted-foreground">
+            <div className="tone-brand flex size-10 shrink-0 items-center justify-center rounded-2xl border">
+              <Shield className="size-4" />
+            </div>
+            <div className="space-y-1">
+              <p className="font-medium text-foreground">Root shell is available</p>
+              <p>
+                Enable the toggle above when you want the new session to start as
+                root. Leaving it off starts the shell as the regular noderax
+                user.
+              </p>
+            </div>
+          </div>
+        )}
+
         <SectionPanel
           eyebrow="Live session"
           title="Terminal console"
@@ -937,6 +1002,9 @@ export const NodeTerminalView = ({ id }: { id: string }) => {
                 <Badge variant={statusTone(selectedSession.status)}>
                   Session: {selectedSession.status}
                 </Badge>
+              ) : null}
+              {selectedSession?.runAsRoot ? (
+                <Badge variant="default">Privilege: root</Badge>
               ) : null}
               {selectedSession && canControlSelectedLiveSession ? (
                 <Badge variant="outline">
@@ -1073,6 +1141,9 @@ export const NodeTerminalView = ({ id }: { id: string }) => {
                         <Badge variant={statusTone(session.status)}>
                           {session.status}
                         </Badge>
+                        {session.runAsRoot ? (
+                          <Badge variant="default">root</Badge>
+                        ) : null}
                       </div>
                       <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
                         <span className="inline-flex items-center gap-1">

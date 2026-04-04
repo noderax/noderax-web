@@ -33,6 +33,14 @@ export type RealtimeStatus =
   | "degraded"
   | "reconnecting"
   | "disconnected";
+export type RootAccessProfile =
+  | "off"
+  | "operational"
+  | "task"
+  | "terminal"
+  | "all";
+export type RootAccessSyncStatus = "pending" | "applied" | "failed";
+export type RootScope = "task" | "operational";
 
 export interface RealtimeEventMeta {
   sequence?: number | null;
@@ -69,6 +77,13 @@ export interface NodeDto {
   teamId?: string | null;
   teamName?: string | null;
   maintenanceMode?: boolean;
+  rootAccessProfile: RootAccessProfile;
+  rootAccessAppliedProfile: RootAccessProfile;
+  rootAccessSyncStatus: RootAccessSyncStatus;
+  rootAccessUpdatedAt?: string | null;
+  rootAccessUpdatedByUserId?: string | null;
+  rootAccessLastAppliedAt?: string | null;
+  rootAccessLastError?: string | null;
   maintenanceReason?: string | null;
   maintenanceStartedAt?: string | null;
   maintenanceByUserId?: string | null;
@@ -331,6 +346,13 @@ export interface NodeSummary {
   teamId?: string | null;
   teamName?: string | null;
   maintenanceMode?: boolean;
+  rootAccessProfile: RootAccessProfile;
+  rootAccessAppliedProfile: RootAccessProfile;
+  rootAccessSyncStatus: RootAccessSyncStatus;
+  rootAccessUpdatedAt?: string | null;
+  rootAccessUpdatedByUserId?: string | null;
+  rootAccessLastAppliedAt?: string | null;
+  rootAccessLastError?: string | null;
   maintenanceReason?: string | null;
   agentVersion?: string | null;
   platformVersion?: string | null;
@@ -483,6 +505,7 @@ export interface TerminalSession {
   exitCode: number | null;
   cols: number;
   rows: number;
+  runAsRoot: boolean;
   retentionExpiresAt: string;
   createdAt: string;
   updatedAt: string;
@@ -502,6 +525,7 @@ export interface TerminalTranscriptChunk {
 export interface CreateTerminalSessionPayload {
   cols?: number;
   rows?: number;
+  runAsRoot?: boolean;
 }
 
 export interface TerminateTerminalSessionPayload {
@@ -900,6 +924,7 @@ export interface CreateScheduledTaskPayload {
   templateId?: string;
   name: string;
   command: string;
+  runAsRoot?: boolean;
   cadence: ScheduledTaskCadence;
   minute: number;
   hour?: number;
@@ -912,6 +937,7 @@ export interface CreateBatchScheduledTaskPayload {
   templateId?: string;
   name: string;
   command: string;
+  runAsRoot?: boolean;
   cadence: ScheduledTaskCadence;
   minute: number;
   hour?: number;
@@ -940,6 +966,10 @@ export interface EnableNodeMaintenancePayload {
 
 export interface UpdateNodeTeamPayload {
   teamId?: string;
+}
+
+export interface UpdateNodeRootAccessPayload {
+  profile: RootAccessProfile;
 }
 
 export interface InvitationPreviewDto {

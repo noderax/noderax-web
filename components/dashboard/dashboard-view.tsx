@@ -133,8 +133,7 @@ export const DashboardView = () => {
                       </TableCell>
                       <TableCell className="text-right">
                         <NodeActionMenu
-                          nodeId={node.id}
-                          nodeName={node.name}
+                          node={node}
                         />
                       </TableCell>
                     </TableRow>

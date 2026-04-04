@@ -29,6 +29,7 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 import {
   useCreateBatchScheduledTasks,
   useCreateBatchTasks,
@@ -40,6 +41,7 @@ import {
   useWorkspaceTeams,
 } from "@/lib/hooks/use-noderax-data";
 import { useWorkspaceContext } from "@/lib/hooks/use-workspace-context";
+import { profileAllowsSurface } from "@/lib/root-access";
 import { DEFAULT_TIMEZONE } from "@/lib/timezone";
 import type {
   CreateScheduledTaskPayload,
@@ -269,10 +271,45 @@ const buildScheduledMutationPayload = (
 const parsePayloadObject = (payloadText: string) =>
   JSON.parse(payloadText) as Record<string, unknown>;
 
-const buildOnDemandPayload = (values: CommandTaskValues) =>
+const buildShellExecPayload = (command: string, runAsRoot: boolean) => ({
+  command: command.trim(),
+  ...(runAsRoot
+    ? {
+        runAsRoot: true,
+        rootScope: "task" as const,
+      }
+    : {}),
+});
+
+const buildOnDemandPayload = (
+  values: CommandTaskValues,
+  options?: { runAsRoot?: boolean },
+) =>
   values.type.trim() === SHELL_EXEC_TASK_TYPE
-    ? { command: values.command.trim() }
+    ? buildShellExecPayload(values.command, options?.runAsRoot === true)
     : parsePayloadObject(values.payloadText);
+
+const readRootEligibility = (
+  nodes: NodeSummary[],
+  emptySelectionMessage: string,
+  blockedMessage: string,
+) => {
+  if (!nodes.length) {
+    return {
+      allowed: false,
+      reason: emptySelectionMessage,
+    };
+  }
+
+  const allAllowed = nodes.every((node) =>
+    profileAllowsSurface(node.rootAccessAppliedProfile, "task"),
+  );
+
+  return {
+    allowed: allAllowed,
+    reason: allAllowed ? null : blockedMessage,
+  };
+};
 
 const createTaskSchema = z
   .object({
@@ -385,16 +422,31 @@ export const CreateTaskDialog = ({
   const { workspace } = useWorkspaceContext();
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState<DialogTab>(defaultTab);
-  const [onDemandTargetMode, setOnDemandTargetMode] = useState<"node" | "team">("node");
-  const [scheduledTargetMode, setScheduledTargetMode] = useState<"node" | "team">("node");
+  const [onDemandTargetMode, setOnDemandTargetMode] = useState<"node" | "team">(
+    "node",
+  );
+  const [scheduledTargetMode, setScheduledTargetMode] = useState<
+    "node" | "team"
+  >("node");
   const [onDemandTeamId, setOnDemandTeamId] = useState<"none" | string>("none");
-  const [scheduledTeamId, setScheduledTeamId] = useState<"none" | string>("none");
-  const [onDemandTemplateId, setOnDemandTemplateId] = useState<"none" | string>("none");
-  const [scheduledTemplateId, setScheduledTemplateId] = useState<"none" | string>("none");
+  const [scheduledTeamId, setScheduledTeamId] = useState<"none" | string>(
+    "none",
+  );
+  const [onDemandTemplateId, setOnDemandTemplateId] = useState<"none" | string>(
+    "none",
+  );
+  const [scheduledTemplateId, setScheduledTemplateId] = useState<
+    "none" | string
+  >("none");
   const [onDemandTemplateName, setOnDemandTemplateName] = useState("");
   const [scheduledTemplateName, setScheduledTemplateName] = useState("");
-  const [onDemandTemplateDescription, setOnDemandTemplateDescription] = useState("");
-  const [scheduledTemplateDescription, setScheduledTemplateDescription] = useState("");
+  const [onDemandTemplateDescription, setOnDemandTemplateDescription] =
+    useState("");
+  const [scheduledTemplateDescription, setScheduledTemplateDescription] =
+    useState("");
+  const [onDemandRunAsRoot, setOnDemandRunAsRoot] = useState(false);
+  const [scheduledRunAsRoot, setScheduledRunAsRoot] = useState(false);
+  const [multiRunAsRoot, setMultiRunAsRoot] = useState(false);
   const [taskSubmissionError, setTaskSubmissionError] = useState<string | null>(
     null,
   );
@@ -472,30 +524,77 @@ export const CreateTaskDialog = ({
   const selectedTaskTeam = (teamsQuery.data ?? []).find(
     (team) => team.id === onDemandTeamId,
   );
+  const selectedTaskTargetNodes = useMemo(
+    () =>
+      onDemandTargetMode === "node"
+        ? selectedTaskNode
+          ? [selectedTaskNode]
+          : []
+        : nodes.filter((node) => node.teamId === onDemandTeamId),
+    [nodes, onDemandTargetMode, onDemandTeamId, selectedTaskNode],
+  );
   const selectedScheduleNode = nodes.find(
     (node) => node.id === scheduleNodeIdValue,
   );
   const selectedScheduleTeam = (teamsQuery.data ?? []).find(
     (team) => team.id === scheduledTeamId,
   );
+  const selectedScheduleTargetNodes = useMemo(
+    () =>
+      scheduledTargetMode === "node"
+        ? selectedScheduleNode
+          ? [selectedScheduleNode]
+          : []
+        : nodes.filter((node) => node.teamId === scheduledTeamId),
+    [nodes, scheduledTargetMode, scheduledTeamId, selectedScheduleNode],
+  );
   const taskTemplates = taskTemplatesQuery.data ?? [];
   const selectedOnDemandTemplate =
     onDemandTemplateId === "none"
       ? null
-      : taskTemplates.find((template) => template.id === onDemandTemplateId) ?? null;
+      : (taskTemplates.find((template) => template.id === onDemandTemplateId) ??
+        null);
   const selectedScheduledTemplate =
     scheduledTemplateId === "none"
       ? null
-      : taskTemplates.find((template) => template.id === scheduledTemplateId) ?? null;
+      : (taskTemplates.find(
+          (template) => template.id === scheduledTemplateId,
+        ) ?? null);
   const selectedMultiNodes = useMemo(
-    () =>
-      nodes.filter((node) => (multiNodeIdsValue ?? []).includes(node.id)),
+    () => nodes.filter((node) => (multiNodeIdsValue ?? []).includes(node.id)),
     [multiNodeIdsValue, nodes],
   );
   const isTaskShellExec = taskTypeValue.trim() === SHELL_EXEC_TASK_TYPE;
+  const scheduledTaskRootEligibility = readRootEligibility(
+    selectedScheduleTargetNodes,
+    scheduledTargetMode === "node"
+      ? "Select a node to evaluate root access."
+      : scheduledTeamId === "none"
+        ? "Select a team to evaluate root access."
+        : "The selected team does not currently have any nodes.",
+    scheduledTargetMode === "node"
+      ? `${selectedScheduleNode?.name ?? "This node"} does not currently apply Task root or All root.`
+      : "Every current node in the selected team must apply Task root or All root.",
+  );
+  const onDemandTaskRootEligibility = readRootEligibility(
+    selectedTaskTargetNodes,
+    onDemandTargetMode === "node"
+      ? "Select a node to evaluate root access."
+      : onDemandTeamId === "none"
+        ? "Select a team to evaluate root access."
+        : "The selected team does not currently have any nodes.",
+    onDemandTargetMode === "node"
+      ? `${selectedTaskNode?.name ?? "This node"} does not currently apply Task root or All root.`
+      : "Every current node in the selected team must apply Task root or All root.",
+  );
   const isMultiRunNowShellExec =
     multiModeValue === "run-now" &&
     multiTaskTypeValue.trim() === SHELL_EXEC_TASK_TYPE;
+  const multiTaskRootEligibility = readRootEligibility(
+    selectedMultiNodes,
+    "Select one or more nodes to evaluate root access.",
+    "Every selected node must apply Task root or All root.",
+  );
   const selectedMultiNodeCount = selectedMultiNodes.length;
   const isMultiSubmitting =
     multiModeValue === "scheduled"
@@ -506,7 +605,19 @@ export const CreateTaskDialog = ({
     createTeamTaskMutation.isPending ||
     createTaskTemplateMutation.isPending;
   const isScheduledSubmitting =
-    createScheduledTaskMutation.isPending || createTaskTemplateMutation.isPending;
+    createScheduledTaskMutation.isPending ||
+    createTaskTemplateMutation.isPending;
+  const canEnableOnDemandRunAsRoot =
+    isTaskShellExec && onDemandTaskRootEligibility.allowed;
+  const effectiveOnDemandRunAsRoot =
+    canEnableOnDemandRunAsRoot && onDemandRunAsRoot;
+  const canEnableScheduledRunAsRoot = scheduledTaskRootEligibility.allowed;
+  const effectiveScheduledRunAsRoot =
+    canEnableScheduledRunAsRoot && scheduledRunAsRoot;
+  const canEnableMultiRunAsRoot =
+    (isMultiRunNowShellExec || multiModeValue === "scheduled") &&
+    multiTaskRootEligibility.allowed;
+  const effectiveMultiRunAsRoot = canEnableMultiRunAsRoot && multiRunAsRoot;
 
   const resetDialogState = () => {
     taskForm.reset(defaultTaskValues);
@@ -522,6 +633,9 @@ export const CreateTaskDialog = ({
     setScheduledTemplateName("");
     setOnDemandTemplateDescription("");
     setScheduledTemplateDescription("");
+    setOnDemandRunAsRoot(false);
+    setScheduledRunAsRoot(false);
+    setMultiRunAsRoot(false);
     setTaskSubmissionError(null);
     setScheduleSubmissionError(null);
     setMultiSubmissionError(null);
@@ -531,7 +645,9 @@ export const CreateTaskDialog = ({
   const applyTemplateToOnDemand = (templateId: string) => {
     setOnDemandTemplateId(templateId);
 
-    const template = taskTemplates.find((candidate) => candidate.id === templateId);
+    const template = taskTemplates.find(
+      (candidate) => candidate.id === templateId,
+    );
     if (!template) {
       return;
     }
@@ -554,6 +670,7 @@ export const CreateTaskDialog = ({
         shouldDirty: true,
         shouldValidate: true,
       });
+      setOnDemandRunAsRoot(template.payloadTemplate.runAsRoot === true);
     } else {
       taskForm.setValue(
         "payloadText",
@@ -569,7 +686,9 @@ export const CreateTaskDialog = ({
   const applyTemplateToScheduled = (templateId: string) => {
     setScheduledTemplateId(templateId);
 
-    const template = taskTemplates.find((candidate) => candidate.id === templateId);
+    const template = taskTemplates.find(
+      (candidate) => candidate.id === templateId,
+    );
     if (!template) {
       return;
     }
@@ -586,6 +705,7 @@ export const CreateTaskDialog = ({
         shouldValidate: true,
       },
     );
+    setScheduledRunAsRoot(template.payloadTemplate.runAsRoot === true);
   };
 
   const setMultiNodeIds = (nodeIds: string[]) => {
@@ -646,7 +766,9 @@ export const CreateTaskDialog = ({
         name: onDemandTemplateName,
         description: onDemandTemplateDescription,
         taskType: normalizedType,
-        payloadTemplate: buildOnDemandPayload(values),
+        payloadTemplate: buildOnDemandPayload(values, {
+          runAsRoot: effectiveOnDemandRunAsRoot,
+        }),
       });
       templateId = savedTemplate?.id ?? templateId;
 
@@ -655,7 +777,9 @@ export const CreateTaskDialog = ({
           teamId: onDemandTeamId,
           payload: {
             type: normalizedType,
-            payload: buildOnDemandPayload(values),
+            payload: buildOnDemandPayload(values, {
+              runAsRoot: effectiveOnDemandRunAsRoot,
+            }),
             templateId,
           },
         });
@@ -663,7 +787,9 @@ export const CreateTaskDialog = ({
         await createTaskMutation.mutateAsync({
           nodeId: values.nodeId,
           type: normalizedType,
-          payload: buildOnDemandPayload(values),
+          payload: buildOnDemandPayload(values, {
+            runAsRoot: effectiveOnDemandRunAsRoot,
+          }),
           templateId,
         });
       }
@@ -671,7 +797,9 @@ export const CreateTaskDialog = ({
       setOpen(false);
     } catch (error) {
       setTaskSubmissionError(
-        error instanceof Error ? error.message : "Unable to create the task right now.",
+        error instanceof Error
+          ? error.message
+          : "Unable to create the task right now.",
       );
     }
   });
@@ -697,7 +825,10 @@ export const CreateTaskDialog = ({
         name: scheduledTemplateName,
         description: scheduledTemplateDescription,
         taskType: SHELL_EXEC_TASK_TYPE,
-        payloadTemplate: { command: values.command.trim() },
+        payloadTemplate: buildShellExecPayload(
+          values.command,
+          effectiveScheduledRunAsRoot,
+        ),
       });
       templateId = savedTemplate?.id ?? templateId;
 
@@ -707,6 +838,7 @@ export const CreateTaskDialog = ({
           : { teamId: scheduledTeamId }),
         templateId,
         ...buildScheduledMutationPayload(values),
+        runAsRoot: effectiveScheduledRunAsRoot,
       });
       resetDialogState();
       setOpen(false);
@@ -727,6 +859,7 @@ export const CreateTaskDialog = ({
         await createBatchScheduledTaskMutation.mutateAsync({
           nodeIds: values.nodeIds,
           ...buildScheduledMutationPayload(values),
+          runAsRoot: effectiveMultiRunAsRoot,
         });
       } else {
         const normalizedType = values.type.trim();
@@ -734,7 +867,9 @@ export const CreateTaskDialog = ({
         await createBatchTaskMutation.mutateAsync({
           nodeIds: values.nodeIds,
           type: normalizedType,
-          payload: buildOnDemandPayload(values),
+          payload: buildOnDemandPayload(values, {
+            runAsRoot: effectiveMultiRunAsRoot,
+          }),
         });
       }
 
@@ -802,8 +937,14 @@ export const CreateTaskDialog = ({
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="on-demand" className="mt-0 flex min-h-0 flex-1 flex-col overflow-hidden">
-            <form className="flex min-h-0 flex-1 flex-col" onSubmit={onSubmitTask}>
+          <TabsContent
+            value="on-demand"
+            className="mt-0 flex min-h-0 flex-1 flex-col overflow-hidden"
+          >
+            <form
+              className="flex min-h-0 flex-1 flex-col"
+              onSubmit={onSubmitTask}
+            >
               <div className="flex-1 space-y-4 overflow-y-auto pr-1">
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
@@ -811,7 +952,9 @@ export const CreateTaskDialog = ({
                     <Select
                       value={onDemandTargetMode}
                       onValueChange={(value) =>
-                        setOnDemandTargetMode((value ?? "node") as "node" | "team")
+                        setOnDemandTargetMode(
+                          (value ?? "node") as "node" | "team",
+                        )
                       }
                     >
                       <SelectTrigger id="task-target-mode" className="w-full">
@@ -888,7 +1031,9 @@ export const CreateTaskDialog = ({
                     <Label htmlFor="task-team">Team</Label>
                     <Select
                       value={onDemandTeamId}
-                      onValueChange={(value) => setOnDemandTeamId(value ?? "none")}
+                      onValueChange={(value) =>
+                        setOnDemandTeamId(value ?? "none")
+                      }
                     >
                       <SelectTrigger id="task-team" className="w-full">
                         <SelectValue placeholder="Select a team">
@@ -905,7 +1050,8 @@ export const CreateTaskDialog = ({
                       </SelectContent>
                     </Select>
                     <p className="text-xs text-muted-foreground">
-                      One submission creates a task on every eligible node assigned to that team.
+                      One submission creates a task on every eligible node
+                      assigned to that team.
                     </p>
                   </div>
                 )}
@@ -924,34 +1070,66 @@ export const CreateTaskDialog = ({
                     </p>
                   ) : isTaskShellExec ? (
                     <p className="text-xs text-muted-foreground">
-                      `shell.exec` uses the same direct command input as scheduled tasks.
+                      `shell.exec` uses the same direct command input as
+                      scheduled tasks.
                     </p>
                   ) : null}
                 </div>
 
                 {isTaskShellExec ? (
-                  <div className="space-y-2">
-                    <Label htmlFor="task-command">Command</Label>
-                    <Textarea
-                      id="task-command"
-                      placeholder="hostname"
-                      className="min-h-28 font-mono text-xs"
-                      aria-invalid={Boolean(taskForm.formState.errors.command)}
-                      {...taskForm.register("command")}
-                    />
-                    {taskForm.formState.errors.command ? (
-                      <p className="text-sm text-tone-danger">
-                        {taskForm.formState.errors.command.message}
+                  <>
+                    <div className="space-y-2">
+                      <Label htmlFor="task-command">Command</Label>
+                      <Textarea
+                        id="task-command"
+                        placeholder="hostname"
+                        className="min-h-28 font-mono text-xs"
+                        aria-invalid={Boolean(
+                          taskForm.formState.errors.command,
+                        )}
+                        {...taskForm.register("command")}
+                      />
+                      {taskForm.formState.errors.command ? (
+                        <p className="text-sm text-tone-danger">
+                          {taskForm.formState.errors.command.message}
+                        </p>
+                      ) : null}
+                    </div>
+
+                    <div className="surface-subtle rounded-[18px] border px-4 py-3">
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="space-y-1">
+                          <p className="font-medium">Run as root</p>
+                          <p className="text-sm text-muted-foreground">
+                            Enable root execution for this shell task when every
+                            selected target currently applies Task root or All
+                            root.
+                          </p>
+                        </div>
+                        <Switch
+                          checked={effectiveOnDemandRunAsRoot}
+                          onCheckedChange={setOnDemandRunAsRoot}
+                          disabled={!onDemandTaskRootEligibility.allowed}
+                        />
+                      </div>
+                      <p className="mt-3 text-xs text-muted-foreground">
+                        {onDemandTaskRootEligibility.allowed
+                          ? onDemandTargetMode === "team"
+                            ? `All ${selectedTaskTargetNodes.length} current team node${selectedTaskTargetNodes.length === 1 ? "" : "s"} allow root shell tasks.`
+                            : "The selected node allows root shell tasks."
+                          : onDemandTaskRootEligibility.reason}
                       </p>
-                    ) : null}
-                  </div>
+                    </div>
+                  </>
                 ) : (
                   <div className="space-y-2">
                     <Label htmlFor="task-payload">Payload JSON</Label>
                     <Textarea
                       id="task-payload"
                       className="min-h-44 font-mono text-xs"
-                      aria-invalid={Boolean(taskForm.formState.errors.payloadText)}
+                      aria-invalid={Boolean(
+                        taskForm.formState.errors.payloadText,
+                      )}
                       {...taskForm.register("payloadText")}
                     />
                     {taskForm.formState.errors.payloadText ? (
@@ -963,14 +1141,17 @@ export const CreateTaskDialog = ({
                 )}
 
                 {taskSubmissionError ? (
-                  <p className="text-sm text-tone-danger">{taskSubmissionError}</p>
+                  <p className="text-sm text-tone-danger">
+                    {taskSubmissionError}
+                  </p>
                 ) : null}
 
                 <div className="rounded-[18px] border p-4">
                   <div className="space-y-1">
                     <p className="font-medium">Save as reusable template</p>
                     <p className="text-sm text-muted-foreground">
-                      Optional. If you fill in a name, this task definition is saved as a workspace template before queueing.
+                      Optional. If you fill in a name, this task definition is
+                      saved as a workspace template before queueing.
                     </p>
                   </div>
                   <div className="mt-4 grid gap-4 sm:grid-cols-2">
@@ -979,12 +1160,16 @@ export const CreateTaskDialog = ({
                       <Input
                         id="task-template-name"
                         value={onDemandTemplateName}
-                        onChange={(event) => setOnDemandTemplateName(event.target.value)}
+                        onChange={(event) =>
+                          setOnDemandTemplateName(event.target.value)
+                        }
                         placeholder="Disk cleanup"
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="task-template-description">Description</Label>
+                      <Label htmlFor="task-template-description">
+                        Description
+                      </Label>
                       <Input
                         id="task-template-description"
                         value={onDemandTemplateDescription}
@@ -999,7 +1184,9 @@ export const CreateTaskDialog = ({
               </div>
 
               <DialogFooter className="shrink-0 bg-[var(--surface-dialog)] pt-3">
-                <DialogClose render={<Button variant="outline" type="button" />}>
+                <DialogClose
+                  render={<Button variant="outline" type="button" />}
+                >
                   Cancel
                 </DialogClose>
                 <Button type="submit" disabled={isOnDemandSubmitting}>
@@ -1009,8 +1196,14 @@ export const CreateTaskDialog = ({
             </form>
           </TabsContent>
 
-          <TabsContent value="scheduled" className="mt-0 flex min-h-0 flex-1 flex-col overflow-hidden">
-            <form className="flex min-h-0 flex-1 flex-col" onSubmit={onSubmitScheduledTask}>
+          <TabsContent
+            value="scheduled"
+            className="mt-0 flex min-h-0 flex-1 flex-col overflow-hidden"
+          >
+            <form
+              className="flex min-h-0 flex-1 flex-col"
+              onSubmit={onSubmitScheduledTask}
+            >
               <div className="flex-1 space-y-4 overflow-y-auto pr-1">
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
@@ -1018,10 +1211,15 @@ export const CreateTaskDialog = ({
                     <Select
                       value={scheduledTargetMode}
                       onValueChange={(value) =>
-                        setScheduledTargetMode((value ?? "node") as "node" | "team")
+                        setScheduledTargetMode(
+                          (value ?? "node") as "node" | "team",
+                        )
                       }
                     >
-                      <SelectTrigger id="schedule-target-mode" className="w-full">
+                      <SelectTrigger
+                        id="schedule-target-mode"
+                        className="w-full"
+                      >
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -1095,7 +1293,9 @@ export const CreateTaskDialog = ({
                     <Label htmlFor="schedule-team">Team</Label>
                     <Select
                       value={scheduledTeamId}
-                      onValueChange={(value) => setScheduledTeamId(value ?? "none")}
+                      onValueChange={(value) =>
+                        setScheduledTeamId(value ?? "none")
+                      }
                     >
                       <SelectTrigger id="schedule-team" className="w-full">
                         <SelectValue placeholder="Select a team">
@@ -1112,7 +1312,8 @@ export const CreateTaskDialog = ({
                       </SelectContent>
                     </Select>
                     <p className="text-xs text-muted-foreground">
-                      Team schedules resolve the current set of eligible team-owned nodes at execution time.
+                      Team schedules resolve the current set of eligible
+                      team-owned nodes at execution time.
                     </p>
                   </div>
                 )}
@@ -1138,7 +1339,9 @@ export const CreateTaskDialog = ({
                     id="schedule-command"
                     placeholder="hostname"
                     className="min-h-28 font-mono text-xs"
-                    aria-invalid={Boolean(scheduledForm.formState.errors.command)}
+                    aria-invalid={Boolean(
+                      scheduledForm.formState.errors.command,
+                    )}
                     {...scheduledForm.register("command")}
                   />
                   {scheduledForm.formState.errors.command ? (
@@ -1146,6 +1349,30 @@ export const CreateTaskDialog = ({
                       {scheduledForm.formState.errors.command.message}
                     </p>
                   ) : null}
+                </div>
+
+                <div className="surface-subtle rounded-[18px] border px-4 py-3">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="space-y-1">
+                      <p className="font-medium">Run schedule as root</p>
+                      <p className="text-sm text-muted-foreground">
+                        Root schedules are only available when every selected
+                        target currently applies Task root or All root.
+                      </p>
+                    </div>
+                    <Switch
+                      checked={effectiveScheduledRunAsRoot}
+                      onCheckedChange={setScheduledRunAsRoot}
+                      disabled={!scheduledTaskRootEligibility.allowed}
+                    />
+                  </div>
+                  <p className="mt-3 text-xs text-muted-foreground">
+                    {scheduledTaskRootEligibility.allowed
+                      ? scheduledTargetMode === "team"
+                        ? `All ${selectedScheduleTargetNodes.length} current team node${selectedScheduleTargetNodes.length === 1 ? "" : "s"} allow root scheduled tasks.`
+                        : "The selected node allows root scheduled tasks."
+                      : scheduledTaskRootEligibility.reason}
+                  </p>
                 </div>
 
                 <div className="grid gap-4 sm:grid-cols-2">
@@ -1219,7 +1446,9 @@ export const CreateTaskDialog = ({
                         min={0}
                         max={59}
                         placeholder="15"
-                        aria-invalid={Boolean(scheduledForm.formState.errors.minuteText)}
+                        aria-invalid={Boolean(
+                          scheduledForm.formState.errors.minuteText,
+                        )}
                         {...scheduledForm.register("minuteText")}
                       />
                       {scheduledForm.formState.errors.minuteText ? (
@@ -1234,7 +1463,9 @@ export const CreateTaskDialog = ({
                       <Input
                         id="schedule-time"
                         type="time"
-                        aria-invalid={Boolean(scheduledForm.formState.errors.timeText)}
+                        aria-invalid={Boolean(
+                          scheduledForm.formState.errors.timeText,
+                        )}
                         {...scheduledForm.register("timeText")}
                       />
                       {scheduledForm.formState.errors.timeText ? (
@@ -1279,25 +1510,32 @@ export const CreateTaskDialog = ({
 
                 <div className="surface-subtle rounded-[18px] border px-4 py-3 text-sm text-muted-foreground">
                   New schedules follow the workspace timezone{" "}
-                  <span className="font-medium text-foreground">{timezone}</span>.
-                  If the workspace timezone changes later, enabled schedules will
-                  move with that setting.
+                  <span className="font-medium text-foreground">
+                    {timezone}
+                  </span>
+                  . If the workspace timezone changes later, enabled schedules
+                  will move with that setting.
                 </div>
 
                 {scheduleSubmissionError ? (
-                  <p className="text-sm text-tone-danger">{scheduleSubmissionError}</p>
+                  <p className="text-sm text-tone-danger">
+                    {scheduleSubmissionError}
+                  </p>
                 ) : null}
 
                 <div className="rounded-[18px] border p-4">
                   <div className="space-y-1">
                     <p className="font-medium">Save as reusable template</p>
                     <p className="text-sm text-muted-foreground">
-                      Optional. Save this shell command as a workspace template before creating the schedule.
+                      Optional. Save this shell command as a workspace template
+                      before creating the schedule.
                     </p>
                   </div>
                   <div className="mt-4 grid gap-4 sm:grid-cols-2">
                     <div className="space-y-2">
-                      <Label htmlFor="schedule-template-name">Template name</Label>
+                      <Label htmlFor="schedule-template-name">
+                        Template name
+                      </Label>
                       <Input
                         id="schedule-template-name"
                         value={scheduledTemplateName}
@@ -1308,7 +1546,9 @@ export const CreateTaskDialog = ({
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="schedule-template-description">Description</Label>
+                      <Label htmlFor="schedule-template-description">
+                        Description
+                      </Label>
                       <Input
                         id="schedule-template-description"
                         value={scheduledTemplateDescription}
@@ -1323,13 +1563,13 @@ export const CreateTaskDialog = ({
               </div>
 
               <DialogFooter className="shrink-0 bg-[var(--surface-dialog)] pt-3">
-                <DialogClose render={<Button variant="outline" type="button" />}>
+                <DialogClose
+                  render={<Button variant="outline" type="button" />}
+                >
                   Cancel
                 </DialogClose>
                 <Button type="submit" disabled={isScheduledSubmitting}>
-                  {isScheduledSubmitting
-                    ? "Creating..."
-                    : "Create schedule"}
+                  {isScheduledSubmitting ? "Creating..." : "Create schedule"}
                 </Button>
               </DialogFooter>
             </form>
@@ -1339,14 +1579,18 @@ export const CreateTaskDialog = ({
             value="multi-tasking"
             className="mt-0 flex min-h-0 flex-1 flex-col overflow-hidden"
           >
-            <form className="flex min-h-0 flex-1 flex-col" onSubmit={onSubmitMultiTask}>
+            <form
+              className="flex min-h-0 flex-1 flex-col"
+              onSubmit={onSubmitMultiTask}
+            >
               <div className="flex-1 space-y-4 overflow-y-auto pr-1">
                 <div className="space-y-3">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <div className="space-y-1">
                       <Label>Target nodes</Label>
                       <p className="text-xs text-muted-foreground">
-                        Pick one or more nodes to run the same action from a single place.
+                        Pick one or more nodes to run the same action from a
+                        single place.
                       </p>
                     </div>
                     <div className="flex items-center gap-2">
@@ -1354,7 +1598,9 @@ export const CreateTaskDialog = ({
                         type="button"
                         variant="ghost"
                         size="sm"
-                        onClick={() => setMultiNodeIds(nodes.map((node) => node.id))}
+                        onClick={() =>
+                          setMultiNodeIds(nodes.map((node) => node.id))
+                        }
                       >
                         Select all
                       </Button>
@@ -1451,7 +1697,9 @@ export const CreateTaskDialog = ({
                         <SelectValue placeholder="Choose a mode" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="run-now">Run now on all selected nodes</SelectItem>
+                        <SelectItem value="run-now">
+                          Run now on all selected nodes
+                        </SelectItem>
                         <SelectItem value="scheduled">
                           Create the same schedule on all selected nodes
                         </SelectItem>
@@ -1463,11 +1711,15 @@ export const CreateTaskDialog = ({
                     {multiModeValue === "scheduled" ? (
                       <>
                         Batch schedules follow the workspace timezone{" "}
-                        <span className="font-medium text-foreground">{timezone}</span>.
+                        <span className="font-medium text-foreground">
+                          {timezone}
+                        </span>
+                        .
                       </>
                     ) : (
                       <>
-                        One submission queues the same task definition for every selected node.
+                        One submission queues the same task definition for every
+                        selected node.
                       </>
                     )}
                   </div>
@@ -1489,27 +1741,55 @@ export const CreateTaskDialog = ({
                         </p>
                       ) : isMultiRunNowShellExec ? (
                         <p className="text-xs text-muted-foreground">
-                          `shell.exec` runs with the same command field used by scheduled tasks.
+                          `shell.exec` runs with the same command field used by
+                          scheduled tasks.
                         </p>
                       ) : null}
                     </div>
 
                     {isMultiRunNowShellExec ? (
-                      <div className="space-y-2">
-                        <Label htmlFor="multi-task-command">Command</Label>
-                        <Textarea
-                          id="multi-task-command"
-                          placeholder="hostname"
-                          className="min-h-28 font-mono text-xs"
-                          aria-invalid={Boolean(multiForm.formState.errors.command)}
-                          {...multiForm.register("command")}
-                        />
-                        {multiForm.formState.errors.command ? (
-                          <p className="text-sm text-tone-danger">
-                            {multiForm.formState.errors.command.message}
+                      <>
+                        <div className="space-y-2">
+                          <Label htmlFor="multi-task-command">Command</Label>
+                          <Textarea
+                            id="multi-task-command"
+                            placeholder="hostname"
+                            className="min-h-28 font-mono text-xs"
+                            aria-invalid={Boolean(
+                              multiForm.formState.errors.command,
+                            )}
+                            {...multiForm.register("command")}
+                          />
+                          {multiForm.formState.errors.command ? (
+                            <p className="text-sm text-tone-danger">
+                              {multiForm.formState.errors.command.message}
+                            </p>
+                          ) : null}
+                        </div>
+
+                        <div className="surface-subtle rounded-[18px] border px-4 py-3">
+                          <div className="flex items-start justify-between gap-4">
+                            <div className="space-y-1">
+                              <p className="font-medium">Run as root</p>
+                              <p className="text-sm text-muted-foreground">
+                                Every selected node must currently apply Task
+                                root or All root before batch root execution can
+                                be queued.
+                              </p>
+                            </div>
+                            <Switch
+                              checked={effectiveMultiRunAsRoot}
+                              onCheckedChange={setMultiRunAsRoot}
+                              disabled={!multiTaskRootEligibility.allowed}
+                            />
+                          </div>
+                          <p className="mt-3 text-xs text-muted-foreground">
+                            {multiTaskRootEligibility.allowed
+                              ? `All ${selectedMultiNodeCount} selected node${selectedMultiNodeCount === 1 ? "" : "s"} allow root shell tasks.`
+                              : multiTaskRootEligibility.reason}
                           </p>
-                        ) : null}
-                      </div>
+                        </div>
+                      </>
                     ) : (
                       <div className="space-y-2">
                         <Label htmlFor="multi-task-payload">Payload JSON</Label>
@@ -1552,7 +1832,9 @@ export const CreateTaskDialog = ({
                         id="multi-schedule-command"
                         placeholder="hostname"
                         className="min-h-28 font-mono text-xs"
-                        aria-invalid={Boolean(multiForm.formState.errors.command)}
+                        aria-invalid={Boolean(
+                          multiForm.formState.errors.command,
+                        )}
                         {...multiForm.register("command")}
                       />
                       {multiForm.formState.errors.command ? (
@@ -1560,6 +1842,29 @@ export const CreateTaskDialog = ({
                           {multiForm.formState.errors.command.message}
                         </p>
                       ) : null}
+                    </div>
+
+                    <div className="surface-subtle rounded-[18px] border px-4 py-3">
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="space-y-1">
+                          <p className="font-medium">Run schedules as root</p>
+                          <p className="text-sm text-muted-foreground">
+                            Every selected node must currently apply Task root
+                            or All root before batch root schedules can be
+                            created.
+                          </p>
+                        </div>
+                        <Switch
+                          checked={effectiveMultiRunAsRoot}
+                          onCheckedChange={setMultiRunAsRoot}
+                          disabled={!multiTaskRootEligibility.allowed}
+                        />
+                      </div>
+                      <p className="mt-3 text-xs text-muted-foreground">
+                        {multiTaskRootEligibility.allowed
+                          ? `All ${selectedMultiNodeCount} selected node${selectedMultiNodeCount === 1 ? "" : "s"} allow root scheduled tasks.`
+                          : multiTaskRootEligibility.reason}
+                      </p>
                     </div>
 
                     <div className="grid gap-4 sm:grid-cols-2">
@@ -1570,7 +1875,8 @@ export const CreateTaskDialog = ({
                           onValueChange={(value) =>
                             multiForm.setValue(
                               "cadence",
-                              (value ?? "hourly") as ScheduledTaskValues["cadence"],
+                              (value ??
+                                "hourly") as ScheduledTaskValues["cadence"],
                               {
                                 shouldDirty: true,
                                 shouldValidate: true,
@@ -1578,12 +1884,19 @@ export const CreateTaskDialog = ({
                             )
                           }
                         >
-                          <SelectTrigger id="multi-schedule-cadence" className="w-full">
+                          <SelectTrigger
+                            id="multi-schedule-cadence"
+                            className="w-full"
+                          >
                             <SelectValue placeholder="Select cadence" />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="minutely">Every minute</SelectItem>
-                            <SelectItem value="custom">Custom interval</SelectItem>
+                            <SelectItem value="minutely">
+                              Every minute
+                            </SelectItem>
+                            <SelectItem value="custom">
+                              Custom interval
+                            </SelectItem>
                             <SelectItem value="hourly">Hourly</SelectItem>
                             <SelectItem value="daily">Daily</SelectItem>
                             <SelectItem value="weekly">Weekly</SelectItem>
@@ -1620,7 +1933,8 @@ export const CreateTaskDialog = ({
                             </p>
                           ) : (
                             <p className="text-xs text-muted-foreground">
-                              Example: 5 for every 5 minutes, 7 for every 7 minutes.
+                              Example: 5 for every 5 minutes, 7 for every 7
+                              minutes.
                             </p>
                           )}
                         </div>
@@ -1646,11 +1960,15 @@ export const CreateTaskDialog = ({
                         </div>
                       ) : (
                         <div className="space-y-2">
-                          <Label htmlFor="multi-schedule-time">Local time</Label>
+                          <Label htmlFor="multi-schedule-time">
+                            Local time
+                          </Label>
                           <Input
                             id="multi-schedule-time"
                             type="time"
-                            aria-invalid={Boolean(multiForm.formState.errors.timeText)}
+                            aria-invalid={Boolean(
+                              multiForm.formState.errors.timeText,
+                            )}
                             {...multiForm.register("timeText")}
                           />
                           {multiForm.formState.errors.timeText ? (
@@ -1674,12 +1992,18 @@ export const CreateTaskDialog = ({
                             })
                           }
                         >
-                          <SelectTrigger id="multi-schedule-day" className="w-full">
+                          <SelectTrigger
+                            id="multi-schedule-day"
+                            className="w-full"
+                          >
                             <SelectValue placeholder="Select day" />
                           </SelectTrigger>
                           <SelectContent>
                             {WEEKDAY_OPTIONS.map((option) => (
-                              <SelectItem key={option.value} value={option.value}>
+                              <SelectItem
+                                key={option.value}
+                                value={option.value}
+                              >
                                 {option.label}
                               </SelectItem>
                             ))}
@@ -1696,12 +2020,16 @@ export const CreateTaskDialog = ({
                 )}
 
                 {multiSubmissionError ? (
-                  <p className="text-sm text-tone-danger">{multiSubmissionError}</p>
+                  <p className="text-sm text-tone-danger">
+                    {multiSubmissionError}
+                  </p>
                 ) : null}
               </div>
 
               <DialogFooter className="shrink-0 bg-[var(--surface-dialog)] pt-3">
-                <DialogClose render={<Button variant="outline" type="button" />}>
+                <DialogClose
+                  render={<Button variant="outline" type="button" />}
+                >
                   Cancel
                 </DialogClose>
                 <Button type="submit" disabled={isMultiSubmitting}>

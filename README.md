@@ -42,8 +42,9 @@ Current product surface:
   - default-workspace selection
   - dangerous workspace deletion flow
 - Linux node detail with live telemetry, packages, running tasks, and event history
+- Node root access profile management with desired/applied/sync visibility and warning-confirmed profile changes
 - Two-step `Add node` onboarding that collects node metadata first, then generates a one-click agent install command and shows live bootstrap progress
-- Linux node interactive terminal route with live xterm.js console and persisted transcript history
+- Linux node interactive terminal route with live xterm.js console, optional root sessions, and persisted transcript history
 - Task detail with live lifecycle and logs
 - Platform-admin workspaces page
 - User-centric membership management:
@@ -137,9 +138,15 @@ The top-level non-workspace pages continue to exist as convenience or fallback s
 - Task templates with prefill/save UX in task creation flows
 - Team-targeted task runs and schedule targeting
 - Linux node maintenance UX and node telemetry visibility
+- Root-aware task creation:
+  - shell tasks can request root when every selected target currently applies `task` or `all`
+  - scheduled shell tasks follow the same rule
+  - node action menu and package management require `operational` or `all`
+  - root terminal start requires `terminal` or `all`
 - Two-step node install command generation with copyable bootstrap command, API URL, installer script URL, and live bootstrap progress feedback
 - Interactive terminal UX with:
   - xterm.js live console tunneled through the agent
+  - root terminal toggle when the node profile allows it
   - recent session history
   - persisted transcript timeline
   - transcript "Terminal view" rendering
@@ -162,6 +169,7 @@ The top-level non-workspace pages continue to exist as convenience or fallback s
   - cancel flow for active tasks
 - Package management through node detail
 - Live node telemetry and task lifecycle updates
+- Live node root-access sync updates through the shared realtime cache bridge
 
 ## Authorization Model
 

@@ -16,10 +16,12 @@ export const PackageMarket = ({
   nodeId,
   nodeLabel,
   canManage,
+  manageDisabledReason,
 }: {
   nodeId: string;
   nodeLabel?: string;
   canManage: boolean;
+  manageDisabledReason?: string | null;
 }) => {
   const [term, setTerm] = useState("");
   const deferredTerm = useDeferredValue(term.trim());
@@ -44,7 +46,7 @@ export const PackageMarket = ({
     >
       {!canManage ? (
         <div className="surface-subtle rounded-[18px] border px-4 py-3 text-sm text-muted-foreground">
-          Only administrators can install or remove packages.
+          {manageDisabledReason ?? "Only administrators can install or remove packages."}
         </div>
       ) : null}
 

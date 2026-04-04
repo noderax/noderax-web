@@ -52,6 +52,7 @@ import type {
   UpdatePlatformSettingsPayload,
   TeamMembershipDto,
   UpdateNodeTeamPayload,
+  UpdateNodeRootAccessPayload,
   UpdateOidcProviderPayload,
   UpdateScheduledTaskPayload,
   UpdateTeamPayload,
@@ -1273,6 +1274,57 @@ export const useUpdateNodeTeam = () => {
           refetchType: "active",
         }),
       ]);
+    },
+  });
+};
+
+export const useUpdateNodeRootAccess = () => {
+  const queryClient = useQueryClient();
+  const { workspaceId } = useWorkspaceContext();
+
+  return useMutation({
+    mutationFn: (input: {
+      nodeId: string;
+      payload: UpdateNodeRootAccessPayload;
+    }) =>
+      apiClient.updateNodeRootAccess(
+        input.nodeId,
+        input.payload,
+        requireWorkspaceId(workspaceId),
+      ),
+    onSuccess: async (node) => {
+      toast.success("Root access profile updated", {
+        description:
+          node.rootAccessProfile === "off"
+            ? `${node.name} root access has been disabled and is waiting for agent sync.`
+            : `${node.name} is switching to ${node.rootAccessProfile} root access.`,
+      });
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: ["nodes", workspaceId],
+          refetchType: "active",
+        }),
+        queryClient.invalidateQueries({
+          queryKey:
+            workspaceId && node.id
+              ? queryKeys.nodes.detail(workspaceId, node.id)
+              : ["nodes", "detail", node.id],
+          refetchType: "active",
+        }),
+        queryClient.invalidateQueries({
+          queryKey: ["tasks", workspaceId],
+          refetchType: "active",
+        }),
+        queryClient.invalidateQueries({
+          queryKey: ["events", workspaceId],
+          refetchType: "active",
+        }),
+      ]);
+    },
+    onError: (error) => {
+      toast.error("Unable to update root access", {
+        description: readMutationError(error),
+      });
     },
   });
 };
