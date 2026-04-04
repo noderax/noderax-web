@@ -493,7 +493,7 @@ const TopbarContent = () => {
             (agentUpdatesSummaryQuery.data?.outdatedNodeCount ?? 0) > 0) ? (
             agentUpdatesSummaryQuery.data?.activeRollout ? (
               <AnimatedGradientTextButton
-                className="hidden md:inline-flex"
+                className="hidden shrink-0 md:inline-flex"
                 onClick={() => router.push("/updates")}
                 prefixContent={
                   agentUpdatesSummaryQuery.data.activeRollout.status ===
@@ -513,7 +513,7 @@ const TopbarContent = () => {
               />
             ) : (
               <AnimatedGradientTextButton
-                className="hidden md:inline-flex"
+                className="hidden shrink-0 md:inline-flex"
                 onClick={() => router.push("/updates")}
                 prefixContent="✨"
                 speed={1.2}
