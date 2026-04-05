@@ -18,6 +18,7 @@ import {
 import { cn } from "@/lib/utils";
 
 import { DeleteNodeDialog } from "@/components/nodes/delete-node-dialog";
+import { NodeLogsPanel } from "@/components/nodes/node-logs-panel";
 import { NodeOsIcon } from "@/components/nodes/node-os-icon";
 import { MetricsChart } from "@/components/dashboard/metrics-chart";
 import { EmptyState } from "@/components/empty-state";
@@ -738,6 +739,9 @@ export const NodeDetailView = ({ id }: { id: string }) => {
           >
             Packages
           </TabsTrigger>
+          <TabsTrigger value="logs" className="rounded-lg px-3 py-1.5 text-xs">
+            Logs
+          </TabsTrigger>
           <TabsTrigger value="tasks" className="rounded-lg px-3 py-1.5 text-xs">
             Running tasks
           </TabsTrigger>
@@ -1011,6 +1015,9 @@ export const NodeDetailView = ({ id }: { id: string }) => {
         </TabsContent>
         <TabsContent value="packages" className="mt-0">
           <NodePackagesScreen nodeId={id} nodeName={node.name} />
+        </TabsContent>
+        <TabsContent value="logs" className="mt-0">
+          <NodeLogsPanel nodeId={id} />
         </TabsContent>
         <TabsContent value="tasks" className="mt-0">
           <SectionPanel

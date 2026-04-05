@@ -44,8 +44,16 @@ import type {
   FinalizeEnrollmentPayload,
   FinalizeEnrollmentResponse,
   InstallPackagesPayload,
+  IncidentAnalysisRequestPayload,
+  IncidentFilters,
   MetricFilters,
   NodeFilters,
+  CreateLogMonitorRulePayload,
+  CreateLogPreviewPayload,
+  IncidentStatus,
+  LogMonitorRuleDto,
+  LogPreviewResponseDto,
+  LogSourcePresetDto,
   RemovePackagePayload,
   PlatformSettingsResponse,
   PlatformApiRestartResponse,
@@ -59,6 +67,7 @@ import type {
   UpdateNodeNotificationsPayload,
   UpdateNodeRootAccessPayload,
   UpdateOidcProviderPayload,
+  UpdateLogMonitorRulePayload,
   UpdateScheduledTaskPayload,
   UpdateTeamPayload,
   UpdateTaskTemplatePayload,
@@ -174,6 +183,14 @@ export const queryKeys = {
         options ?? {},
       ] as const,
   },
+  logs: {
+    presets: (workspaceId: string, nodeId: string) =>
+      ["logs", workspaceId, nodeId, "presets"] as const,
+    preview: (workspaceId: string, nodeId: string) =>
+      ["logs", workspaceId, nodeId, "preview"] as const,
+    rules: (workspaceId: string, nodeId: string) =>
+      ["logs", workspaceId, nodeId, "rules"] as const,
+  },
   tasks: {
     all: (workspaceId: string, filters?: TaskFilters) =>
       ["tasks", workspaceId, "list", filters ?? {}] as const,
@@ -189,6 +206,10 @@ export const queryKeys = {
   events: {
     all: (workspaceId: string, filters?: EventFilters) =>
       ["events", workspaceId, "list", filters ?? {}] as const,
+  },
+  incidents: {
+    all: (workspaceId: string, filters?: IncidentFilters) =>
+      ["incidents", workspaceId, filters ?? {}] as const,
   },
   metrics: {
     all: (workspaceId: string, filters?: MetricFilters) =>
@@ -638,6 +659,50 @@ export const useNode = (id: string) => {
   });
 };
 
+export const useNodeLogPresets = (nodeId: string) => {
+  const { workspaceId } = useWorkspaceContext();
+
+  return useQuery<LogSourcePresetDto[]>({
+    queryKey:
+      workspaceId && nodeId
+        ? queryKeys.logs.presets(workspaceId, nodeId)
+        : ["logs", "presets", "idle", nodeId],
+    queryFn: () => apiClient.getNodeLogPresets(nodeId, workspaceId!),
+    enabled: Boolean(workspaceId && nodeId),
+    staleTime: Infinity,
+    refetchOnWindowFocus: false,
+  });
+};
+
+export const useNodeLogMonitorRules = (nodeId: string) => {
+  const { workspaceId } = useWorkspaceContext();
+
+  return useQuery<LogMonitorRuleDto[]>({
+    queryKey:
+      workspaceId && nodeId
+        ? queryKeys.logs.rules(workspaceId, nodeId)
+        : ["logs", "rules", "idle", nodeId],
+    queryFn: () => apiClient.getNodeLogMonitorRules(nodeId, workspaceId!),
+    enabled: Boolean(workspaceId && nodeId),
+    staleTime: 10_000,
+    refetchOnWindowFocus: false,
+  });
+};
+
+export const useWorkspaceIncidents = (filters?: IncidentFilters) => {
+  const { workspaceId } = useWorkspaceContext();
+
+  return useQuery({
+    queryKey: workspaceId
+      ? queryKeys.incidents.all(workspaceId, filters)
+      : ["incidents", "idle", filters ?? {}],
+    queryFn: () => apiClient.getIncidents(filters, workspaceId!),
+    enabled: Boolean(workspaceId),
+    staleTime: 10_000,
+    refetchOnWindowFocus: false,
+  });
+};
+
 export const useNodeTerminalSessions = (
   nodeId: string,
   options?: {
@@ -869,6 +934,27 @@ export const useSearchPackages = (term: string, nodeId: string) => {
   });
 };
 
+const invalidateIncidentQueries = async (
+  queryClient: ReturnType<typeof useQueryClient>,
+  workspaceId: string,
+  nodeId?: string,
+) => {
+  await Promise.all([
+    queryClient.invalidateQueries({
+      queryKey: queryKeys.incidents.all(workspaceId),
+      refetchType: "active",
+    }),
+    ...(nodeId
+      ? [
+          queryClient.invalidateQueries({
+            queryKey: queryKeys.logs.rules(workspaceId, nodeId),
+            refetchType: "active",
+          }),
+        ]
+      : []),
+  ]);
+};
+
 const invalidatePackageQueries = async (
   queryClient: ReturnType<typeof useQueryClient>,
   workspaceId: string,
@@ -926,6 +1012,172 @@ export const useCreateUser = () => {
     },
     onError: (error) => {
       toast.error("Unable to create user", {
+        description: readMutationError(error),
+      });
+    },
+  });
+};
+
+export const usePreviewNodeLogs = (nodeId: string) => {
+  const { workspaceId } = useWorkspaceContext();
+
+  return useMutation<LogPreviewResponseDto, unknown, CreateLogPreviewPayload>({
+    mutationFn: (payload) =>
+      apiClient.previewNodeLogs(nodeId, payload, requireWorkspaceId(workspaceId)),
+    onError: (error) => {
+      toast.error("Unable to preview logs", {
+        description: readMutationError(error),
+      });
+    },
+  });
+};
+
+export const useCreateNodeLogMonitorRule = (nodeId: string) => {
+  const queryClient = useQueryClient();
+  const { workspaceId } = useWorkspaceContext();
+
+  return useMutation({
+    mutationFn: (payload: CreateLogMonitorRulePayload) =>
+      apiClient.createNodeLogMonitorRule(
+        nodeId,
+        payload,
+        requireWorkspaceId(workspaceId),
+      ),
+    onSuccess: async () => {
+      toast.success("Log monitor rule created");
+      await invalidateIncidentQueries(
+        queryClient,
+        requireWorkspaceId(workspaceId),
+        nodeId,
+      );
+    },
+    onError: (error) => {
+      toast.error("Unable to create log monitor rule", {
+        description: readMutationError(error),
+      });
+    },
+  });
+};
+
+export const useUpdateNodeLogMonitorRule = (nodeId: string) => {
+  const queryClient = useQueryClient();
+  const { workspaceId } = useWorkspaceContext();
+
+  return useMutation({
+    mutationFn: (input: {
+      ruleId: string;
+      payload: UpdateLogMonitorRulePayload;
+    }) =>
+      apiClient.updateNodeLogMonitorRule(
+        nodeId,
+        input.ruleId,
+        input.payload,
+        requireWorkspaceId(workspaceId),
+      ),
+    onSuccess: async () => {
+      toast.success("Log monitor rule updated");
+      await invalidateIncidentQueries(
+        queryClient,
+        requireWorkspaceId(workspaceId),
+        nodeId,
+      );
+    },
+    onError: (error) => {
+      toast.error("Unable to update log monitor rule", {
+        description: readMutationError(error),
+      });
+    },
+  });
+};
+
+export const useDeleteNodeLogMonitorRule = (nodeId: string) => {
+  const queryClient = useQueryClient();
+  const { workspaceId } = useWorkspaceContext();
+
+  return useMutation({
+    mutationFn: (ruleId: string) =>
+      apiClient.deleteNodeLogMonitorRule(
+        nodeId,
+        ruleId,
+        requireWorkspaceId(workspaceId),
+      ),
+    onSuccess: async () => {
+      toast.success("Log monitor rule deleted");
+      await invalidateIncidentQueries(
+        queryClient,
+        requireWorkspaceId(workspaceId),
+        nodeId,
+      );
+    },
+    onError: (error) => {
+      toast.error("Unable to delete log monitor rule", {
+        description: readMutationError(error),
+      });
+    },
+  });
+};
+
+export const useAcknowledgeIncident = () => {
+  const queryClient = useQueryClient();
+  const { workspaceId } = useWorkspaceContext();
+
+  return useMutation({
+    mutationFn: (incidentId: string) =>
+      apiClient.acknowledgeIncident(
+        incidentId,
+        requireWorkspaceId(workspaceId),
+      ),
+    onSuccess: async () => {
+      toast.success("Incident acknowledged");
+      await invalidateIncidentQueries(queryClient, requireWorkspaceId(workspaceId));
+    },
+    onError: (error) => {
+      toast.error("Unable to acknowledge incident", {
+        description: readMutationError(error),
+      });
+    },
+  });
+};
+
+export const useResolveIncident = () => {
+  const queryClient = useQueryClient();
+  const { workspaceId } = useWorkspaceContext();
+
+  return useMutation({
+    mutationFn: (incidentId: string) =>
+      apiClient.resolveIncident(incidentId, requireWorkspaceId(workspaceId)),
+    onSuccess: async () => {
+      toast.success("Incident resolved");
+      await invalidateIncidentQueries(queryClient, requireWorkspaceId(workspaceId));
+    },
+    onError: (error) => {
+      toast.error("Unable to resolve incident", {
+        description: readMutationError(error),
+      });
+    },
+  });
+};
+
+export const useAnalyzeIncident = () => {
+  const queryClient = useQueryClient();
+  const { workspaceId } = useWorkspaceContext();
+
+  return useMutation({
+    mutationFn: (input: {
+      incidentId: string;
+      payload?: IncidentAnalysisRequestPayload;
+    }) =>
+      apiClient.analyzeIncident(
+        input.incidentId,
+        input.payload ?? {},
+        requireWorkspaceId(workspaceId),
+      ),
+    onSuccess: async () => {
+      toast.success("Incident analysis completed");
+      await invalidateIncidentQueries(queryClient, requireWorkspaceId(workspaceId));
+    },
+    onError: (error) => {
+      toast.error("Unable to analyze incident", {
         description: readMutationError(error),
       });
     },

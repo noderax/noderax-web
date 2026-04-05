@@ -40,6 +40,9 @@ export type RootAccessProfile =
   | "all";
 export type RootAccessSyncStatus = "pending" | "applied" | "failed";
 export type RootScope = "task" | "operational";
+export type LogMonitorCadence = "minutely" | "custom";
+export type IncidentStatus = "open" | "acknowledged" | "resolved";
+export type LogSourcePresetKind = "file" | "journal";
 
 export interface RealtimeEventMeta {
   sequence?: number | null;
@@ -104,6 +107,7 @@ export interface TaskDto {
   workspaceId: string;
   nodeId: string;
   type: string;
+  isInternal?: boolean;
   payload: Record<string, unknown>;
   status: TaskStatus;
   targetTeamId?: string | null;
@@ -1235,6 +1239,123 @@ export interface TaskFilters {
 
 export interface TaskLogFilters {
   limit?: number;
+}
+
+export interface LogSourcePresetDto {
+  id: string;
+  label: string;
+  description: string;
+  kind: LogSourcePresetKind;
+  path?: string;
+  unit?: string;
+  identifier: string;
+  requiresRoot: boolean;
+  defaultBackfillLines: number;
+}
+
+export interface LogPreviewEntryDto {
+  timestamp?: string | null;
+  message: string;
+  unit?: string | null;
+  identifier?: string | null;
+}
+
+export interface LogPreviewResponseDto {
+  taskId: string;
+  taskStatus: TaskStatus;
+  sourcePresetId: string;
+  entries: LogPreviewEntryDto[];
+  truncated: boolean;
+  warnings: string[];
+  error: string | null;
+}
+
+export interface CreateLogPreviewPayload {
+  sourcePresetId: string;
+  backfillLines?: number;
+}
+
+export interface LogMonitorRuleDto {
+  id: string;
+  workspaceId: string;
+  nodeId: string;
+  name: string;
+  enabled: boolean;
+  sourcePresetId: string;
+  cadence: LogMonitorCadence;
+  intervalMinutes: number;
+  dsl: Record<string, unknown>;
+  nextRunAt: string | null;
+  lastRunAt: string | null;
+  lastError: string | null;
+  lastTaskId: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateLogMonitorRulePayload {
+  name: string;
+  sourcePresetId: string;
+  cadence?: LogMonitorCadence;
+  intervalMinutes?: number;
+  enabled?: boolean;
+  dsl: Record<string, unknown>;
+}
+
+export type UpdateLogMonitorRulePayload =
+  Partial<CreateLogMonitorRulePayload>;
+
+export interface IncidentAnalysisDto {
+  id: string;
+  incidentId?: string;
+  model: string;
+  summary: string;
+  probableCauses: string[];
+  recommendedChecks: string[];
+  inputTokens?: number | null;
+  outputTokens?: number | null;
+  estimatedCostUsd?: string | null;
+  createdAt: string;
+}
+
+export interface IncidentLatestSample {
+  entries?: LogPreviewEntryDto[];
+  warnings?: string[];
+  truncated?: boolean;
+}
+
+export interface IncidentDto {
+  id: string;
+  workspaceId: string;
+  nodeId: string;
+  ruleId: string;
+  sourcePresetId: string;
+  status: IncidentStatus;
+  severity: EventSeverity;
+  title: string;
+  fingerprint: string;
+  firstSeenAt: string;
+  lastSeenAt: string;
+  hitCount: number;
+  latestSample: IncidentLatestSample | null;
+  latestTaskId: string | null;
+  createdAt: string;
+  updatedAt: string;
+  latestAnalysis?: IncidentAnalysisDto | null;
+}
+
+export interface IncidentFilters {
+  status?: IncidentStatus | "all";
+  severity?: EventSeverity | "all";
+  nodeId?: string;
+  ruleId?: string;
+  sourcePresetId?: string;
+  limit?: number;
+  offset?: number;
+}
+
+export interface IncidentAnalysisRequestPayload {
+  model?: string;
 }
 
 export interface EventFilters {
