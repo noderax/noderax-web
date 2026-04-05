@@ -6,7 +6,10 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import {
   AlertTriangle,
+  BellRing,
+  Mail,
   Network,
+  Send,
   Shield,
   SquareTerminal,
   Timer,
@@ -49,6 +52,7 @@ import {
   useDisableNodeMaintenance,
   useEnableNodeMaintenance,
   useNode,
+  useUpdateNodeNotifications,
   useUpdateNodeRootAccess,
   useUpdateNodeTeam,
   useWorkspaceTeams,
@@ -64,7 +68,7 @@ import {
   type RootAccessSurface,
   type RootAccessSurfaceSelection,
 } from "@/lib/root-access";
-import type { RootAccessProfile } from "@/lib/types";
+import type { EventSeverity, RootAccessProfile } from "@/lib/types";
 import { TimeDisplay } from "@/components/ui/time-display";
 
 const ReactSpeedometer = dynamic(
@@ -177,6 +181,66 @@ const ROOT_ACCESS_SURFACE_OPTIONS: Array<{
   },
 ];
 
+const NODE_NOTIFICATION_LEVELS: EventSeverity[] = [
+  "info",
+  "warning",
+  "critical",
+];
+
+const NODE_NOTIFICATION_LEVEL_OPTIONS: Array<{
+  value: EventSeverity;
+  label: string;
+  description: string;
+  activeClassName: string;
+}> = [
+  {
+    value: "info",
+    label: "Info",
+    description: "Routine state changes and lower-noise operational events.",
+    activeClassName:
+      "border-[#2b8cff]/40 bg-[#2b8cff]/12 text-[#0f4fbf] dark:text-[#8fc5ff]",
+  },
+  {
+    value: "warning",
+    label: "Warning",
+    description: "Actionable alerts that may need operator attention soon.",
+    activeClassName:
+      "border-[#f2a71b]/40 bg-[#f2a71b]/14 text-[#a55f0b] dark:text-[#ffd28a]",
+  },
+  {
+    value: "critical",
+    label: "Critical",
+    description: "Urgent incidents and failure states that need intervention.",
+    activeClassName:
+      "border-[#d94824]/40 bg-[#d94824]/14 text-[#9f2b13] dark:text-[#ffb19d]",
+  },
+];
+
+const normalizeNotificationLevels = (levels: EventSeverity[] | null | undefined) =>
+  NODE_NOTIFICATION_LEVELS.filter((severity) => levels?.includes(severity));
+
+const serializeNotificationLevels = (levels: EventSeverity[] | null | undefined) =>
+  normalizeNotificationLevels(levels).join(",");
+
+const notificationLevelsEqual = (
+  left: EventSeverity[] | null | undefined,
+  right: EventSeverity[] | null | undefined,
+) => serializeNotificationLevels(left) === serializeNotificationLevels(right);
+
+const toggleNotificationLevel = (
+  levels: EventSeverity[],
+  severity: EventSeverity,
+) =>
+  levels.includes(severity)
+    ? NODE_NOTIFICATION_LEVELS.filter(
+        (currentSeverity) =>
+          currentSeverity !== severity && levels.includes(currentSeverity),
+      )
+    : NODE_NOTIFICATION_LEVELS.filter(
+        (currentSeverity) =>
+          currentSeverity === severity || levels.includes(currentSeverity),
+      );
+
 const clampMetric = (value: number | null, max: number) => {
   if (value === null || !Number.isFinite(value)) {
     return 0;
@@ -249,6 +313,14 @@ type NodeOperationDraft = {
   maintenanceReason: string;
 };
 
+type NodeNotificationDraft = {
+  sourceKey: string | null;
+  notificationEmailEnabled: boolean;
+  notificationEmailLevels: EventSeverity[];
+  notificationTelegramEnabled: boolean;
+  notificationTelegramLevels: EventSeverity[];
+};
+
 export const NodeDetailView = ({ id }: { id: string }) => {
   const router = useRouter();
   const { buildWorkspaceHref, isWorkspaceAdmin, workspace } =
@@ -258,6 +330,14 @@ export const NodeDetailView = ({ id }: { id: string }) => {
     selectedTeamId: "none",
     maintenanceReason: "",
   });
+  const [notificationDraft, setNotificationDraft] = useState<NodeNotificationDraft>({
+    sourceKey: null,
+    notificationEmailEnabled: true,
+    notificationEmailLevels: [...NODE_NOTIFICATION_LEVELS],
+    notificationTelegramEnabled: true,
+    notificationTelegramLevels: [...NODE_NOTIFICATION_LEVELS],
+  });
+  const [notificationsDialogOpen, setNotificationsDialogOpen] = useState(false);
   const [rootAccessDialogOpen, setRootAccessDialogOpen] = useState(false);
   const [
     pendingRootAccessSurfaceSelection,
@@ -273,6 +353,7 @@ export const NodeDetailView = ({ id }: { id: string }) => {
   const nodeQuery = useNode(id);
   const teamsQuery = useWorkspaceTeams();
   const updateNodeTeam = useUpdateNodeTeam();
+  const updateNodeNotifications = useUpdateNodeNotifications();
   const updateNodeRootAccess = useUpdateNodeRootAccess();
   const enableMaintenance = useEnableNodeMaintenance();
   const disableMaintenance = useDisableNodeMaintenance();
@@ -315,6 +396,45 @@ export const NodeDetailView = ({ id }: { id: string }) => {
     operationDraft.sourceKey === operationSourceKey
       ? operationDraft.maintenanceReason
       : (node.maintenanceReason ?? "");
+  const notificationSourceKey = [
+    node.id,
+    node.notificationEmailEnabled ? "1" : "0",
+    serializeNotificationLevels(node.notificationEmailLevels),
+    node.notificationTelegramEnabled ? "1" : "0",
+    serializeNotificationLevels(node.notificationTelegramLevels),
+  ].join(":");
+  const notificationEmailEnabled =
+    notificationDraft.sourceKey === notificationSourceKey
+      ? notificationDraft.notificationEmailEnabled
+      : node.notificationEmailEnabled;
+  const notificationEmailLevels =
+    notificationDraft.sourceKey === notificationSourceKey
+      ? normalizeNotificationLevels(notificationDraft.notificationEmailLevels)
+      : normalizeNotificationLevels(node.notificationEmailLevels);
+  const notificationTelegramEnabled =
+    notificationDraft.sourceKey === notificationSourceKey
+      ? notificationDraft.notificationTelegramEnabled
+      : node.notificationTelegramEnabled;
+  const notificationTelegramLevels =
+    notificationDraft.sourceKey === notificationSourceKey
+      ? normalizeNotificationLevels(notificationDraft.notificationTelegramLevels)
+      : normalizeNotificationLevels(node.notificationTelegramLevels);
+  const notificationSettingsDirty =
+    notificationEmailEnabled !== node.notificationEmailEnabled ||
+    !notificationLevelsEqual(
+      notificationEmailLevels,
+      node.notificationEmailLevels,
+    ) ||
+    notificationTelegramEnabled !== node.notificationTelegramEnabled ||
+    !notificationLevelsEqual(
+      notificationTelegramLevels,
+      node.notificationTelegramLevels,
+    );
+  const notificationControlsActive =
+    (node.notificationEmailEnabled &&
+      normalizeNotificationLevels(node.notificationEmailLevels).length > 0) ||
+    (node.notificationTelegramEnabled &&
+      normalizeNotificationLevels(node.notificationTelegramLevels).length > 0);
   const selectedTeam =
     selectedTeamId === "none"
       ? null
@@ -327,6 +447,34 @@ export const NodeDetailView = ({ id }: { id: string }) => {
       sourceKey: operationSourceKey,
       selectedTeamId: nextPatch.selectedTeamId ?? selectedTeamId,
       maintenanceReason: nextPatch.maintenanceReason ?? maintenanceReason,
+    });
+  };
+  const updateNotificationDraft = (
+    nextPatch: Partial<Omit<NodeNotificationDraft, "sourceKey">>,
+  ) => {
+    setNotificationDraft({
+      sourceKey: notificationSourceKey,
+      notificationEmailEnabled:
+        nextPatch.notificationEmailEnabled ?? notificationEmailEnabled,
+      notificationEmailLevels:
+        nextPatch.notificationEmailLevels ?? notificationEmailLevels,
+      notificationTelegramEnabled:
+        nextPatch.notificationTelegramEnabled ?? notificationTelegramEnabled,
+      notificationTelegramLevels:
+        nextPatch.notificationTelegramLevels ?? notificationTelegramLevels,
+    });
+  };
+  const primeNotificationDraft = () => {
+    setNotificationDraft({
+      sourceKey: notificationSourceKey,
+      notificationEmailEnabled: node.notificationEmailEnabled,
+      notificationEmailLevels: normalizeNotificationLevels(
+        node.notificationEmailLevels,
+      ),
+      notificationTelegramEnabled: node.notificationTelegramEnabled,
+      notificationTelegramLevels: normalizeNotificationLevels(
+        node.notificationTelegramLevels,
+      ),
     });
   };
   const pendingRootAccessProfile = surfaceSelectionToProfile(
@@ -431,6 +579,32 @@ export const NodeDetailView = ({ id }: { id: string }) => {
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            className={cn(
+              "gap-2 rounded-full px-4",
+              notificationControlsActive &&
+                "border-[#2ea97a]/35 bg-[#2ea97a]/10 text-[#136a48] hover:bg-[#2ea97a]/15 dark:text-[#8be0b8]",
+            )}
+            onClick={() => {
+              primeNotificationDraft();
+              setNotificationsDialogOpen(true);
+            }}
+          >
+            <BellRing className="size-4" />
+            Notification settings
+            <span
+              className={cn(
+                "rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.16em]",
+                notificationControlsActive
+                  ? "border-[#2ea97a]/35 bg-[#2ea97a]/12 text-[#136a48] dark:text-[#8be0b8]"
+                  : "border-border/80 bg-muted/70 text-muted-foreground",
+              )}
+            >
+              {notificationControlsActive ? "Active" : "Muted"}
+            </span>
+          </Button>
           {isAdmin ? (
             workspace?.isArchived ? (
               <Button variant="outline" disabled>
@@ -697,6 +871,7 @@ export const NodeDetailView = ({ id }: { id: string }) => {
                     )}
                   </div>
                 </div>
+
               </div>
               <div className="rounded-[20px] border p-4">
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
@@ -910,6 +1085,241 @@ export const NodeDetailView = ({ id }: { id: string }) => {
           </SectionPanel>
         </TabsContent>
       </Tabs>
+
+      <Dialog
+        open={notificationsDialogOpen}
+        onOpenChange={(open) => {
+          setNotificationsDialogOpen(open);
+          if (open) {
+            primeNotificationDraft();
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Node notification settings</DialogTitle>
+            <DialogDescription>
+              Configure which node-scoped events may be delivered by email and
+              Telegram. Workspace channel enablement and workspace severity
+              filters still apply before any node-level rule.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="rounded-[20px] border p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <Mail className="size-4 text-blue-500" />
+                    <Label
+                      id="node-notification-email-label"
+                      htmlFor="node-notification-email"
+                      className="font-medium"
+                    >
+                      Email notifications
+                    </Label>
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    Controls email delivery for events recorded against this
+                    node.
+                  </p>
+                </div>
+                <Switch
+                  id="node-notification-email"
+                  aria-labelledby="node-notification-email-label"
+                  checked={notificationEmailEnabled}
+                  disabled={!isAdmin}
+                  onCheckedChange={(nextChecked) =>
+                    updateNotificationDraft({
+                      notificationEmailEnabled: nextChecked,
+                    })
+                  }
+                />
+              </div>
+
+              <div className="mt-4 space-y-2">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                  Allowed severities
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {NODE_NOTIFICATION_LEVEL_OPTIONS.map((option) => {
+                    const selected = notificationEmailLevels.includes(
+                      option.value,
+                    );
+
+                    return (
+                      <Button
+                        key={`email-${option.value}`}
+                        type="button"
+                        variant="outline"
+                        aria-label={`Email ${option.label}`}
+                        aria-pressed={selected}
+                        disabled={!isAdmin}
+                        className={cn(
+                          "rounded-full px-3",
+                          selected && option.activeClassName,
+                        )}
+                        onClick={() =>
+                          updateNotificationDraft({
+                            notificationEmailLevels: toggleNotificationLevel(
+                              notificationEmailLevels,
+                              option.value,
+                            ),
+                          })
+                        }
+                      >
+                        {option.label}
+                      </Button>
+                    );
+                  })}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Critical personal emails are also suppressed for this node
+                  when email is off or `critical` is not selected.
+                </p>
+                {notificationEmailLevels.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">
+                    No severities selected. Node-scoped email delivery is
+                    effectively muted.
+                  </p>
+                ) : null}
+              </div>
+
+              {!workspace?.automationEmailEnabled ? (
+                <p className="mt-4 text-xs text-muted-foreground">
+                  Workspace email automation is currently off. This setting
+                  will take effect when the workspace email channel is enabled.
+                </p>
+              ) : null}
+            </div>
+
+            <div className="rounded-[20px] border p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <Send className="size-4 text-sky-500" />
+                    <Label
+                      id="node-notification-telegram-label"
+                      htmlFor="node-notification-telegram"
+                      className="font-medium"
+                    >
+                      Telegram notifications
+                    </Label>
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    Controls Telegram delivery for events recorded against this
+                    node.
+                  </p>
+                </div>
+                <Switch
+                  id="node-notification-telegram"
+                  aria-labelledby="node-notification-telegram-label"
+                  checked={notificationTelegramEnabled}
+                  disabled={!isAdmin}
+                  onCheckedChange={(nextChecked) =>
+                    updateNotificationDraft({
+                      notificationTelegramEnabled: nextChecked,
+                    })
+                  }
+                />
+              </div>
+
+              <div className="mt-4 space-y-2">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                  Allowed severities
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {NODE_NOTIFICATION_LEVEL_OPTIONS.map((option) => {
+                    const selected = notificationTelegramLevels.includes(
+                      option.value,
+                    );
+
+                    return (
+                      <Button
+                        key={`telegram-${option.value}`}
+                        type="button"
+                        variant="outline"
+                        aria-label={`Telegram ${option.label}`}
+                        aria-pressed={selected}
+                        disabled={!isAdmin}
+                        className={cn(
+                          "rounded-full px-3",
+                          selected && option.activeClassName,
+                        )}
+                        onClick={() =>
+                          updateNotificationDraft({
+                            notificationTelegramLevels:
+                              toggleNotificationLevel(
+                                notificationTelegramLevels,
+                                option.value,
+                              ),
+                          })
+                        }
+                      >
+                        {option.label}
+                      </Button>
+                    );
+                  })}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Node-level Telegram rules only affect events that carry this
+                  node as the event source.
+                </p>
+                {notificationTelegramLevels.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">
+                    No severities selected. Node-scoped Telegram delivery is
+                    effectively muted.
+                  </p>
+                ) : null}
+              </div>
+
+              {!workspace?.automationTelegramEnabled ? (
+                <p className="mt-4 text-xs text-muted-foreground">
+                  Workspace Telegram automation is currently off. This setting
+                  will take effect when the workspace Telegram channel is
+                  enabled.
+                </p>
+              ) : null}
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setNotificationsDialogOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              disabled={
+                !isAdmin ||
+                updateNodeNotifications.isPending ||
+                !notificationSettingsDirty
+              }
+              onClick={async () => {
+                try {
+                  await updateNodeNotifications.mutateAsync({
+                    nodeId: node.id,
+                    payload: {
+                      notificationEmailEnabled,
+                      notificationEmailLevels,
+                      notificationTelegramEnabled,
+                      notificationTelegramLevels,
+                    },
+                  });
+                  setNotificationsDialogOpen(false);
+                } catch {
+                  // Mutation toast already surfaces the backend error.
+                }
+              }}
+            >
+              {updateNodeNotifications.isPending
+                ? "Saving..."
+                : "Save notification settings"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog
         open={rootAccessDialogOpen}

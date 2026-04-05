@@ -76,6 +76,10 @@ export interface NodeDto {
   teamId?: string | null;
   teamName?: string | null;
   maintenanceMode?: boolean;
+  notificationEmailEnabled: boolean;
+  notificationEmailLevels: EventSeverity[];
+  notificationTelegramEnabled: boolean;
+  notificationTelegramLevels: EventSeverity[];
   rootAccessProfile: RootAccessProfile;
   rootAccessAppliedProfile: RootAccessProfile;
   rootAccessSyncStatus: RootAccessSyncStatus;
@@ -345,6 +349,10 @@ export interface NodeSummary {
   teamId?: string | null;
   teamName?: string | null;
   maintenanceMode?: boolean;
+  notificationEmailEnabled: boolean;
+  notificationEmailLevels: EventSeverity[];
+  notificationTelegramEnabled: boolean;
+  notificationTelegramLevels: EventSeverity[];
   rootAccessProfile: RootAccessProfile;
   rootAccessAppliedProfile: RootAccessProfile;
   rootAccessSyncStatus: RootAccessSyncStatus;
@@ -969,6 +977,13 @@ export interface UpdateNodeTeamPayload {
 
 export interface UpdateNodeRootAccessPayload {
   profile: RootAccessProfile;
+}
+
+export interface UpdateNodeNotificationsPayload {
+  notificationEmailEnabled?: boolean;
+  notificationEmailLevels?: EventSeverity[];
+  notificationTelegramEnabled?: boolean;
+  notificationTelegramLevels?: EventSeverity[];
 }
 
 export interface InvitationPreviewDto {

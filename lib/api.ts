@@ -111,6 +111,7 @@ import type {
   TestOidcProviderPayload,
   TestOidcProviderResponse,
   UpdateNodeTeamPayload,
+  UpdateNodeNotificationsPayload,
   UpdateNodeRootAccessPayload,
   UpdateOidcProviderPayload,
   UpdateTaskTemplatePayload,
@@ -1091,6 +1092,21 @@ export const apiClient = {
       workspaceId
         ? buildWorkspaceApiPath(workspaceId, `/nodes/${nodeId}/root-access`)
         : `/api/proxy/nodes/${nodeId}/root-access`,
+      {
+        method: "POST",
+        body: JSON.stringify(payload),
+      },
+    );
+  },
+  updateNodeNotifications(
+    nodeId: string,
+    payload: UpdateNodeNotificationsPayload,
+    workspaceId?: string,
+  ) {
+    return request<NodeDto>(
+      workspaceId
+        ? buildWorkspaceApiPath(workspaceId, `/nodes/${nodeId}/notifications`)
+        : `/api/proxy/nodes/${nodeId}/notifications`,
       {
         method: "POST",
         body: JSON.stringify(payload),

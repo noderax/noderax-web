@@ -23,6 +23,12 @@ import type {
   UserDto,
 } from "@/lib/types";
 
+const DEFAULT_NODE_NOTIFICATION_LEVELS: EventSeverity[] = [
+  "info",
+  "warning",
+  "critical",
+];
+
 const titleCase = (value: string) =>
   value
     .split(/[\s._-]+/g)
@@ -40,6 +46,9 @@ const readRecord = (value: unknown) =>
   value && typeof value === "object" && !Array.isArray(value)
     ? (value as Record<string, unknown>)
     : null;
+
+const normalizeEventSeverities = (value: EventSeverity[] | null | undefined) =>
+  DEFAULT_NODE_NOTIFICATION_LEVELS.filter((severity) => value?.includes(severity));
 
 const readFirstString = (
   record: Record<string, unknown> | null,
@@ -221,6 +230,14 @@ export const mapNodeSummary = (
     teamId: node.teamId ?? null,
     teamName: node.teamName ?? null,
     maintenanceMode: node.maintenanceMode ?? false,
+    notificationEmailEnabled: node.notificationEmailEnabled ?? true,
+    notificationEmailLevels: normalizeEventSeverities(
+      node.notificationEmailLevels,
+    ),
+    notificationTelegramEnabled: node.notificationTelegramEnabled ?? true,
+    notificationTelegramLevels: normalizeEventSeverities(
+      node.notificationTelegramLevels,
+    ),
     rootAccessProfile: node.rootAccessProfile ?? "off",
     rootAccessAppliedProfile: node.rootAccessAppliedProfile ?? "off",
     rootAccessSyncStatus: node.rootAccessSyncStatus ?? "pending",

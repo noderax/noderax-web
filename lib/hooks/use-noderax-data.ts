@@ -56,6 +56,7 @@ import type {
   UpdatePlatformSettingsPayload,
   TeamMembershipDto,
   UpdateNodeTeamPayload,
+  UpdateNodeNotificationsPayload,
   UpdateNodeRootAccessPayload,
   UpdateOidcProviderPayload,
   UpdateScheduledTaskPayload,
@@ -1385,6 +1386,54 @@ export const useUpdateNodeRootAccess = () => {
     },
     onError: (error) => {
       toast.error("Unable to update root access", {
+        description: readMutationError(error),
+      });
+    },
+  });
+};
+
+export const useUpdateNodeNotifications = () => {
+  const queryClient = useQueryClient();
+  const { workspaceId } = useWorkspaceContext();
+
+  return useMutation({
+    mutationFn: (input: {
+      nodeId: string;
+      payload: UpdateNodeNotificationsPayload;
+    }) =>
+      apiClient.updateNodeNotifications(
+        input.nodeId,
+        input.payload,
+        requireWorkspaceId(workspaceId),
+      ),
+    onSuccess: async (node) => {
+      toast.success("Node notification delivery updated", {
+        description: `${node.name} node-scoped delivery rules were updated.`,
+      });
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: ["nodes", workspaceId],
+          refetchType: "active",
+        }),
+        queryClient.invalidateQueries({
+          queryKey:
+            workspaceId && node.id
+              ? queryKeys.nodes.detail(workspaceId, node.id)
+              : ["nodes", "detail", node.id],
+          refetchType: "active",
+        }),
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.dashboard.overview(requireWorkspaceId(workspaceId)),
+          refetchType: "active",
+        }),
+        queryClient.invalidateQueries({
+          queryKey: ["events", workspaceId],
+          refetchType: "active",
+        }),
+      ]);
+    },
+    onError: (error) => {
+      toast.error("Unable to update notification delivery", {
         description: readMutationError(error),
       });
     },
