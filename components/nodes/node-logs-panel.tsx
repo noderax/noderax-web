@@ -1,23 +1,13 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import {
-  AlertTriangle,
-  RefreshCcw,
-  Search,
-  ShieldAlert,
-  Sparkles,
-  Trash2,
-} from "lucide-react";
-import { toast } from "sonner";
+import { useEffect, useMemo, useState } from "react";
+import { AlertTriangle, RefreshCcw, Search } from "lucide-react";
 
 import { EmptyState } from "@/components/empty-state";
-import { SeverityBadge } from "@/components/severity-badge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SectionPanel } from "@/components/ui/section-panel";
-import { ShimmerButton } from "@/components/ui/shimmer-button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Select,
@@ -26,769 +16,249 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Textarea } from "@/components/ui/textarea";
 import { TimeDisplay } from "@/components/ui/time-display";
 import {
-  useAcknowledgeIncident,
-  useAnalyzeIncident,
-  useCreateNodeLogMonitorRule,
-  useDeleteNodeLogMonitorRule,
-  useNodeLogMonitorRules,
   useNodeLogPresets,
   usePreviewNodeLogs,
-  useResolveIncident,
-  useUpdateNodeLogMonitorRule,
-  useWorkspaceIncidents,
 } from "@/lib/hooks/use-noderax-data";
-import type {
-  CreateLogMonitorRulePayload,
-  EventSeverity,
-  IncidentStatus,
-  LogMonitorRuleDto,
-} from "@/lib/types";
 
-const EXAMPLE_RULES: Array<{
-  key: string;
-  label: string;
-  sourcePresetId: string;
-  dsl: Record<string, unknown>;
-}> = [
-  {
-    key: "ssh-auth-failure",
-    label: "SSH auth failure",
-    sourcePresetId: "auth.log",
-    dsl: {
-      conditions: {
-        any: [
-          { field: "message", op: "contains", value: "Failed password" },
-          { field: "message", op: "contains", value: "authentication failure" },
-        ],
-      },
-      threshold: { matchCountGte: 3 },
-      incident: {
-        severity: "warning",
-        titleTemplate: "Repeated SSH authentication failures",
-        fingerprintTemplate: "auth-failure:{{sourcePresetId}}",
-        captureLines: 20,
-      },
-    },
-  },
-  {
-    key: "kernel-oom",
-    label: "Kernel OOM",
-    sourcePresetId: "kern.log",
-    dsl: {
-      conditions: {
-        any: [
-          { field: "message", op: "contains", value: "Out of memory" },
-          { field: "message", op: "contains", value: "Killed process" },
-        ],
-      },
-      threshold: { matchCountGte: 1 },
-      incident: {
-        severity: "critical",
-        titleTemplate: "Kernel OOM or process kill detected",
-        fingerprintTemplate: "kernel-oom:{{sourcePresetId}}",
-        captureLines: 25,
-      },
-    },
-  },
-  {
-    key: "agent-errors",
-    label: "Agent errors",
-    sourcePresetId: "noderax-agent",
-    dsl: {
-      conditions: {
-        any: [
-          { field: "message", op: "contains", value: "error" },
-          { field: "message", op: "contains", value: "panic" },
-        ],
-      },
-      threshold: { matchCountGte: 1 },
-      incident: {
-        severity: "warning",
-        titleTemplate: "Noderax agent errors detected",
-        fingerprintTemplate: "agent-errors:{{sourcePresetId}}",
-        captureLines: 20,
-      },
-    },
-  },
-];
+const clampBackfillLines = (value: string) => {
+  const parsed = Number.parseInt(value, 10);
 
-const stringifyDsl = (dsl: Record<string, unknown>) =>
-  JSON.stringify(dsl, null, 2);
-
-const buildSeedDsl = (
-  filterText: string,
-  severity: EventSeverity = "warning",
-) => ({
-  conditions: {
-    all: [{ field: "message", op: "contains", value: filterText }],
-  },
-  threshold: { matchCountGte: 1 },
-  incident: {
-    severity,
-    titleTemplate: `Matched "${filterText}" in {{sourcePresetId}}`,
-    fingerprintTemplate: `match:${filterText}:{{sourcePresetId}}`,
-    captureLines: 20,
-  },
-});
-
-const formatIncidentStatus = (status: IncidentStatus) => {
-  switch (status) {
-    case "acknowledged":
-      return "Acknowledged";
-    case "resolved":
-      return "Resolved";
-    default:
-      return "Open";
+  if (!Number.isFinite(parsed)) {
+    return 200;
   }
+
+  return Math.min(Math.max(parsed, 1), 500);
 };
-
-const statusVariant = (status: IncidentStatus) =>
-  status === "resolved" ? "secondary" : "outline";
-
-type RuleFormState = {
-  ruleId: string | null;
-  name: string;
-  sourcePresetId: string;
-  intervalMinutes: number;
-  enabled: boolean;
-  dslText: string;
-};
-
-const buildRuleForm = (
-  input?: Partial<RuleFormState> & {
-    name?: string;
-    sourcePresetId?: string;
-    enabled?: boolean;
-    dslText?: string;
-    intervalMinutes?: number;
-  },
-): RuleFormState => ({
-  ruleId: input?.ruleId ?? null,
-  name: input?.name ?? "",
-  sourcePresetId: input?.sourcePresetId ?? "auth.log",
-  intervalMinutes: input?.intervalMinutes ?? 1,
-  enabled: input?.enabled ?? true,
-  dslText:
-    input?.dslText ?? stringifyDsl(EXAMPLE_RULES[0].dsl as Record<string, unknown>),
-});
 
 export const NodeLogsPanel = ({ nodeId }: { nodeId: string }) => {
   const presetsQuery = useNodeLogPresets(nodeId);
-  const rulesQuery = useNodeLogMonitorRules(nodeId);
   const previewLogs = usePreviewNodeLogs(nodeId);
-  const createRule = useCreateNodeLogMonitorRule(nodeId);
-  const updateRule = useUpdateNodeLogMonitorRule(nodeId);
-  const deleteRule = useDeleteNodeLogMonitorRule(nodeId);
-  const acknowledgeIncident = useAcknowledgeIncident();
-  const resolveIncident = useResolveIncident();
-  const analyzeIncident = useAnalyzeIncident();
-
-  const [activeTab, setActiveTab] = useState<"explorer" | "rules" | "incidents">(
-    "explorer",
-  );
-  const [selectedPresetId, setSelectedPresetId] = useState("auth.log");
-  const [backfillLines, setBackfillLines] = useState("200");
-  const [previewFilter, setPreviewFilter] = useState("");
-  const [ruleForm, setRuleForm] = useState<RuleFormState>(() => buildRuleForm());
-  const [incidentStatus, setIncidentStatus] = useState<IncidentStatus | "all">(
-    "all",
-  );
-  const [incidentSeverity, setIncidentSeverity] = useState<EventSeverity | "all">(
-    "all",
-  );
-  const [incidentPresetFilter, setIncidentPresetFilter] = useState("all");
-  const [incidentRuleFilter, setIncidentRuleFilter] = useState("all");
-
-  const incidentsQuery = useWorkspaceIncidents({
-    nodeId,
-    status: incidentStatus,
-    severity: incidentSeverity,
-    sourcePresetId:
-      incidentPresetFilter === "all" ? undefined : incidentPresetFilter,
-    ruleId: incidentRuleFilter === "all" ? undefined : incidentRuleFilter,
-    limit: 50,
-  });
 
   const presets = presetsQuery.data ?? [];
-  const rules = rulesQuery.data ?? [];
-  const incidents = incidentsQuery.data ?? [];
+  const [selectedPresetId, setSelectedPresetId] = useState("auth.log");
+  const [backfillLines, setBackfillLines] = useState("200");
+  const [filterText, setFilterText] = useState("");
+
+  useEffect(() => {
+    if (!presets.length) {
+      return;
+    }
+
+    const hasSelectedPreset = presets.some((preset) => preset.id === selectedPresetId);
+    if (hasSelectedPreset) {
+      return;
+    }
+
+    const nextPreset = presets[0];
+    setSelectedPresetId(nextPreset.id);
+    setBackfillLines(String(nextPreset.defaultBackfillLines ?? 200));
+  }, [presets, selectedPresetId]);
+
+  const selectedPreset = useMemo(
+    () => presets.find((preset) => preset.id === selectedPresetId) ?? null,
+    [presets, selectedPresetId],
+  );
   const preview = previewLogs.data;
-  const filteredPreviewEntries = useMemo(() => {
-    const entries = preview?.entries ?? [];
-    const needle = previewFilter.trim().toLowerCase();
-    if (!needle) {
-      return entries;
+  const previewEntries = preview?.entries ?? [];
+  const filteredEntries = useMemo(() => {
+    const query = filterText.trim().toLowerCase();
+
+    if (!query) {
+      return previewEntries;
     }
 
-    return entries.filter((entry) =>
-      [entry.message, entry.unit ?? "", entry.identifier ?? ""]
-        .join(" ")
-        .toLowerCase()
-        .includes(needle),
+    return previewEntries.filter((entry) =>
+      [entry.timestamp, entry.message, entry.unit, entry.identifier]
+        .filter(Boolean)
+        .some((value) => value!.toLowerCase().includes(query)),
     );
-  }, [preview?.entries, previewFilter]);
+  }, [filterText, previewEntries]);
 
-  const applyRuleDraft = (next: Partial<RuleFormState>) =>
-    setRuleForm((current) => ({
-      ...current,
-      ...next,
-    }));
-
-  const resetRuleForm = () => setRuleForm(buildRuleForm());
-
-  const loadRuleIntoForm = (rule: LogMonitorRuleDto) => {
-    setRuleForm(
-      buildRuleForm({
-        ruleId: rule.id,
-        name: rule.name,
-        sourcePresetId: rule.sourcePresetId,
-        intervalMinutes: rule.intervalMinutes,
-        enabled: rule.enabled,
-        dslText: stringifyDsl(rule.dsl),
-      }),
-    );
-    setActiveTab("rules");
-  };
-
-  const applyExampleRule = (key: string) => {
-    const example = EXAMPLE_RULES.find((candidate) => candidate.key === key);
-    if (!example) {
+  const handlePreview = () => {
+    if (!selectedPreset) {
       return;
     }
 
-    setRuleForm(
-      buildRuleForm({
-        ruleId: null,
-        name: example.label,
-        sourcePresetId: example.sourcePresetId,
-        intervalMinutes: 1,
-        enabled: true,
-        dslText: stringifyDsl(example.dsl as Record<string, unknown>),
-      }),
-    );
-    setActiveTab("rules");
-  };
-
-  const seedRuleFromPreview = () => {
-    const filterText =
-      previewFilter.trim() ||
-      filteredPreviewEntries[0]?.message?.slice(0, 80)?.trim() ||
-      "";
-
-    if (!filterText) {
-      toast.error("Create rule from preview requires a filtered match");
-      return;
-    }
-
-    setRuleForm(
-      buildRuleForm({
-        ruleId: null,
-        name: `Match ${filterText.slice(0, 32)}`,
-        sourcePresetId: selectedPresetId,
-        intervalMinutes: 1,
-        enabled: true,
-        dslText: stringifyDsl(buildSeedDsl(filterText)),
-      }),
-    );
-    setActiveTab("rules");
-  };
-
-  const handleSubmitRule = async () => {
-    let parsedDsl: Record<string, unknown>;
-    try {
-      parsedDsl = JSON.parse(ruleForm.dslText) as Record<string, unknown>;
-    } catch (error) {
-      toast.error("DSL JSON is invalid", {
-        description: error instanceof Error ? error.message : "Invalid JSON",
-      });
-      return;
-    }
-
-    const payload: CreateLogMonitorRulePayload = {
-      name: ruleForm.name.trim(),
-      sourcePresetId: ruleForm.sourcePresetId,
-      cadence: ruleForm.intervalMinutes > 1 ? "custom" : "minutely",
-      intervalMinutes: Number(ruleForm.intervalMinutes) || 1,
-      enabled: ruleForm.enabled,
-      dsl: parsedDsl,
-    };
-
-    if (!payload.name) {
-      toast.error("Rule name is required");
-      return;
-    }
-
-    if (ruleForm.ruleId) {
-      await updateRule.mutateAsync({
-        ruleId: ruleForm.ruleId,
-        payload,
-      });
-      return;
-    }
-
-    await createRule.mutateAsync(payload);
-    resetRuleForm();
+    previewLogs.mutate({
+      sourcePresetId: selectedPreset.id,
+      backfillLines: clampBackfillLines(backfillLines),
+    });
   };
 
   return (
     <SectionPanel
       eyebrow="Logs"
-      title="Log explorer and incident queue"
-      description="Preview Linux log presets, persist rules, and inspect the resulting incident queue."
-    >
-      <Tabs
-        value={activeTab}
-        onValueChange={(value) =>
-          setActiveTab(value as "explorer" | "rules" | "incidents")
-        }
-        className="space-y-4"
-      >
-        <TabsList variant="line" className="w-full justify-start overflow-x-auto">
-          <TabsTrigger value="explorer">Explorer</TabsTrigger>
-          <TabsTrigger value="rules">Rules</TabsTrigger>
-          <TabsTrigger value="incidents">Incidents</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="explorer" className="space-y-4">
-          <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)_auto]">
-            <Select
-              value={selectedPresetId}
-              onValueChange={(value) => setSelectedPresetId(value ?? "auth.log")}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Preset" />
-              </SelectTrigger>
-              <SelectContent>
-                {presets.map((preset) => (
-                  <SelectItem key={preset.id} value={preset.id}>
-                    {preset.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Input
-              type="number"
-              min={1}
-              max={500}
-              value={backfillLines}
-              onChange={(event) => setBackfillLines(event.target.value)}
-              className="lg:w-28"
-            />
-            <Input
-              value={previewFilter}
-              onChange={(event) => setPreviewFilter(event.target.value)}
-              placeholder="Client-side filter"
-            />
-            <ShimmerButton
-              className="action-btn"
-              onClick={() =>
-                previewLogs.mutate({
-                  sourcePresetId: selectedPresetId,
-                  backfillLines: Number(backfillLines) || 200,
-                })
+      title="Logs Explorer"
+      description="Preview recent lines from the built-in Linux log presets, then filter them locally while troubleshooting."
+      action={
+        <div className="flex flex-wrap gap-2">
+          <Select
+            value={selectedPresetId}
+            onValueChange={(value) => {
+              if (!value) {
+                return;
               }
-              disabled={previewLogs.isPending}
-            >
-              <RefreshCcw
-                className={previewLogs.isPending ? "size-4 animate-spin" : "size-4"}
-              />
-              Preview
-            </ShimmerButton>
+              setSelectedPresetId(value);
+              const preset = presets.find((candidate) => candidate.id === value);
+              if (preset) {
+                setBackfillLines(String(preset.defaultBackfillLines ?? 200));
+              }
+            }}
+            disabled={!presets.length || presetsQuery.isPending}
+          >
+            <SelectTrigger className="min-w-48">
+              <SelectValue placeholder="Select log preset" />
+            </SelectTrigger>
+            <SelectContent>
+              {presets.map((preset) => (
+                <SelectItem key={preset.id} value={preset.id}>
+                  {preset.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Input
+            className="w-32"
+            inputMode="numeric"
+            value={backfillLines}
+            onChange={(event) => setBackfillLines(event.target.value)}
+            placeholder="Lines"
+          />
+          <Button
+            className="action-btn"
+            onClick={handlePreview}
+            disabled={!selectedPreset || previewLogs.isPending}
+          >
+            <RefreshCcw
+              className={previewLogs.isPending ? "size-4 animate-spin" : "size-4"}
+            />
+            Refresh
+          </Button>
+        </div>
+      }
+    >
+      {presetsQuery.isPending ? (
+        <div className="space-y-3">
+          <Skeleton className="h-24 rounded-2xl" />
+          <Skeleton className="h-12 rounded-xl" />
+          <Skeleton className="h-64 rounded-2xl" />
+        </div>
+      ) : presetsQuery.isError ? (
+        <EmptyState
+          icon={AlertTriangle}
+          title="Unable to load log presets"
+          description={
+            presetsQuery.error instanceof Error
+              ? presetsQuery.error.message
+              : "The log source catalog could not be loaded."
+          }
+        />
+      ) : !selectedPreset ? (
+        <EmptyState
+          icon={AlertTriangle}
+          title="No log presets available"
+          description="This workspace does not currently expose any built-in log presets for the selected node."
+        />
+      ) : (
+        <div className="space-y-4">
+          <div className="rounded-2xl border border-border/70 bg-muted/20 p-4">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div className="space-y-1">
+                <p className="text-sm font-medium">{selectedPreset.label}</p>
+                <p className="text-sm text-muted-foreground">
+                  {selectedPreset.description}
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Badge variant="outline">
+                  {selectedPreset.kind === "journal" ? "Journal" : "File"}
+                </Badge>
+                <Badge variant="secondary">{selectedPreset.identifier}</Badge>
+                {selectedPreset.requiresRoot ? (
+                  <Badge variant="outline">Operational root</Badge>
+                ) : null}
+              </div>
+            </div>
           </div>
+
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="relative min-w-[18rem] flex-1">
+              <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                className="pl-9"
+                value={filterText}
+                onChange={(event) => setFilterText(event.target.value)}
+                placeholder="Filter loaded lines"
+              />
+            </div>
+            {preview ? (
+              <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
+                <Badge variant="outline">{preview.taskStatus}</Badge>
+                {preview.truncated ? <Badge variant="secondary">Truncated</Badge> : null}
+                <Badge variant="secondary">{preview.entries.length} lines</Badge>
+              </div>
+            ) : null}
+          </div>
+
+          {preview?.error ? (
+            <div className="rounded-2xl border border-destructive/20 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+              {preview.error}
+            </div>
+          ) : null}
+
+          {preview?.warnings?.length ? (
+            <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-400/30 dark:bg-amber-500/10 dark:text-amber-200">
+              {preview.warnings.join(" ")}
+            </div>
+          ) : null}
 
           {previewLogs.isPending ? (
-            <div className="space-y-2">
+            <div className="space-y-3">
               {Array.from({ length: 6 }).map((_, index) => (
-                <Skeleton key={index} className="h-14 rounded-xl" />
+                <Skeleton key={index} className="h-20 rounded-2xl" />
               ))}
             </div>
-          ) : preview ? (
-            <div className="space-y-3">
-              <div className="flex flex-wrap items-center gap-2">
-                <Badge variant="outline">
-                  {filteredPreviewEntries.length} / {preview.entries.length} lines
-                </Badge>
-                <Badge variant="outline">Task {preview.taskStatus}</Badge>
-                {preview.truncated ? (
-                  <Badge variant="secondary">Truncated</Badge>
-                ) : null}
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={seedRuleFromPreview}
-                  disabled={filteredPreviewEntries.length === 0}
-                >
-                  <Sparkles className="mr-2 size-4" />
-                  Create rule from preview
-                </Button>
-              </div>
-
-              {preview.error ? (
-                <div className="rounded-xl border border-destructive/25 bg-destructive/10 px-4 py-3 text-sm">
-                  {preview.error}
-                </div>
-              ) : null}
-
-              {preview.warnings.length > 0 ? (
-                <div className="rounded-xl border border-[#f2a71b]/25 bg-[#f2a71b]/10 px-4 py-3 text-sm">
-                  {preview.warnings.join(" ")}
-                </div>
-              ) : null}
-
-              {filteredPreviewEntries.length ? (
-                <div className="max-h-[28rem] space-y-2 overflow-y-auto rounded-2xl border p-3">
-                  {filteredPreviewEntries.map((entry, index) => (
-                    <div key={`${entry.timestamp ?? "na"}-${index}`} className="rounded-xl border p-3">
-                      <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                        <Search className="size-3.5" />
-                        {entry.timestamp ? (
-                          <TimeDisplay value={entry.timestamp} mode="datetime" />
-                        ) : (
-                          <span>No timestamp</span>
-                        )}
-                        {entry.unit ? <span>{entry.unit}</span> : null}
-                        {entry.identifier ? <span>{entry.identifier}</span> : null}
-                      </div>
-                      <p className="mt-2 whitespace-pre-wrap text-sm leading-6">
-                        {entry.message}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <EmptyState
-                  title="No preview matches"
-                  description="Adjust the preset or client-side filter and try again."
-                  icon={Search}
-                />
-              )}
-            </div>
-          ) : (
+          ) : !preview ? (
             <EmptyState
-              title="Preview a log preset"
-              description="Start with syslog, auth.log, kern.log, or the noderax-agent journal."
               icon={Search}
+              title="Load a preview"
+              description="Select a preset and refresh to fetch the latest log lines from the node."
             />
-          )}
-        </TabsContent>
-
-        <TabsContent value="rules" className="space-y-4">
-          <div className="flex flex-wrap gap-2">
-            {EXAMPLE_RULES.map((example) => (
-              <Button
-                key={example.key}
-                type="button"
-                variant="outline"
-                onClick={() => applyExampleRule(example.key)}
-              >
-                {example.label}
-              </Button>
-            ))}
-          </div>
-
-          <div className="grid gap-4 xl:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
-            <div className="space-y-3">
-              {rulesQuery.isPending ? (
-                Array.from({ length: 4 }).map((_, index) => (
-                  <Skeleton key={index} className="h-24 rounded-xl" />
-                ))
-              ) : rules.length ? (
-                rules.map((rule) => (
-                  <div key={rule.id} className="rounded-2xl border p-4">
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <p className="font-medium">{rule.name}</p>
-                        <p className="mt-1 text-sm text-muted-foreground">
-                          {rule.sourcePresetId} · every {rule.intervalMinutes} min
-                        </p>
-                      </div>
-                      <Badge variant={rule.enabled ? "outline" : "secondary"}>
-                        {rule.enabled ? "Enabled" : "Disabled"}
-                      </Badge>
-                    </div>
-                    <div className="mt-3 flex gap-2">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => loadRuleIntoForm(rule)}
-                      >
-                        Edit
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => deleteRule.mutate(rule.id)}
-                        disabled={deleteRule.isPending}
-                      >
-                        <Trash2 className="mr-2 size-4" />
-                        Delete
-                      </Button>
-                    </div>
-                    {rule.lastError ? (
-                      <p className="mt-3 text-xs text-destructive">{rule.lastError}</p>
+          ) : filteredEntries.length ? (
+            <div className="max-h-[34rem] space-y-3 overflow-y-auto pr-1">
+              {filteredEntries.map((entry, index) => (
+                <div
+                  key={`${entry.timestamp ?? "no-ts"}-${index}-${entry.message}`}
+                  className="rounded-2xl border border-border/70 bg-card/80 p-4 shadow-sm"
+                >
+                  <div className="mb-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                    {entry.timestamp ? (
+                      <TimeDisplay value={entry.timestamp} />
+                    ) : (
+                      <span>No timestamp</span>
+                    )}
+                    {entry.unit ? <Badge variant="outline">{entry.unit}</Badge> : null}
+                    {entry.identifier ? (
+                      <Badge variant="secondary">{entry.identifier}</Badge>
                     ) : null}
                   </div>
-                ))
-              ) : (
-                <EmptyState
-                  title="No log monitor rules"
-                  description="Create the first rule from an example or from preview output."
-                  icon={ShieldAlert}
-                />
-              )}
-            </div>
-
-            <div className="space-y-4 rounded-2xl border p-4">
-              <div className="grid gap-3 md:grid-cols-2">
-                <Input
-                  value={ruleForm.name}
-                  onChange={(event) => applyRuleDraft({ name: event.target.value })}
-                  placeholder="Rule name"
-                />
-                <Select
-                  value={ruleForm.sourcePresetId}
-                  onValueChange={(value) =>
-                    applyRuleDraft({
-                      sourcePresetId: value ?? ruleForm.sourcePresetId,
-                    })
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Preset" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {presets.map((preset) => (
-                      <SelectItem key={preset.id} value={preset.id}>
-                        {preset.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Input
-                  type="number"
-                  min={1}
-                  max={60}
-                  value={String(ruleForm.intervalMinutes)}
-                  onChange={(event) =>
-                    applyRuleDraft({
-                      intervalMinutes: Number(event.target.value) || 1,
-                    })
-                  }
-                />
-                <div className="flex items-center justify-between rounded-xl border px-3 py-2">
-                  <span className="text-sm">Enabled</span>
-                  <Switch
-                    checked={ruleForm.enabled}
-                    onCheckedChange={(checked) =>
-                      applyRuleDraft({ enabled: checked })
-                    }
-                  />
-                </div>
-              </div>
-
-              <Textarea
-                value={ruleForm.dslText}
-                onChange={(event) => applyRuleDraft({ dslText: event.target.value })}
-                className="min-h-[22rem] font-mono text-xs"
-              />
-
-              <div className="flex flex-wrap gap-2">
-                <ShimmerButton
-                  className="action-btn"
-                  onClick={() => void handleSubmitRule()}
-                  disabled={createRule.isPending || updateRule.isPending}
-                >
-                  {ruleForm.ruleId ? "Update rule" : "Create rule"}
-                </ShimmerButton>
-                <Button type="button" variant="outline" onClick={resetRuleForm}>
-                  Reset
-                </Button>
-              </div>
-            </div>
-          </div>
-        </TabsContent>
-
-        <TabsContent value="incidents" className="space-y-4">
-          <div className="grid gap-3 md:grid-cols-4">
-            <Select
-              value={incidentStatus}
-              onValueChange={(value) =>
-                setIncidentStatus(value as IncidentStatus | "all")
-              }
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All statuses</SelectItem>
-                <SelectItem value="open">Open</SelectItem>
-                <SelectItem value="acknowledged">Acknowledged</SelectItem>
-                <SelectItem value="resolved">Resolved</SelectItem>
-              </SelectContent>
-            </Select>
-            <Select
-              value={incidentSeverity}
-              onValueChange={(value) =>
-                setIncidentSeverity(value as EventSeverity | "all")
-              }
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Severity" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All severities</SelectItem>
-                <SelectItem value="info">Info</SelectItem>
-                <SelectItem value="warning">Warning</SelectItem>
-                <SelectItem value="critical">Critical</SelectItem>
-              </SelectContent>
-            </Select>
-            <Select
-              value={incidentPresetFilter}
-              onValueChange={(value) => setIncidentPresetFilter(value ?? "all")}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Preset" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All presets</SelectItem>
-                {presets.map((preset) => (
-                  <SelectItem key={preset.id} value={preset.id}>
-                    {preset.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select
-              value={incidentRuleFilter}
-              onValueChange={(value) => setIncidentRuleFilter(value ?? "all")}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Rule" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All rules</SelectItem>
-                {rules.map((rule) => (
-                  <SelectItem key={rule.id} value={rule.id}>
-                    {rule.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {incidentsQuery.isPending ? (
-            <div className="space-y-2">
-              {Array.from({ length: 5 }).map((_, index) => (
-                <Skeleton key={index} className="h-28 rounded-xl" />
-              ))}
-            </div>
-          ) : incidents.length ? (
-            <div className="space-y-3">
-              {incidents.map((incident) => (
-                <div key={incident.id} className="rounded-2xl border p-4">
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div className="space-y-2">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <SeverityBadge severity={incident.severity} />
-                        <Badge variant={statusVariant(incident.status)}>
-                          {formatIncidentStatus(incident.status)}
-                        </Badge>
-                        <Badge variant="outline">{incident.sourcePresetId}</Badge>
-                      </div>
-                      <div>
-                        <p className="font-medium">{incident.title}</p>
-                        <p className="text-sm text-muted-foreground">
-                          {incident.hitCount} matches · last seen{" "}
-                          <TimeDisplay value={incident.lastSeenAt} mode="relative" />
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      {incident.status !== "acknowledged" &&
-                      incident.status !== "resolved" ? (
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => acknowledgeIncident.mutate(incident.id)}
-                        >
-                          Acknowledge
-                        </Button>
-                      ) : null}
-                      {incident.status !== "resolved" ? (
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => resolveIncident.mutate(incident.id)}
-                        >
-                          Resolve
-                        </Button>
-                      ) : null}
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() =>
-                          analyzeIncident.mutate({
-                            incidentId: incident.id,
-                            payload: { model: "gpt-5.4-mini" },
-                          })
-                        }
-                      >
-                        Analyze
-                      </Button>
-                    </div>
-                  </div>
-
-                  {incident.latestSample?.entries?.length ? (
-                    <div className="mt-3 rounded-xl border bg-muted/35 p-3">
-                      {incident.latestSample.entries.slice(0, 3).map((entry, index) => (
-                        <p
-                          key={`${incident.id}-sample-${index}`}
-                          className="whitespace-pre-wrap text-sm leading-6"
-                        >
-                          {entry.message}
-                        </p>
-                      ))}
-                    </div>
-                  ) : null}
-
-                  {incident.latestAnalysis ? (
-                    <div className="mt-3 rounded-xl border border-[#2b8cff]/20 bg-[#2b8cff]/8 p-3">
-                      <div className="flex items-center gap-2 text-sm font-medium">
-                        <Sparkles className="size-4" />
-                        {incident.latestAnalysis.model}
-                        {incident.latestAnalysis.estimatedCostUsd ? (
-                          <span className="text-muted-foreground">
-                            (${incident.latestAnalysis.estimatedCostUsd})
-                          </span>
-                        ) : null}
-                      </div>
-                      <p className="mt-2 text-sm leading-6">
-                        {incident.latestAnalysis.summary}
-                      </p>
-                    </div>
-                  ) : null}
+                  <p className="whitespace-pre-wrap break-words text-sm leading-6 text-foreground">
+                    {entry.message}
+                  </p>
                 </div>
               ))}
             </div>
           ) : (
             <EmptyState
-              title="No incidents for this node"
-              description="Incidents appear here when a persisted log monitor rule matches new log lines."
-              icon={AlertTriangle}
+              icon={Search}
+              title="No lines match the current filter"
+              description="Clear the filter or refresh the preview with a different preset."
             />
           )}
-        </TabsContent>
-      </Tabs>
+        </div>
+      )}
     </SectionPanel>
   );
 };

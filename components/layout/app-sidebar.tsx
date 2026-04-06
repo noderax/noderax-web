@@ -17,7 +17,6 @@ import {
   RefreshCcw,
   Settings,
   ServerCog,
-  ShieldAlert,
   UserRound,
   Users,
   Users2,
@@ -89,7 +88,6 @@ const SidebarContent = ({
   const scheduledTasksHref =
     buildWorkspaceHref("scheduled-tasks") ?? "/workspaces";
   const eventsHref = buildWorkspaceHref("events") ?? "/workspaces";
-  const incidentsHref = buildWorkspaceHref("incidents") ?? "/workspaces";
   const membersHref = buildWorkspaceHref("members") ?? "/workspaces";
   const teamsHref = buildWorkspaceHref("teams") ?? "/workspaces";
   const workspaceAuditHref = buildWorkspaceHref("audit") ?? "/workspaces";
@@ -112,7 +110,6 @@ const SidebarContent = ({
       label: "Operations",
       items: [
         { href: nodesHref, label: "Nodes", icon: MonitorCog },
-        { href: incidentsHref, label: "Incidents", icon: ShieldAlert },
         ...(isWorkspaceAdmin
           ? [
               {

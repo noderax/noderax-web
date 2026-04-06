@@ -53,13 +53,8 @@ import type {
   FinalizeEnrollmentResponse,
   ForgotPasswordPayload,
   HealthResponse,
-  IncidentAnalysisDto,
-  IncidentAnalysisRequestPayload,
-  IncidentDto,
-  IncidentFilters,
   InvitationPreviewDto,
   InstallPackagesPayload,
-  LogMonitorRuleDto,
   LogPreviewResponseDto,
   LogSourcePresetDto,
   LoginPayload,
@@ -99,7 +94,6 @@ import type {
   TaskLogFilters,
   TaskFlowDiagnostics,
   TaskSummary,
-  UpdateLogMonitorRulePayload,
   UpdateUserPayload,
   UpdateUserPreferencesPayload,
   UpdateSetupApiConfigPayload,
@@ -109,7 +103,6 @@ import type {
   UserDto,
   ResendUserInviteResponse,
   ResetPasswordPayload,
-  CreateLogMonitorRulePayload,
   CreateLogPreviewPayload,
   RegenerateMfaRecoveryCodesPayload,
   ValidatePostgresSetupPayload,
@@ -1331,52 +1324,6 @@ export const apiClient = {
       },
     );
   },
-  getNodeLogMonitorRules(nodeId: string, workspaceId: string) {
-    return request<LogMonitorRuleDto[]>(
-      buildWorkspaceApiPath(workspaceId, `/nodes/${nodeId}/log-monitor-rules`),
-    );
-  },
-  createNodeLogMonitorRule(
-    nodeId: string,
-    payload: CreateLogMonitorRulePayload,
-    workspaceId: string,
-  ) {
-    return request<LogMonitorRuleDto>(
-      buildWorkspaceApiPath(workspaceId, `/nodes/${nodeId}/log-monitor-rules`),
-      {
-        method: "POST",
-        body: JSON.stringify(payload),
-      },
-    );
-  },
-  updateNodeLogMonitorRule(
-    nodeId: string,
-    ruleId: string,
-    payload: UpdateLogMonitorRulePayload,
-    workspaceId: string,
-  ) {
-    return request<LogMonitorRuleDto>(
-      buildWorkspaceApiPath(
-        workspaceId,
-        `/nodes/${nodeId}/log-monitor-rules/${ruleId}`,
-      ),
-      {
-        method: "PATCH",
-        body: JSON.stringify(payload),
-      },
-    );
-  },
-  deleteNodeLogMonitorRule(nodeId: string, ruleId: string, workspaceId: string) {
-    return request<{ deleted: true; id: string }>(
-      buildWorkspaceApiPath(
-        workspaceId,
-        `/nodes/${nodeId}/log-monitor-rules/${ruleId}`,
-      ),
-      {
-        method: "DELETE",
-      },
-    );
-  },
   async getNodePackages(
     nodeId: string,
     options?: {
@@ -1607,48 +1554,6 @@ export const apiClient = {
         severity: filters?.severity === "all" ? undefined : filters?.severity,
         limit: filters?.limit,
       })}`,
-    );
-  },
-  getIncidents(filters: IncidentFilters | undefined, workspaceId: string) {
-    return request<IncidentDto[]>(
-      `${buildWorkspaceApiPath(workspaceId, "/incidents")}${buildQueryString({
-        status: filters?.status === "all" ? undefined : filters?.status,
-        severity: filters?.severity === "all" ? undefined : filters?.severity,
-        nodeId: filters?.nodeId,
-        ruleId: filters?.ruleId,
-        sourcePresetId: filters?.sourcePresetId,
-        limit: filters?.limit,
-        offset: filters?.offset,
-      })}`,
-    );
-  },
-  acknowledgeIncident(incidentId: string, workspaceId: string) {
-    return request<IncidentDto>(
-      buildWorkspaceApiPath(workspaceId, `/incidents/${incidentId}/ack`),
-      {
-        method: "POST",
-      },
-    );
-  },
-  resolveIncident(incidentId: string, workspaceId: string) {
-    return request<IncidentDto>(
-      buildWorkspaceApiPath(workspaceId, `/incidents/${incidentId}/resolve`),
-      {
-        method: "POST",
-      },
-    );
-  },
-  analyzeIncident(
-    incidentId: string,
-    payload: IncidentAnalysisRequestPayload,
-    workspaceId: string,
-  ) {
-    return request<IncidentAnalysisDto>(
-      buildWorkspaceApiPath(workspaceId, `/incidents/${incidentId}/analyze`),
-      {
-        method: "POST",
-        body: JSON.stringify(payload),
-      },
     );
   },
   getMetrics(filters?: MetricFilters, workspaceId?: string) {
