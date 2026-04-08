@@ -652,7 +652,9 @@ export const NodeTerminalView = ({ id }: { id: string }) => {
   ]);
 
   useEffect(() => {
-    if (!canControlSelectedLiveSession || !selectedSessionKey) {
+    const activeSession = selectedSession;
+
+    if (!canControlSelectedLiveSession || !selectedSessionKey || !activeSession) {
       attachBannerSessionIdRef.current = null;
       activeSessionIdRef.current = null;
       renderedChunkSeqRef.current = 0;
@@ -720,8 +722,10 @@ export const NodeTerminalView = ({ id }: { id: string }) => {
       handleTerminalConnectionIssue(message);
     });
 
+    const scopedWorkspaceId = activeSession.workspaceId;
+
     void client
-      .connect(selectedSessionKey)
+      .connect(selectedSessionKey, scopedWorkspaceId)
       .then(async () => {
         if (disposed) {
           return;
@@ -750,6 +754,7 @@ export const NodeTerminalView = ({ id }: { id: string }) => {
     canControlSelectedLiveSession,
     selectedSessionKey,
     selectedSessionNodeId,
+    selectedSession,
   ]);
 
   useEffect(() => {

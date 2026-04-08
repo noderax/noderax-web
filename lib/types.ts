@@ -518,6 +518,14 @@ export interface TerminalSession {
   retentionExpiresAt: string;
   createdAt: string;
   updatedAt: string;
+  terminalConnectToken?: string;
+  terminalConnectExpiresAt?: string;
+}
+
+export interface TerminalConnectTokenResponse {
+  sessionId: string;
+  terminalConnectToken: string;
+  terminalConnectExpiresAt: string;
 }
 
 export interface TerminalTranscriptChunk {
@@ -1092,6 +1100,28 @@ export interface HealthResponse {
   timestamp: string;
   startedAt: string;
   bootId: string;
+}
+
+export interface DependencyHealthCheck {
+  healthy: boolean;
+  status: string;
+  detail: string | null;
+}
+
+export interface DependencyHealthResponse {
+  service: string;
+  status: string;
+  timestamp: string;
+  checks: {
+    database: DependencyHealthCheck;
+    redis: DependencyHealthCheck;
+    installState: DependencyHealthCheck;
+    migrations: DependencyHealthCheck;
+  };
+}
+
+export interface ReadinessResponse extends DependencyHealthResponse {
+  ready: boolean;
 }
 
 export interface CancelTaskPayload {

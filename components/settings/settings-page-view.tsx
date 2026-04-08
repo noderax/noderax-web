@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useEffectEvent, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   AlertTriangle,
   BellRing,
@@ -190,6 +190,18 @@ function SettingsPageContent({
   const updateWorkspace = useUpdateWorkspace();
   const deleteWorkspace = useDeleteWorkspace();
   const platformSettingsQuery = usePlatformSettings(isPlatformAdmin);
+  const platformReadinessQuery = useQuery({
+    queryKey: ["platform", "health", "ready", isPlatformAdmin],
+    queryFn: ({ signal }) => apiClient.getReadiness(signal),
+    enabled: isPlatformAdmin,
+    refetchInterval: 15_000,
+  });
+  const platformDependencyHealthQuery = useQuery({
+    queryKey: ["platform", "health", "dependencies", isPlatformAdmin],
+    queryFn: ({ signal }) => apiClient.getDependencyHealth(signal),
+    enabled: isPlatformAdmin,
+    refetchInterval: 15_000,
+  });
   const updatePlatformSettings = useUpdatePlatformSettings();
   const validatePlatformSmtp = useValidatePlatformSmtp();
   const restartPlatformApi = useRestartPlatformApi();
@@ -1997,7 +2009,46 @@ function SettingsPageContent({
                             ? "Pending restart"
                             : "Restart synced"}
                         </Badge>
+                        <Badge
+                          variant="outline"
+                          className="rounded-full px-3 py-1"
+                        >
+                          Readiness:{" "}
+                          {platformReadinessQuery.data?.ready
+                            ? "Ready"
+                            : platformReadinessQuery.isPending
+                              ? "Checking"
+                              : "Degraded"}
+                        </Badge>
                       </div>
+
+                      {platformDependencyHealthQuery.data ? (
+                        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                          {Object.entries(
+                            platformDependencyHealthQuery.data.checks,
+                          ).map(([key, check]) => (
+                            <div
+                              key={key}
+                              className={cn(
+                                "rounded-[18px] border px-4 py-3 text-sm",
+                                check.healthy
+                                  ? "surface-subtle border-border/70 text-muted-foreground"
+                                  : "border-tone-warning/40 bg-tone-warning/10 text-muted-foreground",
+                              )}
+                            >
+                              <p className="text-[0.7rem] uppercase tracking-[0.24em] text-muted-foreground/80">
+                                {key}
+                              </p>
+                              <p className="mt-1 font-medium text-foreground">
+                                {check.status}
+                              </p>
+                              <p className="mt-1 text-xs">
+                                {check.detail ?? "No issues reported."}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+                      ) : null}
 
                       {platformRestartState ? (
                         <div

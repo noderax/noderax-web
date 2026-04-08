@@ -44,6 +44,7 @@ import type {
   DashboardOverview,
   DeleteWorkspaceResponse,
   DeleteScheduledTaskResponse,
+  DependencyHealthResponse,
   DeleteMfaPayload,
   EnrollmentStatusResponse,
   EventDto,
@@ -103,6 +104,7 @@ import type {
   UserDto,
   ResendUserInviteResponse,
   ResetPasswordPayload,
+  ReadinessResponse,
   CreateLogPreviewPayload,
   RegenerateMfaRecoveryCodesPayload,
   ValidatePostgresSetupPayload,
@@ -125,6 +127,7 @@ import type {
   WorkspaceSearchResponseDto,
   EnableNodeMaintenancePayload,
   TerminalSession,
+  TerminalConnectTokenResponse,
   TerminalTranscriptChunk,
   TerminateTerminalSessionPayload,
 } from "@/lib/types";
@@ -921,6 +924,16 @@ export const apiClient = {
       signal,
     });
   },
+  getReadiness(signal?: AbortSignal) {
+    return request<ReadinessResponse>("/api/proxy/health/ready", {
+      signal,
+    });
+  },
+  getDependencyHealth(signal?: AbortSignal) {
+    return request<DependencyHealthResponse>("/api/proxy/health/dependencies", {
+      signal,
+    });
+  },
   updateCurrentUserPreferences(payload: UpdateUserPreferencesPayload) {
     return request<UserDto>("/api/proxy/users/me/preferences", {
       method: "PATCH",
@@ -1172,6 +1185,17 @@ export const apiClient = {
   getTerminalSession(sessionId: string, workspaceId: string) {
     return request<TerminalSession>(
       buildWorkspaceApiPath(workspaceId, `/terminal-sessions/${sessionId}`),
+    );
+  },
+  refreshTerminalSessionConnectToken(sessionId: string, workspaceId: string) {
+    return request<TerminalConnectTokenResponse>(
+      buildWorkspaceApiPath(
+        workspaceId,
+        `/terminal-sessions/${sessionId}/connect-token`,
+      ),
+      {
+        method: "POST",
+      },
     );
   },
   getTerminalSessionChunks(

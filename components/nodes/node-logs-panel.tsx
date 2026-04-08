@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { AlertTriangle, RefreshCcw, Search } from "lucide-react";
 
 import { EmptyState } from "@/components/empty-state";
@@ -36,32 +36,26 @@ export const NodeLogsPanel = ({ nodeId }: { nodeId: string }) => {
   const presetsQuery = useNodeLogPresets(nodeId);
   const previewLogs = usePreviewNodeLogs(nodeId);
 
-  const presets = presetsQuery.data ?? [];
+  const presets = useMemo(() => presetsQuery.data ?? [], [presetsQuery.data]);
   const [selectedPresetId, setSelectedPresetId] = useState("auth.log");
   const [backfillLines, setBackfillLines] = useState("200");
   const [filterText, setFilterText] = useState("");
 
-  useEffect(() => {
-    if (!presets.length) {
-      return;
-    }
-
-    const hasSelectedPreset = presets.some((preset) => preset.id === selectedPresetId);
-    if (hasSelectedPreset) {
-      return;
-    }
-
-    const nextPreset = presets[0];
-    setSelectedPresetId(nextPreset.id);
-    setBackfillLines(String(nextPreset.defaultBackfillLines ?? 200));
-  }, [presets, selectedPresetId]);
-
   const selectedPreset = useMemo(
-    () => presets.find((preset) => preset.id === selectedPresetId) ?? null,
+    () => presets.find((preset) => preset.id === selectedPresetId) ?? presets[0] ?? null,
     [presets, selectedPresetId],
   );
   const preview = previewLogs.data;
-  const previewEntries = preview?.entries ?? [];
+  const previewEntries = useMemo(() => preview?.entries ?? [], [preview?.entries]);
+  const activeBackfillLines = useMemo(() => {
+    if (!selectedPreset) {
+      return backfillLines;
+    }
+
+    return selectedPreset.id === selectedPresetId
+      ? backfillLines
+      : String(selectedPreset.defaultBackfillLines ?? 200);
+  }, [backfillLines, selectedPreset, selectedPresetId]);
   const filteredEntries = useMemo(() => {
     const query = filterText.trim().toLowerCase();
 
@@ -83,7 +77,7 @@ export const NodeLogsPanel = ({ nodeId }: { nodeId: string }) => {
 
     previewLogs.mutate({
       sourcePresetId: selectedPreset.id,
-      backfillLines: clampBackfillLines(backfillLines),
+      backfillLines: clampBackfillLines(activeBackfillLines),
     });
   };
 
@@ -122,7 +116,7 @@ export const NodeLogsPanel = ({ nodeId }: { nodeId: string }) => {
           <Input
             className="w-32"
             inputMode="numeric"
-            value={backfillLines}
+            value={activeBackfillLines}
             onChange={(event) => setBackfillLines(event.target.value)}
             placeholder="Lines"
           />

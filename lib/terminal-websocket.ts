@@ -3,7 +3,11 @@
 import { io, type Socket } from "socket.io-client";
 
 import { apiClient } from "@/lib/api";
-import type { TerminalSession, TerminalTranscriptChunk } from "@/lib/types";
+import type {
+  TerminalConnectTokenResponse,
+  TerminalSession,
+  TerminalTranscriptChunk,
+} from "@/lib/types";
 
 const TERMINAL_NAMESPACE = "/terminal";
 const API_PREFIX_PATTERN = /^\/(?:api\/)?v\d+(?:\/.*)?$/i;
@@ -135,6 +139,7 @@ export class NoderaxTerminalClient {
   private socket: Socket | null = null;
   private connectPromise: Promise<void> | null = null;
   private sessionId: string | null = null;
+  private workspaceId: string | null = null;
   private didRetryAuth = false;
   private suppressErrorEvents = false;
   private status: TerminalSocketStatus = "idle";
@@ -182,8 +187,9 @@ export class NoderaxTerminalClient {
     };
   }
 
-  async connect(sessionId: string) {
+  async connect(sessionId: string, workspaceId: string) {
     this.sessionId = sessionId;
+    this.workspaceId = workspaceId;
 
     if (this.socket?.connected) {
       await this.attachSession(sessionId);
@@ -233,6 +239,7 @@ export class NoderaxTerminalClient {
     this.connectPromise = null;
     this.didRetryAuth = false;
     this.sessionId = null;
+    this.workspaceId = null;
 
     if (this.socket) {
       this.detachSocketListeners(this.socket);
@@ -265,7 +272,9 @@ export class NoderaxTerminalClient {
 
     this.setStatus("connecting");
 
-    const { token } = await apiClient.getRealtimeToken();
+    const { terminalConnectToken } = await this.refreshTerminalConnectToken(
+      sessionId,
+    );
     this.suppressErrorEvents = true;
 
     const socket = io(namespaceUrl, {
@@ -277,7 +286,7 @@ export class NoderaxTerminalClient {
       reconnectionDelay: 1_000,
       reconnectionDelayMax: 6_000,
       auth: {
-        token,
+        token: terminalConnectToken,
       },
     });
 
@@ -404,7 +413,7 @@ export class NoderaxTerminalClient {
     this.didRetryAuth = false;
     this.setStatus("connected");
 
-    if (!this.sessionId) {
+    if (!this.sessionId || !this.workspaceId) {
       return;
     }
 
@@ -504,13 +513,13 @@ export class NoderaxTerminalClient {
   }
 
   private async retryConnectionWithFreshToken() {
-    if (!this.socket) {
+    if (!this.socket || !this.sessionId) {
       return;
     }
 
     try {
-      const response = await apiClient.getRealtimeToken();
-      this.socket.auth = { token: response.token };
+      const response = await this.refreshTerminalConnectToken(this.sessionId);
+      this.socket.auth = { token: response.terminalConnectToken };
       this.socket.connect();
     } catch (error) {
       this.setStatus("disconnected");
@@ -520,5 +529,18 @@ export class NoderaxTerminalClient {
           : "Unable to refresh terminal authentication.",
       );
     }
+  }
+
+  private async refreshTerminalConnectToken(
+    sessionId: string,
+  ): Promise<TerminalConnectTokenResponse> {
+    if (!this.workspaceId) {
+      throw new Error("Workspace scope is required for terminal authentication.");
+    }
+
+    return apiClient.refreshTerminalSessionConnectToken(
+      sessionId,
+      this.workspaceId,
+    );
   }
 }
