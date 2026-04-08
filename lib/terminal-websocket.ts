@@ -348,10 +348,66 @@ export class NoderaxTerminalClient {
 
   private async emitWithAck(eventName: string, payload: Record<string, unknown>) {
     if (!this.socket?.connected) {
+      await this.waitForSocketReady();
+    }
+
+    if (!this.socket?.connected) {
       throw new Error("Terminal websocket is not connected.");
     }
 
     return this.socket.timeout(5_000).emitWithAck(eventName, payload);
+  }
+
+  private async waitForSocketReady() {
+    if (this.socket?.connected) {
+      return;
+    }
+
+    if (this.connectPromise) {
+      await this.connectPromise.catch(() => undefined);
+      if (this.socket?.connected) {
+        return;
+      }
+    }
+
+    const socket = this.socket;
+    if (!socket) {
+      return;
+    }
+
+    if (this.status !== "connecting" && this.status !== "reconnecting") {
+      return;
+    }
+
+    await new Promise<void>((resolve) => {
+      const timer = window.setTimeout(() => {
+        cleanup();
+        resolve();
+      }, 3_000);
+
+      const cleanup = () => {
+        window.clearTimeout(timer);
+        socket.off("connect", handleConnect);
+        socket.off("disconnect", handleDisconnect);
+      };
+
+      const handleConnect = () => {
+        cleanup();
+        resolve();
+      };
+
+      const handleDisconnect = () => {
+        if (this.status !== "disconnected") {
+          return;
+        }
+
+        cleanup();
+        resolve();
+      };
+
+      socket.on("connect", handleConnect);
+      socket.on("disconnect", handleDisconnect);
+    });
   }
 
   private isRecoverableEndpointError(error: unknown) {

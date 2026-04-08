@@ -194,6 +194,7 @@ export const NodeTerminalView = ({ id }: { id: string }) => {
   const terminalRef = useRef<Terminal | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
   const terminalClientRef = useRef<NoderaxTerminalClient | null>(null);
+  const terminalStatusRef = useRef(terminalStatus);
   const activeSessionIdRef = useRef<string | null>(null);
   const attachBannerSessionIdRef = useRef<string | null>(null);
   const renderedChunkSeqRef = useRef(0);
@@ -578,11 +579,21 @@ export const NodeTerminalView = ({ id }: { id: string }) => {
       }
 
       void client.sendInput(sessionId, encodeInputPayload(data)).catch((error) => {
+        const message =
+          error instanceof Error
+            ? error.message
+            : "Terminal input could not be forwarded.";
+
+        if (
+          message === "Terminal websocket is not connected." &&
+          (terminalStatusRef.current === "connecting"
+            || terminalStatusRef.current === "reconnecting")
+        ) {
+          return;
+        }
+
         toast.error("Unable to send terminal input", {
-          description:
-            error instanceof Error
-              ? error.message
-              : "Terminal input could not be forwarded.",
+          description: message,
         });
       });
     });
@@ -660,6 +671,7 @@ export const NodeTerminalView = ({ id }: { id: string }) => {
       renderedChunkSeqRef.current = 0;
       hydratingConsoleRef.current = false;
       pendingLiveChunksRef.current = [];
+      terminalStatusRef.current = "idle";
       setTerminalStatus("idle");
       terminalClientRef.current?.disconnect();
       terminalClientRef.current = null;
@@ -686,7 +698,10 @@ export const NodeTerminalView = ({ id }: { id: string }) => {
     terminalClientRef.current = client;
     let disposed = false;
 
-    const unsubscribeStatus = client.subscribeStatus(setTerminalStatus);
+    const unsubscribeStatus = client.subscribeStatus((status) => {
+      terminalStatusRef.current = status;
+      setTerminalStatus(status);
+    });
     const unsubscribeSession = client.subscribeSessionState((session) => {
       syncTerminalSessionCaches(session);
     });
