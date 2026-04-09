@@ -243,7 +243,7 @@ export interface LoginResponseDto {
   redirectPath?: string | null;
 }
 
-export type SetupMode = "setup" | "restart_required" | "installed" | "legacy";
+export type SetupMode = "setup" | "promoting" | "installed" | "legacy";
 export type SetupApiUrlSource = "cookie" | "env" | "missing";
 
 export interface SetupApiConfigResponse {
@@ -268,6 +268,31 @@ export interface SetupStatusResponse {
   installed: boolean;
   restartRequired: boolean;
   stateDirectory: SetupStateDirectoryStatus;
+}
+
+export interface SetupRuntimePresetResponse {
+  mode: "local_bundle" | "manual";
+  publicOrigin: string | null;
+  postgresPreset: {
+    host: string;
+    port: number;
+    username: string;
+    password?: string;
+    database: string;
+    ssl: boolean;
+  };
+  redisPreset: {
+    host: string;
+    port: number;
+    db: number;
+    password?: string;
+  };
+  editableFields: {
+    postgres: boolean;
+    redis: boolean;
+    mail: boolean;
+    publicOrigin: boolean;
+  };
 }
 
 export interface ValidatePostgresSetupPayload {
@@ -331,7 +356,9 @@ export interface SetupInstallPayload {
 
 export interface SetupInstallResponse {
   success: true;
-  restartRequired: true;
+  restartRequired: boolean;
+  setupComplete: boolean;
+  transition: "promoting_runtime";
 }
 
 export interface MetricPoint {
@@ -1112,12 +1139,7 @@ export interface DependencyHealthResponse {
   service: string;
   status: string;
   timestamp: string;
-  checks: {
-    database: DependencyHealthCheck;
-    redis: DependencyHealthCheck;
-    installState: DependencyHealthCheck;
-    migrations: DependencyHealthCheck;
-  };
+  checks: Record<string, DependencyHealthCheck>;
 }
 
 export interface ReadinessResponse extends DependencyHealthResponse {

@@ -236,6 +236,12 @@ const TopbarContent = () => {
     refetchIntervalInBackground: false,
     refetchOnWindowFocus: false,
   });
+  const platformReadinessQuery = useQuery({
+    queryKey: ["platform", "health", "ready", isPlatformAdmin],
+    queryFn: ({ signal }) => apiClient.getReadiness(signal),
+    enabled: isPlatformAdmin,
+    refetchInterval: 15_000,
+  });
   const agentUpdatesSummaryQuery = useAgentUpdateSummary(isPlatformAdmin);
 
   const queuedAges = (queuedTaskHealthQuery.data ?? [])
@@ -255,6 +261,11 @@ const TopbarContent = () => {
       .slice(0, 2)
       .join("")
       .toUpperCase() ?? "NR";
+  const degradedDependencyLabels = Object.entries(
+    platformReadinessQuery.data?.checks ?? {},
+  )
+    .filter(([, check]) => !check.healthy)
+    .map(([key]) => key);
 
   const handleLogout = async () => {
     if (isLoggingOut) {
@@ -586,6 +597,23 @@ const TopbarContent = () => {
           </DropdownMenu>
         </div>
       </div>
+      {isPlatformAdmin &&
+      platformReadinessQuery.data &&
+      !platformReadinessQuery.data.ready ? (
+        <div className="border-t border-tone-warning/30 bg-tone-warning/10">
+          <div className="mx-auto flex w-full max-w-[1600px] items-center gap-2 px-4 py-2 text-sm text-muted-foreground sm:px-6 lg:px-8">
+            <AlertTriangle className="size-4 shrink-0 text-tone-warning" />
+            <span className="font-medium text-foreground">
+              Runtime degraded
+            </span>
+            <span>
+              {degradedDependencyLabels.length
+                ? `Checks failing: ${degradedDependencyLabels.join(", ")}.`
+                : "One or more dependency checks are currently unhealthy."}
+            </span>
+          </div>
+        </div>
+      ) : null}
     </header>
   );
 };

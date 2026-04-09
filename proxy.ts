@@ -42,7 +42,7 @@ const readSetupStatus = async () => {
   }
 
   return (await response.json()) as {
-    mode: "setup" | "restart_required" | "installed" | "legacy";
+    mode: "setup" | "promoting" | "installed" | "legacy";
   };
 };
 
@@ -75,7 +75,7 @@ export async function proxy(request: NextRequest) {
         status.mode === "installed" || status.mode === "legacy";
 
       if (
-        (status.mode === "setup" || status.mode === "restart_required") &&
+        (status.mode === "setup" || status.mode === "promoting") &&
         !isSetupRoute
       ) {
         return finalizeResponse(

@@ -39,6 +39,7 @@ import { ApiError } from "@/lib/api";
 import {
   useInstallSetup,
   useSetupApiConfig,
+  useSetupRuntimePreset,
   useSetupStatus,
   useUpdateSetupApiConfig,
   useValidateSetupPostgres,
@@ -167,6 +168,7 @@ export const SetupScreen = () => {
   const router = useRouter();
   const statusQuery = useSetupStatus();
   const apiConfigQuery = useSetupApiConfig();
+  const runtimePresetQuery = useSetupRuntimePreset();
   const updateApiConfigMutation = useUpdateSetupApiConfig();
   const validatePostgresMutation = useValidateSetupPostgres();
   const validateRedisMutation = useValidateSetupRedis();
@@ -177,6 +179,7 @@ export const SetupScreen = () => {
   const [setupApiUrlInput, setSetupApiUrlInput] = useState("");
   const [stepIndex, setStepIndex] = useState(0);
   const [workspaceSlugTouched, setWorkspaceSlugTouched] = useState(false);
+  const [runtimePresetApplied, setRuntimePresetApplied] = useState(false);
   const [postgresCheck, setPostgresCheck] =
     useState<ValidatePostgresSetupResponse | null>(null);
   const [redisValidated, setRedisValidated] = useState(false);
@@ -221,6 +224,31 @@ export const SetupScreen = () => {
     setSmtpCheck(null);
   }, [payload.mail]);
 
+  useEffect(() => {
+    const preset = runtimePresetQuery.data;
+
+    if (!preset || runtimePresetApplied || preset.mode !== "local_bundle") {
+      return;
+    }
+
+    setPayload((current) => ({
+      ...current,
+      postgres: {
+        ...current.postgres,
+        ...preset.postgresPreset,
+      },
+      redis: {
+        ...current.redis,
+        ...preset.redisPreset,
+      },
+      mail: {
+        ...current.mail,
+        webAppUrl: preset.publicOrigin || current.mail.webAppUrl,
+      },
+    }));
+    setRuntimePresetApplied(true);
+  }, [runtimePresetApplied, runtimePresetQuery.data]);
+
   const setupStatus = statusQuery.data;
   const setupStatusErrorMessage =
     statusQuery.error instanceof Error
@@ -228,8 +256,8 @@ export const SetupScreen = () => {
       : "The web app could not read installer status from the API.";
   const stateDirectory = setupStatus?.stateDirectory;
   const currentStep = steps[stepIndex] ?? null;
-  const isRestartRequiredView =
-    setupStatus?.mode === "restart_required" || stepIndex >= steps.length;
+  const isPromotionView =
+    setupStatus?.mode === "promoting" || stepIndex >= steps.length;
   const isStateDirectoryBlocked =
     setupStatus?.mode === "setup" && stateDirectory?.writable === false;
   const completionValue =
@@ -357,7 +385,9 @@ export const SetupScreen = () => {
     try {
       await installMutation.mutateAsync(payload);
       setStepIndex(steps.length);
-      toast.success("Setup completed. Restart the API service now.");
+      toast.success(
+        "Setup completed. Runtime promotion is starting in the background.",
+      );
     } catch (error) {
       toast.error(
         error instanceof ApiError
@@ -376,9 +406,7 @@ export const SetupScreen = () => {
       return;
     }
 
-    toast.message(
-      "The API is still waiting for a restart or remains in setup mode.",
-    );
+    toast.message("Runtime promotion is still in progress.");
   };
 
   const handleSaveSetupApiUrl = async (apiUrl = setupApiUrlInput.trim()) => {
@@ -506,7 +534,7 @@ export const SetupScreen = () => {
               </ShimmerButton>
             </CardFooter>
           </Card>
-        ) : isRestartRequiredView ? (
+        ) : isPromotionView ? (
           <Card className="rounded-[28px] border-border/70 bg-background/92 shadow-xl">
             <CardHeader className="border-b border-border/70 bg-muted/20">
               <div className="flex items-center gap-3">
@@ -514,10 +542,10 @@ export const SetupScreen = () => {
                   <RefreshCcw className="size-5" />
                 </div>
                 <div>
-                  <CardTitle>API restart required</CardTitle>
+                  <CardTitle>Promoting runtime</CardTitle>
                   <CardDescription>
-                    The install state file has been written. Restart the API
-                    process so the system can switch to normal mode.
+                    The setup stack has completed provisioning. Noderax is
+                    switching to the high-availability runtime now.
                   </CardDescription>
                 </div>
               </div>
@@ -546,10 +574,11 @@ export const SetupScreen = () => {
                 />
               </div>
               <div className="rounded-2xl border border-dashed bg-muted/20 px-4 py-4 text-sm text-muted-foreground">
-                After restarting the API service, you can recheck the status
-                here or go directly to
+                Keep this page open while the setup stack is replaced by the
+                runtime stack. Once both API instances are ready, this screen
+                will redirect to
                 <span className="px-1 font-medium text-foreground">/login</span>
-                .
+                automatically.
               </div>
             </CardContent>
             <CardFooter className="justify-end">
@@ -600,6 +629,15 @@ export const SetupScreen = () => {
                         {formatSetupMode(setupStatus)}
                       </p>
                     </div>
+                    {runtimePresetQuery.data?.mode === "local_bundle" ? (
+                      <div className="rounded-2xl border bg-background/70 px-4 py-3 text-sm">
+                        <p className="font-medium">Runtime preset</p>
+                        <p className="mt-1 text-muted-foreground">
+                          Local bundle detected. Database and Redis defaults
+                          are prefilled for this host.
+                        </p>
+                      </div>
+                    ) : null}
                     <div className="rounded-2xl border bg-background/70 px-4 py-3 text-sm">
                       <p className="font-medium">API target</p>
                       <p className="mt-1 truncate font-mono text-xs text-foreground">
@@ -668,7 +706,7 @@ export const SetupScreen = () => {
                         <InstallerChecklist text="All core tables are created automatically." />
                         <InstallerChecklist text="The first platform admin and workspace are seeded." />
                         <InstallerChecklist text="Optional SMTP settings can be verified before install and edited later from platform settings." />
-                        <InstallerChecklist text="Runtime configuration is written to the local install-state file." />
+                        <InstallerChecklist text="Runtime configuration and secrets are written locally, then the setup stack promotes to the HA runtime." />
                       </div>
                     </div>
                     {stateDirectory ? (
@@ -1246,8 +1284,9 @@ export const SetupScreen = () => {
                     <div className="mt-4 grid gap-3">
                       <InstallerChecklist text="JWT secret will be generated automatically" />
                       <InstallerChecklist text="Agent enrollment secret will be generated automatically" />
-                      <InstallerChecklist text="All core tables will be created with synchronize + delta bootstraps" />
-                      <InstallerChecklist text="The install state file will be written and setup will be locked" />
+                      <InstallerChecklist text="All core tables will be created through formal migrations only" />
+                      <InstallerChecklist text="The install state file will be written only after migrations and seed complete successfully" />
+                      <InstallerChecklist text="The setup stack will hand off to the HA runtime automatically" />
                     </div>
                   </div>
                 </div>
@@ -1257,7 +1296,7 @@ export const SetupScreen = () => {
             <CardFooter className="justify-between gap-3">
               <div className="text-sm text-muted-foreground">
                 {currentStep?.key === "review"
-                  ? "You will need to restart the API process manually after installation."
+                  ? "After installation, Noderax promotes itself to the HA runtime automatically."
                   : "The installer is available only for fresh installations."}
               </div>
               <div className="flex items-center gap-2">
@@ -1308,7 +1347,7 @@ const formatSetupMode = (status?: SetupStatusResponse) => {
 
   const labels: Record<SetupMode, string> = {
     setup: "Setup pending",
-    restart_required: "Restart required",
+    promoting: "Promoting runtime",
     installed: "Installed",
     legacy: "Legacy env mode",
   };

@@ -38,12 +38,12 @@ export async function POST(request: Request) {
 
       if (setupStatusResponse.ok) {
         const setupStatus = (await setupStatusResponse.json()) as {
-          mode: "setup" | "restart_required" | "installed" | "legacy";
+          mode: "setup" | "promoting" | "installed" | "legacy";
         };
 
         if (
           setupStatus.mode === "setup" ||
-          setupStatus.mode === "restart_required"
+          setupStatus.mode === "promoting"
         ) {
           return NextResponse.json(
             { message: "Complete the initial setup before signing in." },

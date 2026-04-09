@@ -6,6 +6,7 @@ import { apiClient } from "@/lib/api";
 
 export const setupStatusQueryKey = ["setup", "status"] as const;
 export const setupApiConfigQueryKey = ["setup", "api-config"] as const;
+export const setupRuntimePresetQueryKey = ["setup", "runtime-preset"] as const;
 
 export const useSetupStatus = () =>
   useQuery({
@@ -23,6 +24,15 @@ export const useSetupApiConfig = () =>
     retry: false,
     staleTime: 5_000,
     refetchOnWindowFocus: true,
+  });
+
+export const useSetupRuntimePreset = () =>
+  useQuery({
+    queryKey: setupRuntimePresetQueryKey,
+    queryFn: apiClient.getSetupRuntimePreset,
+    retry: false,
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
   });
 
 export const useValidateSetupPostgres = () =>

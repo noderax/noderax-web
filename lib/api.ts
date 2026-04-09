@@ -86,6 +86,7 @@ import type {
   SetupInstallResponse,
   SetupApiConfigResponse,
   SetupStatusResponse,
+  SetupRuntimePresetResponse,
   TeamDto,
   TeamMembershipDto,
   TaskDetail,
@@ -644,6 +645,9 @@ export const apiClient = {
   },
   getSetupStatus() {
     return request<SetupStatusResponse>("/api/setup/status");
+  },
+  getSetupRuntimePreset() {
+    return request<SetupRuntimePresetResponse>("/api/setup/runtime-preset");
   },
   getSetupApiConfig() {
     return request<SetupApiConfigResponse>("/api/setup/config");
