@@ -24,7 +24,6 @@ COPY lib ./lib
 COPY public ./public
 COPY store ./store
 COPY __tests__ ./__tests__
-COPY registry ./registry
 COPY scripts ./scripts
 COPY components.json eslint.config.mjs global.d.ts next-env.d.ts next.config.ts postcss.config.mjs proxy.ts tailwind.config.ts tsconfig.json vitest.config.ts vitest.setup.ts ./
 
