@@ -18,14 +18,7 @@ RUN pnpm install --frozen-lockfile
 
 FROM deps AS build
 
-COPY app ./app
-COPY components ./components
-COPY lib ./lib
-COPY public ./public
-COPY store ./store
-COPY __tests__ ./__tests__
-COPY scripts ./scripts
-COPY components.json eslint.config.mjs global.d.ts next-env.d.ts next.config.ts postcss.config.mjs proxy.ts tailwind.config.ts tsconfig.json vitest.config.ts vitest.setup.ts ./
+COPY . .
 
 RUN pnpm build
 
