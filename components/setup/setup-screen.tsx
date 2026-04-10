@@ -105,6 +105,7 @@ const slugify = (value: string) =>
     .replace(/^-+|-+$/g, "");
 
 const DEFAULT_WEB_APP_URL = "http://localhost:3001";
+const API_PATH_SUFFIX = "/api/v1";
 
 const isValidUrl = (value: string) => {
   try {
@@ -112,6 +113,22 @@ const isValidUrl = (value: string) => {
     return true;
   } catch {
     return false;
+  }
+};
+
+const buildPublicApiUrl = (value?: string | null) => {
+  if (!value?.trim()) {
+    return null;
+  }
+
+  try {
+    const url = new URL(value.trim());
+    url.pathname = API_PATH_SUFFIX;
+    url.search = "";
+    url.hash = "";
+    return url.toString().replace(/\/$/, "");
+  } catch {
+    return null;
   }
 };
 
@@ -184,6 +201,32 @@ export const SetupScreen = () => {
     useState<ValidatePostgresSetupResponse | null>(null);
   const [redisValidated, setRedisValidated] = useState(false);
   const [smtpCheck, setSmtpCheck] = useState<SmtpTestState | null>(null);
+  const runtimePresetApiUrl = useMemo(
+    () => buildPublicApiUrl(runtimePresetQuery.data?.publicOrigin),
+    [runtimePresetQuery.data?.publicOrigin],
+  );
+  const displayApiUrl = useMemo(() => {
+    if (apiConfigQuery.data?.source === "cookie") {
+      return apiConfigQuery.data.apiUrl;
+    }
+
+    return runtimePresetApiUrl ?? apiConfigQuery.data?.apiUrl ?? null;
+  }, [apiConfigQuery.data?.apiUrl, apiConfigQuery.data?.source, runtimePresetApiUrl]);
+  const displayApiUrlSourceLabel = useMemo(() => {
+    if (apiConfigQuery.data?.source === "cookie") {
+      return "Setup screen override";
+    }
+
+    if (runtimePresetApiUrl) {
+      return "Installer public origin";
+    }
+
+    if (apiConfigQuery.data?.source === "env") {
+      return "Web app environment";
+    }
+
+    return "Missing";
+  }, [apiConfigQuery.data?.source, runtimePresetApiUrl]);
 
   useEffect(() => {
     const status = statusQuery.data;
@@ -197,8 +240,8 @@ export const SetupScreen = () => {
   }, [router, statusQuery.data]);
 
   useEffect(() => {
-    setSetupApiUrlInput(apiConfigQuery.data?.apiUrl ?? "");
-  }, [apiConfigQuery.data?.apiUrl]);
+    setSetupApiUrlInput(displayApiUrl ?? "");
+  }, [displayApiUrl]);
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -469,16 +512,11 @@ export const SetupScreen = () => {
                 <p className="mt-2 text-sm text-muted-foreground">
                   Current API URL:
                   <span className="ml-1 font-mono text-foreground">
-                    {apiConfigQuery.data?.apiUrl ?? "Not configured"}
+                    {displayApiUrl ?? "Not configured"}
                   </span>
                 </p>
                 <p className="mt-2 text-sm text-muted-foreground">
-                  Source:{" "}
-                  {apiConfigQuery.data?.source === "cookie"
-                    ? "Setup screen override"
-                    : apiConfigQuery.data?.source === "env"
-                      ? "Web app environment"
-                      : "Missing"}
+                  Source: {displayApiUrlSourceLabel}
                 </p>
               </div>
               <div className="grid gap-3 lg:grid-cols-[1fr_auto] lg:items-end">
@@ -641,14 +679,16 @@ export const SetupScreen = () => {
                     <div className="rounded-2xl border bg-background/70 px-4 py-3 text-sm">
                       <p className="font-medium">API target</p>
                       <p className="mt-1 truncate font-mono text-xs text-foreground">
-                        {apiConfigQuery.data?.apiUrl ?? "Not configured"}
+                        {displayApiUrl ?? "Not configured"}
                       </p>
                       <p className="mt-1 text-muted-foreground">
                         {apiConfigQuery.data?.source === "cookie"
                           ? "Using setup screen override"
-                          : apiConfigQuery.data?.source === "env"
-                            ? "Using web app environment"
-                            : "No API URL configured"}
+                          : runtimePresetApiUrl
+                            ? "Showing installer public origin"
+                            : apiConfigQuery.data?.source === "env"
+                              ? "Using web app environment"
+                              : "No API URL configured"}
                       </p>
                     </div>
                   </div>
