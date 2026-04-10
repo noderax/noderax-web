@@ -106,6 +106,15 @@ const slugify = (value: string) =>
 
 const DEFAULT_WEB_APP_URL = "http://localhost:3001";
 const API_PATH_SUFFIX = "/api/v1";
+const INTERNAL_API_HOSTS = new Set([
+  "nginx",
+  "localhost",
+  "127.0.0.1",
+  "api",
+  "api-setup",
+  "api-a",
+  "api-b",
+]);
 
 const isValidUrl = (value: string) => {
   try {
@@ -132,6 +141,19 @@ const buildPublicApiUrl = (value?: string | null) => {
   }
 };
 
+const isInternalApiUrl = (value?: string | null) => {
+  if (!value?.trim()) {
+    return false;
+  }
+
+  try {
+    const url = new URL(value.trim());
+    return INTERNAL_API_HOSTS.has(url.hostname);
+  } catch {
+    return false;
+  }
+};
+
 const isMailStepValid = (payload: SetupInstallPayload["mail"]) =>
   Number.isFinite(payload.smtpPort) &&
   payload.smtpPort > 0 &&
@@ -146,7 +168,7 @@ const getSmtpStatusClassName = (tone: SmtpTestState["tone"]) =>
 
 const buildDefaultPayload = (): SetupInstallPayload => ({
   postgres: {
-    host: "127.0.0.1",
+    host: "postgres",
     port: 5432,
     username: "postgres",
     password: "",
@@ -154,7 +176,7 @@ const buildDefaultPayload = (): SetupInstallPayload => ({
     ssl: false,
   },
   redis: {
-    host: "127.0.0.1",
+    host: "redis",
     port: 6379,
     password: "",
     db: 0,
@@ -207,6 +229,13 @@ export const SetupScreen = () => {
     [runtimePresetQuery.data?.publicOrigin],
   );
   const displayApiUrl = useMemo(() => {
+    if (
+      runtimePresetApiUrl &&
+      isInternalApiUrl(apiConfigQuery.data?.apiUrl)
+    ) {
+      return runtimePresetApiUrl;
+    }
+
     if (apiConfigQuery.data?.source === "cookie") {
       return apiConfigQuery.data.apiUrl;
     }
@@ -848,14 +877,14 @@ export const SetupScreen = () => {
                   ) : null}
                   <SetupField
                     label="Host"
-                    value={payload.postgres.host}
+                  value={payload.postgres.host}
                     onChange={(value) =>
                       setPayload((current) => ({
                         ...current,
                         postgres: { ...current.postgres, host: value },
                       }))
                     }
-                    placeholder="127.0.0.1"
+                    placeholder="postgres"
                   />
                   <SetupField
                     label="Port"
@@ -977,14 +1006,14 @@ export const SetupScreen = () => {
                   ) : null}
                   <SetupField
                     label="Host"
-                    value={payload.redis.host}
+                  value={payload.redis.host}
                     onChange={(value) =>
                       setPayload((current) => ({
                         ...current,
                         redis: { ...current.redis, host: value },
                       }))
                     }
-                    placeholder="127.0.0.1"
+                    placeholder="redis"
                   />
                   <SetupField
                     label="Port"
