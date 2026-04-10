@@ -201,6 +201,7 @@ export const SetupScreen = () => {
     useState<ValidatePostgresSetupResponse | null>(null);
   const [redisValidated, setRedisValidated] = useState(false);
   const [smtpCheck, setSmtpCheck] = useState<SmtpTestState | null>(null);
+  const isLocalBundlePreset = runtimePresetQuery.data?.mode === "local_bundle";
   const runtimePresetApiUrl = useMemo(
     () => buildPublicApiUrl(runtimePresetQuery.data?.publicOrigin),
     [runtimePresetQuery.data?.publicOrigin],
@@ -352,6 +353,38 @@ export const SetupScreen = () => {
     if (stepIndex > 0) {
       setStepIndex((current) => current - 1);
     }
+  };
+
+  const applyBundledPostgresDefaults = () => {
+    const preset = runtimePresetQuery.data?.postgresPreset;
+    if (!preset) {
+      return;
+    }
+
+    setPayload((current) => ({
+      ...current,
+      postgres: {
+        ...current.postgres,
+        ...preset,
+      },
+    }));
+    setPostgresCheck(null);
+  };
+
+  const applyBundledRedisDefaults = () => {
+    const preset = runtimePresetQuery.data?.redisPreset;
+    if (!preset) {
+      return;
+    }
+
+    setPayload((current) => ({
+      ...current,
+      redis: {
+        ...current.redis,
+        ...preset,
+      },
+    }));
+    setRedisValidated(false);
   };
 
   const handlePostgresValidate = async () => {
@@ -794,6 +827,25 @@ export const SetupScreen = () => {
 
               {currentStep?.key === "postgres" ? (
                 <div className="grid gap-4 lg:grid-cols-2">
+                  {isLocalBundlePreset ? (
+                    <div className="lg:col-span-2 flex items-center justify-between gap-3 rounded-2xl border bg-muted/20 px-4 py-3">
+                      <div className="min-w-0">
+                        <p className="font-medium">Bundled PostgreSQL preset</p>
+                        <p className="text-sm text-muted-foreground">
+                          Local installer defaults are prefilled for this host.
+                          Keep these values unless you are switching to an
+                          external PostgreSQL service.
+                        </p>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={applyBundledPostgresDefaults}
+                      >
+                        Use bundle defaults
+                      </Button>
+                    </div>
+                  ) : null}
                   <SetupField
                     label="Host"
                     value={payload.postgres.host}
@@ -904,6 +956,25 @@ export const SetupScreen = () => {
 
               {currentStep?.key === "redis" ? (
                 <div className="grid gap-4 lg:grid-cols-2">
+                  {isLocalBundlePreset ? (
+                    <div className="lg:col-span-2 flex items-center justify-between gap-3 rounded-2xl border bg-muted/20 px-4 py-3">
+                      <div className="min-w-0">
+                        <p className="font-medium">Bundled Redis preset</p>
+                        <p className="text-sm text-muted-foreground">
+                          Local installer defaults are prefilled for this host.
+                          Keep these values unless you are switching to an
+                          external Redis service.
+                        </p>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={applyBundledRedisDefaults}
+                      >
+                        Use bundle defaults
+                      </Button>
+                    </div>
+                  ) : null}
                   <SetupField
                     label="Host"
                     value={payload.redis.host}
