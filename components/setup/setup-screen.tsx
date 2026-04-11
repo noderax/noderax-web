@@ -223,6 +223,9 @@ export const SetupScreen = () => {
     useState<ValidatePostgresSetupResponse | null>(null);
   const [redisValidated, setRedisValidated] = useState(false);
   const [smtpCheck, setSmtpCheck] = useState<SmtpTestState | null>(null);
+  const [browserOriginApiUrl, setBrowserOriginApiUrl] = useState<string | null>(
+    null,
+  );
   const isLocalBundlePreset = runtimePresetQuery.data?.mode === "local_bundle";
   const runtimePresetApiUrl = useMemo(
     () => buildPublicApiUrl(runtimePresetQuery.data?.publicOrigin),
@@ -236,12 +239,29 @@ export const SetupScreen = () => {
       return runtimePresetApiUrl;
     }
 
+    if (
+      browserOriginApiUrl &&
+      isInternalApiUrl(apiConfigQuery.data?.apiUrl)
+    ) {
+      return browserOriginApiUrl;
+    }
+
     if (apiConfigQuery.data?.source === "cookie") {
       return apiConfigQuery.data.apiUrl;
     }
 
-    return runtimePresetApiUrl ?? apiConfigQuery.data?.apiUrl ?? null;
-  }, [apiConfigQuery.data?.apiUrl, apiConfigQuery.data?.source, runtimePresetApiUrl]);
+    return (
+      runtimePresetApiUrl ??
+      browserOriginApiUrl ??
+      apiConfigQuery.data?.apiUrl ??
+      null
+    );
+  }, [
+    apiConfigQuery.data?.apiUrl,
+    apiConfigQuery.data?.source,
+    browserOriginApiUrl,
+    runtimePresetApiUrl,
+  ]);
   const displayApiUrlSourceLabel = useMemo(() => {
     if (apiConfigQuery.data?.source === "cookie") {
       return "Setup screen override";
@@ -251,12 +271,16 @@ export const SetupScreen = () => {
       return "Installer public origin";
     }
 
+    if (browserOriginApiUrl) {
+      return "Browser origin";
+    }
+
     if (apiConfigQuery.data?.source === "env") {
       return "Web app environment";
     }
 
     return "Missing";
-  }, [apiConfigQuery.data?.source, runtimePresetApiUrl]);
+  }, [apiConfigQuery.data?.source, browserOriginApiUrl, runtimePresetApiUrl]);
 
   useEffect(() => {
     const status = statusQuery.data;
@@ -279,6 +303,7 @@ export const SetupScreen = () => {
     }
 
     const origin = window.location.origin;
+    setBrowserOriginApiUrl(buildPublicApiUrl(origin));
 
     setPayload((current) =>
       current.mail.webAppUrl === DEFAULT_WEB_APP_URL
