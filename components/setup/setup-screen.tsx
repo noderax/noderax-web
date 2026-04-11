@@ -232,38 +232,26 @@ export const SetupScreen = () => {
     [runtimePresetQuery.data?.publicOrigin],
   );
   const displayApiUrl = useMemo(() => {
-    if (
-      runtimePresetApiUrl &&
-      isInternalApiUrl(apiConfigQuery.data?.apiUrl)
-    ) {
-      return runtimePresetApiUrl;
+    const configuredApiUrl = apiConfigQuery.data?.apiUrl ?? null;
+
+    if (configuredApiUrl && !isInternalApiUrl(configuredApiUrl)) {
+      return configuredApiUrl;
     }
 
-    if (
-      browserOriginApiUrl &&
-      isInternalApiUrl(apiConfigQuery.data?.apiUrl)
-    ) {
-      return browserOriginApiUrl;
-    }
-
-    if (apiConfigQuery.data?.source === "cookie") {
-      return apiConfigQuery.data.apiUrl;
-    }
-
-    return (
-      runtimePresetApiUrl ??
-      browserOriginApiUrl ??
-      apiConfigQuery.data?.apiUrl ??
-      null
-    );
+    return runtimePresetApiUrl ?? browserOriginApiUrl ?? null;
   }, [
     apiConfigQuery.data?.apiUrl,
-    apiConfigQuery.data?.source,
     browserOriginApiUrl,
     runtimePresetApiUrl,
   ]);
   const displayApiUrlSourceLabel = useMemo(() => {
-    if (apiConfigQuery.data?.source === "cookie") {
+    const configuredApiUrl = apiConfigQuery.data?.apiUrl ?? null;
+
+    if (
+      apiConfigQuery.data?.source === "cookie" &&
+      configuredApiUrl &&
+      !isInternalApiUrl(configuredApiUrl)
+    ) {
       return "Setup screen override";
     }
 
@@ -275,12 +263,21 @@ export const SetupScreen = () => {
       return "Browser origin";
     }
 
-    if (apiConfigQuery.data?.source === "env") {
+    if (
+      apiConfigQuery.data?.source === "env" &&
+      configuredApiUrl &&
+      !isInternalApiUrl(configuredApiUrl)
+    ) {
       return "Web app environment";
     }
 
     return "Missing";
-  }, [apiConfigQuery.data?.source, browserOriginApiUrl, runtimePresetApiUrl]);
+  }, [
+    apiConfigQuery.data?.apiUrl,
+    apiConfigQuery.data?.source,
+    browserOriginApiUrl,
+    runtimePresetApiUrl,
+  ]);
 
   useEffect(() => {
     const status = statusQuery.data;

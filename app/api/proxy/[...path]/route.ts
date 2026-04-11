@@ -3,10 +3,45 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   AUTH_TOKEN_COOKIE,
   getApiRequestUrls,
-  resolveApiBaseUrl,
+  normalizeApiBaseUrl,
 } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
+
+const INTERNAL_API_HOSTS = new Set([
+  "nginx",
+  "localhost",
+  "127.0.0.1",
+  "api",
+  "api-setup",
+  "api-a",
+  "api-b",
+]);
+
+const isInternalApiUrl = (value?: string | null) => {
+  if (!value?.trim()) {
+    return false;
+  }
+
+  try {
+    const url = new URL(value.trim());
+    return INTERNAL_API_HOSTS.has(url.hostname);
+  } catch {
+    return false;
+  }
+};
+
+const resolvePublicApiHeaderUrl = (request: NextRequest) => {
+  const publicEnvApiUrl = normalizeApiBaseUrl(
+    process.env.NEXT_PUBLIC_NODERAX_API_URL,
+  );
+
+  if (publicEnvApiUrl && !isInternalApiUrl(publicEnvApiUrl)) {
+    return publicEnvApiUrl;
+  }
+
+  return normalizeApiBaseUrl(`${request.nextUrl.origin}/api/v1`);
+};
 
 async function forwardRequest(
   request: NextRequest,
@@ -14,7 +49,7 @@ async function forwardRequest(
 ) {
   const { path } = await context.params;
   const upstreamUrls = getApiRequestUrls(`/${path.join("/")}`);
-  const resolvedApiBaseUrl = resolveApiBaseUrl().apiUrl;
+  const publicApiHeaderUrl = resolvePublicApiHeaderUrl(request);
 
   if (!upstreamUrls.length) {
     return NextResponse.json(
@@ -38,8 +73,8 @@ async function forwardRequest(
   headers.delete("host");
   headers.delete("connection");
   headers.delete("content-length");
-  if (resolvedApiBaseUrl) {
-    headers.set("x-noderax-public-api-url", resolvedApiBaseUrl);
+  if (publicApiHeaderUrl) {
+    headers.set("x-noderax-public-api-url", publicApiHeaderUrl);
   }
   const requestBody =
     request.method === "GET" || request.method === "HEAD"
