@@ -7,6 +7,11 @@ export const AUTH_PERSIST_COOKIE = "noderax_persist";
 export const AUTH_FLASH_ERROR_COOKIE = "noderax_auth_flash_error";
 export const API_BASE_URL_COOKIE = "noderax_api_url";
 const API_PREFIX = "/api/v1";
+const PUBLIC_ROOT_API_PATHS = new Set([
+  "/health",
+  "/health/ready",
+  "/health/dependencies",
+]);
 
 export type ApiBaseUrlSource = "cookie" | "env" | "missing";
 
@@ -86,6 +91,9 @@ export const getApiBaseUrlCandidates = (override?: string | null) => {
 const normalizePathname = (value: string) =>
   `/${value.replace(/^\/+|\/+$/g, "")}`.replace(/\/{2,}/g, "/");
 
+const isPublicRootApiPath = (path: string) =>
+  PUBLIC_ROOT_API_PATHS.has(normalizePathname(path));
+
 const joinApiUrl = (baseUrl: string, path: string) => {
   const url = new URL(baseUrl);
   const normalizedBasePath =
@@ -117,6 +125,25 @@ const resolveRestBaseUrl = (baseUrl: string) => {
   return url;
 };
 
+const resolvePublicRootBaseUrl = (baseUrl: string) => {
+  const url = new URL(baseUrl);
+  const normalizedBasePath =
+    url.pathname && url.pathname !== "/" ? normalizePathname(url.pathname) : "/";
+
+  if (
+    normalizedBasePath === "/" ||
+    normalizedBasePath === "/v1" ||
+    normalizedBasePath === "/api/v1"
+  ) {
+    url.pathname = "/";
+    url.search = "";
+    url.hash = "";
+    return url;
+  }
+
+  return null;
+};
+
 export const getApiRequestUrls = (path: string, override?: string | null) => {
   const baseUrls = getApiBaseUrlCandidates(override);
 
@@ -124,9 +151,39 @@ export const getApiRequestUrls = (path: string, override?: string | null) => {
     return [];
   }
 
-  return baseUrls.map((baseUrl) =>
-    joinApiUrl(resolveRestBaseUrl(baseUrl).href, path),
-  );
+  const urls = baseUrls.flatMap((baseUrl) => {
+    const prefixedUrl = joinApiUrl(resolveRestBaseUrl(baseUrl).href, path);
+
+    if (!isPublicRootApiPath(path)) {
+      return [prefixedUrl];
+    }
+
+    const publicRootBaseUrl = resolvePublicRootBaseUrl(baseUrl);
+
+    if (!publicRootBaseUrl) {
+      return [prefixedUrl];
+    }
+
+    return [
+      joinApiUrl(publicRootBaseUrl.href, path),
+      prefixedUrl,
+    ];
+  });
+
+  const dedupedUrls: URL[] = [];
+  const seen = new Set<string>();
+
+  for (const url of urls) {
+    const key = url.toString();
+    if (seen.has(key)) {
+      continue;
+    }
+
+    seen.add(key);
+    dedupedUrls.push(url);
+  }
+
+  return dedupedUrls;
 };
 
 export const fetchApiWithFallback = async (
