@@ -30,6 +30,7 @@ import type {
   CreateNodeInstallResponse,
   CreateScheduledTaskPayload,
   CreateNodePayload,
+  ControlPlaneUpdateSummary,
   CreateOidcProviderPayload,
   CreateTeamPayload,
   CreateTeamTaskPayload,
@@ -850,6 +851,27 @@ export const apiClient = {
   },
   getPlatformSettings() {
     return request<PlatformSettingsResponse>("/api/proxy/platform-settings");
+  },
+  getControlPlaneUpdateSummary() {
+    return request<ControlPlaneUpdateSummary>(
+      "/api/proxy/control-plane-updates/summary",
+    );
+  },
+  queueControlPlaneUpdateDownload() {
+    return request<ControlPlaneUpdateSummary>(
+      "/api/proxy/control-plane-updates/download",
+      {
+        method: "POST",
+      },
+    );
+  },
+  queueControlPlaneUpdateApply() {
+    return request<ControlPlaneUpdateSummary>(
+      "/api/proxy/control-plane-updates/apply",
+      {
+        method: "POST",
+      },
+    );
   },
   getAgentUpdateSummary() {
     return request<AgentUpdateSummary>("/api/proxy/agent-updates/summary");

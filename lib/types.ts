@@ -502,6 +502,52 @@ export interface AgentUpdateSummary {
   releaseCheckedAt: string | null;
 }
 
+export type ControlPlaneUpdateOperationType = "download" | "apply";
+export type ControlPlaneUpdateStatus =
+  | "queued"
+  | "downloading"
+  | "verifying"
+  | "extracting"
+  | "loading_images"
+  | "prepared"
+  | "applying"
+  | "recreating_services"
+  | "completed"
+  | "failed";
+
+export interface ControlPlaneRelease {
+  version: string;
+  releaseId: string;
+  releasedAt: string | null;
+  builtAt?: string | null;
+  bundleSha256?: string | null;
+  bundleUrl?: string | null;
+  manifestUrl?: string | null;
+}
+
+export interface ControlPlaneUpdateOperation {
+  operation: ControlPlaneUpdateOperationType;
+  status: ControlPlaneUpdateStatus;
+  message: string | null;
+  error: string | null;
+  requestedAt: string;
+  startedAt: string | null;
+  completedAt: string | null;
+  requestedByEmailSnapshot: string | null;
+  rollbackStatus: "not_needed" | "succeeded" | "failed" | null;
+}
+
+export interface ControlPlaneUpdateSummary {
+  supported: boolean;
+  deploymentMode: string | null;
+  currentRelease: ControlPlaneRelease | null;
+  latestRelease: ControlPlaneRelease | null;
+  preparedRelease: ControlPlaneRelease | null;
+  updateAvailable: boolean;
+  operation: ControlPlaneUpdateOperation | null;
+  releaseCheckedAt: string | null;
+}
+
 export interface CreateAgentUpdateRolloutPayload {
   nodeIds: string[];
   version?: string;

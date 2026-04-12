@@ -13,6 +13,7 @@ import { formatRootAccessProfile } from "@/lib/root-access";
 import type {
   ChangePasswordPayload,
   AddTeamMemberPayload,
+  ControlPlaneUpdateSummary,
   AgentUpdateSummary,
   AssignableUserDto,
   AuditLogFilters,
@@ -122,6 +123,9 @@ export const queryKeys = {
   },
   platformSettings: {
     detail: ["platform-settings"] as const,
+  },
+  controlPlaneUpdates: {
+    summary: ["control-plane-updates", "summary"] as const,
   },
   agentUpdates: {
     summary: ["agent-updates", "summary"] as const,
@@ -447,6 +451,26 @@ const invalidateAgentUpdateQueries = async (
       : []),
   ]);
 };
+
+const invalidateControlPlaneUpdateQueries = async (
+  queryClient: ReturnType<typeof useQueryClient>,
+) => {
+  await queryClient.invalidateQueries({
+    queryKey: queryKeys.controlPlaneUpdates.summary,
+    refetchType: "active",
+  });
+};
+
+export const useControlPlaneUpdateSummary = (enabled = true) =>
+  useQuery<ControlPlaneUpdateSummary>({
+    queryKey: queryKeys.controlPlaneUpdates.summary,
+    queryFn: apiClient.getControlPlaneUpdateSummary,
+    enabled,
+    staleTime: 10_000,
+    refetchInterval: enabled ? 15_000 : false,
+    refetchIntervalInBackground: true,
+    retry: shouldRetryInteractiveQuery,
+  });
 
 export const useAgentUpdateSummary = (enabled = true) =>
   useQuery<AgentUpdateSummary>({
@@ -1074,6 +1098,48 @@ export const useCreateAgentUpdateRollout = () => {
     },
     onError: (error) => {
       toast.error("Unable to start agent rollout", {
+        description: readMutationError(error),
+      });
+    },
+  });
+};
+
+export const useQueueControlPlaneUpdateDownload = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: () => apiClient.queueControlPlaneUpdateDownload(),
+    onSuccess: async (summary) => {
+      toast.success("Control-plane download queued", {
+        description:
+          summary.latestRelease?.version ??
+          "The host supervisor will start staging the latest control-plane bundle shortly.",
+      });
+      await invalidateControlPlaneUpdateQueries(queryClient);
+    },
+    onError: (error) => {
+      toast.error("Unable to queue control-plane download", {
+        description: readMutationError(error),
+      });
+    },
+  });
+};
+
+export const useQueueControlPlaneUpdateApply = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: () => apiClient.queueControlPlaneUpdateApply(),
+    onSuccess: async (summary) => {
+      toast.success("Control-plane apply queued", {
+        description:
+          summary.preparedRelease?.version ??
+          "The host supervisor will start applying the prepared control-plane release shortly.",
+      });
+      await invalidateControlPlaneUpdateQueries(queryClient);
+    },
+    onError: (error) => {
+      toast.error("Unable to queue control-plane apply", {
         description: readMutationError(error),
       });
     },

@@ -22,6 +22,14 @@ import { AppShell } from "@/components/layout/app-shell";
 import { EmptyState } from "@/components/empty-state";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { AnimatedGradientText } from "@/components/ui/animated-gradient-text";
 import { Input } from "@/components/ui/input";
 import {
@@ -54,7 +62,10 @@ import {
   useAgentUpdateRollouts,
   useAgentUpdateSummary,
   useCancelAgentUpdateRollout,
+  useControlPlaneUpdateSummary,
   useCreateAgentUpdateRollout,
+  useQueueControlPlaneUpdateApply,
+  useQueueControlPlaneUpdateDownload,
   usePlatformNodes,
   useResumeAgentUpdateRollout,
   useRetryAgentUpdateRolloutTarget,
@@ -66,6 +77,8 @@ import type {
   AgentRelease,
   AgentUpdateRollout,
   AgentUpdateRolloutTarget,
+  ControlPlaneRelease,
+  ControlPlaneUpdateOperation,
   NodeSummary,
   RealtimeStatus,
 } from "@/lib/types";
@@ -87,6 +100,40 @@ const ACTIVE_TARGET_STATUSES = new Set([
   "restarting",
   "waiting_for_reconnect",
 ]);
+const ACTIVE_CONTROL_PLANE_UPDATE_STATUSES = new Set([
+  "queued",
+  "downloading",
+  "verifying",
+  "extracting",
+  "loading_images",
+  "applying",
+  "recreating_services",
+]);
+
+const getControlPlaneTone = (
+  status: ControlPlaneUpdateOperation["status"] | "available" | "prepared",
+) => {
+  switch (status) {
+    case "completed":
+      return "tone-success";
+    case "failed":
+      return "tone-danger";
+    case "prepared":
+      return "tone-warning";
+    case "available":
+      return "tone-brand";
+    default:
+      return "tone-warning";
+  }
+};
+
+const formatControlPlaneRelease = (release: ControlPlaneRelease | null) => {
+  if (!release) {
+    return "Unavailable";
+  }
+
+  return `${release.version} · ${release.releaseId}`;
+};
 
 const getRolloutTone = (status: AgentUpdateRollout["status"]) => {
   switch (status) {
@@ -405,10 +452,13 @@ const TablePaginationBar = ({
 export const UpdatesPageView = () => {
   const { isPlatformAdmin } = useWorkspaceContext();
   const workspacesQuery = useWorkspaces(isPlatformAdmin);
+  const controlPlaneSummaryQuery = useControlPlaneUpdateSummary(isPlatformAdmin);
   const summaryQuery = useAgentUpdateSummary(isPlatformAdmin);
   const releasesQuery = useAgentUpdateReleases(isPlatformAdmin);
   const rolloutsQuery = useAgentUpdateRollouts(isPlatformAdmin);
   const nodesQuery = usePlatformNodes({ limit: NODE_LIMIT }, isPlatformAdmin);
+  const queueControlPlaneDownload = useQueueControlPlaneUpdateDownload();
+  const queueControlPlaneApply = useQueueControlPlaneUpdateApply();
   const createRollout = useCreateAgentUpdateRollout();
   const resumeRollout = useResumeAgentUpdateRollout();
   const cancelRollout = useCancelAgentUpdateRollout();
@@ -436,15 +486,24 @@ export const UpdatesPageView = () => {
   const [historyPageSize, setHistoryPageSize] =
     useState<(typeof TABLE_PAGE_SIZE_OPTIONS)[number]>(10);
   const [historyPageIndex, setHistoryPageIndex] = useState(0);
+  const [isApplyDialogOpen, setIsApplyDialogOpen] = useState(false);
   const deferredSearch = useDeferredValue(search);
 
   const workspaces = workspacesQuery.data ?? EMPTY_WORKSPACES;
   const nodes = nodesQuery.data ?? EMPTY_NODES;
   const releases = releasesQuery.data ?? EMPTY_RELEASES;
   const recentRollouts = rolloutsQuery.data ?? EMPTY_ROLLOUTS;
+  const controlPlaneSummary = controlPlaneSummaryQuery.data ?? null;
+  const controlPlaneOperation = controlPlaneSummary?.operation ?? null;
+  const controlPlanePreparedRelease = controlPlaneSummary?.preparedRelease ?? null;
+  const controlPlaneHasActiveOperation = Boolean(
+    controlPlaneOperation &&
+      ACTIVE_CONTROL_PLANE_UPDATE_STATUSES.has(controlPlaneOperation.status),
+  );
   const activeRollout = summaryQuery.data?.activeRollout ?? null;
   const latestRelease = summaryQuery.data?.latestRelease ?? null;
   const isRefreshingData =
+    controlPlaneSummaryQuery.isFetching ||
     summaryQuery.isFetching ||
     releasesQuery.isFetching ||
     rolloutsQuery.isFetching ||
@@ -998,6 +1057,7 @@ export const UpdatesPageView = () => {
           icon={AlertTriangle}
           actionLabel="Retry"
           onAction={() => {
+            void controlPlaneSummaryQuery.refetch();
             void summaryQuery.refetch();
             void releasesQuery.refetch();
             void rolloutsQuery.refetch();
@@ -1011,6 +1071,251 @@ export const UpdatesPageView = () => {
   return (
     <AppShell>
       <div className="space-y-4">
+        <SectionPanel
+          eyebrow="Release Center"
+          title="Control plane updates"
+          description="Track the installer-managed control plane, stage the latest official bundle, and confirm runtime apply only after the new release is ready on disk."
+          variant="feature"
+          action={
+            <>
+              <Badge variant="outline" className="rounded-full px-3 py-1">
+                Installer-managed only
+              </Badge>
+              {controlPlaneOperation ? (
+                <Badge
+                  variant="outline"
+                  className={cn(
+                    "rounded-full px-3 py-1",
+                    getControlPlaneTone(controlPlaneOperation.status),
+                  )}
+                >
+                  {controlPlaneOperation.operation} {controlPlaneOperation.status}
+                </Badge>
+              ) : null}
+            </>
+          }
+        >
+          {controlPlaneSummaryQuery.isPending ? (
+            <div className="grid gap-4 lg:grid-cols-[1.25fr_0.95fr]">
+              <Skeleton className="h-[220px] rounded-[24px]" />
+              <Skeleton className="h-[220px] rounded-[24px]" />
+            </div>
+          ) : controlPlaneSummaryQuery.isError ? (
+            <EmptyState
+              title="Control-plane updates are unavailable"
+              description="The authenticated API connection could not load the installer-managed control-plane update summary."
+              icon={AlertTriangle}
+              variant="plain"
+              actionLabel="Retry"
+              onAction={() => {
+                void controlPlaneSummaryQuery.refetch();
+              }}
+            />
+          ) : controlPlaneSummary?.supported ? (
+            <div className="grid gap-4 lg:grid-cols-[1.25fr_0.95fr]">
+              <div
+                className="overflow-hidden rounded-[30px] border border-border/70 p-5 shadow-[var(--shadow-dashboard-hover)]"
+                style={{
+                  backgroundImage:
+                    "radial-gradient(circle at top left, color-mix(in oklch, var(--primary) 14%, transparent), transparent 36%), radial-gradient(circle at 88% 18%, color-mix(in oklch, var(--semantic-success) 12%, transparent), transparent 24%), linear-gradient(180deg, color-mix(in oklch, var(--surface-feature) 85%, white 15%), var(--surface-feature))",
+                }}
+              >
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge variant="outline" className="rounded-full px-3 py-1">
+                    <Sparkles className="mr-1 size-3.5" />
+                    Latest-only channel
+                  </Badge>
+                  {controlPlaneSummary.updateAvailable ? (
+                    <Badge className="rounded-full px-3 py-1">
+                      Latest {controlPlaneSummary.latestRelease?.version}
+                    </Badge>
+                  ) : null}
+                  {controlPlanePreparedRelease ? (
+                    <Badge
+                      variant="outline"
+                      className={cn(
+                        "rounded-full px-3 py-1",
+                        getControlPlaneTone("prepared"),
+                      )}
+                    >
+                      Prepared
+                    </Badge>
+                  ) : null}
+                </div>
+
+                <div className="mt-5 max-w-3xl">
+                  <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
+                    Control-plane runtime
+                  </p>
+                  <h2 className="mt-3 text-3xl font-semibold tracking-tight text-foreground sm:text-[2.45rem]">
+                    <AnimatedGradientText
+                      className="font-semibold"
+                      colorFrom="#d95f31"
+                      colorTo="#ffb54c"
+                      speed={1.2}
+                    >
+                      Stage first, apply deliberately
+                    </AnimatedGradientText>
+                  </h2>
+                  <p className="mt-4 max-w-2xl text-sm leading-7 text-muted-foreground">
+                    Downloads run on the host supervisor and only mutate the live
+                    runtime after an explicit apply confirmation.
+                  </p>
+                </div>
+
+                <div className="mt-6 flex flex-wrap gap-2">
+                  {controlPlaneSummary.updateAvailable &&
+                  !controlPlaneHasActiveOperation &&
+                  !controlPlanePreparedRelease ? (
+                    <ShimmerButton
+                      className="action-btn"
+                      onClick={() => queueControlPlaneDownload.mutate()}
+                      disabled={queueControlPlaneDownload.isPending}
+                    >
+                      {queueControlPlaneDownload.isPending
+                        ? "Queueing download..."
+                        : "Download latest update"}
+                    </ShimmerButton>
+                  ) : null}
+                  {controlPlanePreparedRelease ? (
+                    <Button onClick={() => setIsApplyDialogOpen(true)}>
+                      Apply prepared update
+                    </Button>
+                  ) : null}
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      void controlPlaneSummaryQuery.refetch();
+                    }}
+                  >
+                    Refresh control plane
+                  </Button>
+                </div>
+              </div>
+
+              <div className="grid gap-4">
+                <UpdateStatCard
+                  label="Current build"
+                  value={formatControlPlaneRelease(controlPlaneSummary.currentRelease)}
+                  description={
+                    controlPlaneSummary.currentRelease?.releasedAt ? (
+                      <TimeDisplay
+                        value={controlPlaneSummary.currentRelease.releasedAt}
+                        mode="datetime"
+                      />
+                    ) : (
+                      "Current release timestamp unavailable."
+                    )
+                  }
+                  icon={<Server className="size-4" />}
+                />
+                <UpdateStatCard
+                  label="Latest build"
+                  value={formatControlPlaneRelease(controlPlaneSummary.latestRelease)}
+                  description={
+                    controlPlaneSummary.latestRelease?.releasedAt ? (
+                      <TimeDisplay
+                        value={controlPlaneSummary.latestRelease.releasedAt}
+                        mode="datetime"
+                      />
+                    ) : (
+                      "Latest release feed unavailable."
+                    )
+                  }
+                  icon={<ArrowUpCircle className="size-4" />}
+                  tone={
+                    controlPlaneSummary.updateAvailable
+                      ? "tone-brand"
+                      : "tone-success"
+                  }
+                />
+                <UpdateStatCard
+                  label="Prepared build"
+                  value={formatControlPlaneRelease(controlPlanePreparedRelease)}
+                  description={
+                    controlPlaneOperation?.message ??
+                    "No staged control-plane release is waiting to be applied."
+                  }
+                  icon={
+                    controlPlaneOperation?.status === "failed" ? (
+                      <AlertTriangle className="size-4" />
+                    ) : (
+                      <Clock3 className="size-4" />
+                    )
+                  }
+                  tone={
+                    controlPlaneOperation?.status === "failed"
+                      ? "tone-danger"
+                      : controlPlanePreparedRelease
+                        ? "tone-warning"
+                        : "tone-brand"
+                  }
+                />
+              </div>
+
+              <SectionPanel
+                eyebrow="Operation"
+                title="Control-plane state"
+                description="The host-side supervisor updates this state while downloading, verifying, extracting, or applying the prepared release."
+                className="lg:col-span-2"
+              >
+                {controlPlaneOperation ? (
+                  <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-start">
+                    <div className="space-y-3">
+                      <Badge
+                        variant="outline"
+                        className={cn(
+                          "rounded-full px-3 py-1",
+                          getControlPlaneTone(controlPlaneOperation.status),
+                        )}
+                      >
+                        {controlPlaneOperation.operation} {controlPlaneOperation.status}
+                      </Badge>
+                      <p className="text-sm leading-7 text-muted-foreground">
+                        {controlPlaneOperation.error ??
+                          controlPlaneOperation.message ??
+                          "Waiting for the next control-plane update action."}
+                      </p>
+                      <div className="flex flex-wrap gap-4 text-xs text-muted-foreground">
+                        <span>
+                          Requested <TimeDisplay value={controlPlaneOperation.requestedAt} mode="datetime" />
+                        </span>
+                        {controlPlaneOperation.completedAt ? (
+                          <span>
+                            Completed <TimeDisplay value={controlPlaneOperation.completedAt} mode="datetime" />
+                          </span>
+                        ) : null}
+                        {controlPlaneOperation.rollbackStatus ? (
+                          <span>Rollback {controlPlaneOperation.rollbackStatus}</span>
+                        ) : null}
+                      </div>
+                    </div>
+                    {controlPlanePreparedRelease &&
+                    !controlPlaneHasActiveOperation ? (
+                      <Button onClick={() => setIsApplyDialogOpen(true)}>
+                        Apply prepared update
+                      </Button>
+                    ) : null}
+                  </div>
+                ) : (
+                  <p className="text-sm leading-7 text-muted-foreground">
+                    No control-plane update operation is active. If the latest
+                    release differs from the installed build, you can stage it
+                    here and confirm the apply separately.
+                  </p>
+                )}
+              </SectionPanel>
+            </div>
+          ) : (
+            <EmptyState
+              title="Control-plane self-update is unavailable"
+              description="This deployment is not marked as installer-managed, so the dashboard exposes the control-plane section in read-only mode."
+              icon={ShieldAlert}
+              variant="plain"
+            />
+          )}
+        </SectionPanel>
+
         <SectionPanel
           eyebrow="Release Center"
           title="Agent updates"
@@ -1035,6 +1340,7 @@ export const UpdatesPageView = () => {
                 className="action-btn border-border/70 bg-(--control-surface) text-foreground shadow-none"
                 background="var(--control-surface)"
                 onClick={() => {
+                  void controlPlaneSummaryQuery.refetch();
                   void summaryQuery.refetch();
                   void releasesQuery.refetch();
                   void rolloutsQuery.refetch();
@@ -1989,6 +2295,48 @@ export const UpdatesPageView = () => {
             </SectionPanel>
           </div>
         </div>
+        <Dialog open={isApplyDialogOpen} onOpenChange={setIsApplyDialogOpen}>
+          <DialogContent className="sm:max-w-lg">
+            <DialogHeader>
+              <DialogTitle>Apply prepared control-plane update</DialogTitle>
+              <DialogDescription>
+                This recreates the runtime API and web containers against the
+                prepared bundle. PostgreSQL, Redis, TLS materials, and installer
+                state stay in place.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-3 text-sm text-muted-foreground">
+              <p>
+                Prepared build:{" "}
+                <span className="font-medium text-foreground">
+                  {formatControlPlaneRelease(controlPlanePreparedRelease)}
+                </span>
+              </p>
+              <p>
+                The host supervisor performs a rolling apply and will attempt an
+                automatic rollback if the runtime health check fails.
+              </p>
+            </div>
+            <DialogFooter showCloseButton>
+              <Button
+                onClick={() => {
+                  queueControlPlaneApply.mutate(undefined, {
+                    onSuccess: () => {
+                      setIsApplyDialogOpen(false);
+                    },
+                  });
+                }}
+                disabled={
+                  queueControlPlaneApply.isPending || !controlPlanePreparedRelease
+                }
+              >
+                {queueControlPlaneApply.isPending
+                  ? "Queueing apply..."
+                  : "Queue apply"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </AppShell>
   );

@@ -43,6 +43,7 @@ import { apiClient } from "@/lib/api";
 import { useAuthSession } from "@/lib/hooks/use-auth-session";
 import {
   useAgentUpdateSummary,
+  useControlPlaneUpdateSummary,
   useWorkspaceSearch,
 } from "@/lib/hooks/use-noderax-data";
 import { useWorkspaceContext } from "@/lib/hooks/use-workspace-context";
@@ -53,6 +54,15 @@ import type { WorkspaceSearchHitDto } from "@/lib/types";
 
 const QUEUED_TASK_WARNING_MS = 20_000;
 const QUEUED_TASK_DANGER_MS = 90_000;
+const ACTIVE_CONTROL_PLANE_UPDATE_STATUSES = new Set([
+  "queued",
+  "downloading",
+  "verifying",
+  "extracting",
+  "loading_images",
+  "applying",
+  "recreating_services",
+]);
 
 const sectionNames: Record<string, string> = {
   "/dashboard": "Dashboard",
@@ -85,7 +95,7 @@ const sectionDescriptions: Record<string, string> = {
     "Configure workspace name, slug, and execution timezone.",
   "/workspaces": "Create, switch, and manage isolated operational workspaces.",
   "/updates":
-    "Track official agent releases, rollout progress, and fleet rollback actions.",
+    "Track control-plane and agent releases, runtime apply progress, and fleet rollout actions.",
   "/users": "Manage global operator accounts and platform roles.",
   "/settings": "Manage appearance, session metadata, and preferences.",
 };
@@ -242,6 +252,7 @@ const TopbarContent = () => {
     enabled: isPlatformAdmin,
     refetchInterval: 15_000,
   });
+  const controlPlaneSummaryQuery = useControlPlaneUpdateSummary(isPlatformAdmin);
   const agentUpdatesSummaryQuery = useAgentUpdateSummary(isPlatformAdmin);
 
   const queuedAges = (queuedTaskHealthQuery.data ?? [])
@@ -266,6 +277,24 @@ const TopbarContent = () => {
   )
     .filter(([, check]) => !check.healthy)
     .map(([key]) => key);
+  const controlPlaneOperation = controlPlaneSummaryQuery.data?.operation ?? null;
+  const controlPlanePrepared =
+    controlPlaneSummaryQuery.data?.preparedRelease ?? null;
+  const controlPlaneHasActiveOperation = Boolean(
+    controlPlaneOperation &&
+      ACTIVE_CONTROL_PLANE_UPDATE_STATUSES.has(controlPlaneOperation.status),
+  );
+  const controlPlaneHasPreparedRelease = Boolean(
+    !controlPlaneHasActiveOperation &&
+      controlPlanePrepared &&
+      controlPlanePrepared.releaseId !==
+        controlPlaneSummaryQuery.data?.currentRelease?.releaseId,
+  );
+  const controlPlaneHasAvailableUpdate = Boolean(
+    !controlPlaneHasActiveOperation &&
+      !controlPlaneHasPreparedRelease &&
+      controlPlaneSummaryQuery.data?.updateAvailable,
+  );
 
   const handleLogout = async () => {
     if (isLoggingOut) {
@@ -500,9 +529,28 @@ const TopbarContent = () => {
           </div>
           <ThemeToggle />
           {isPlatformAdmin &&
-          (agentUpdatesSummaryQuery.data?.activeRollout ||
+          (controlPlaneHasActiveOperation ||
+            agentUpdatesSummaryQuery.data?.activeRollout ||
+            controlPlaneHasPreparedRelease ||
+            controlPlaneHasAvailableUpdate ||
             (agentUpdatesSummaryQuery.data?.outdatedNodeCount ?? 0) > 0) ? (
-            agentUpdatesSummaryQuery.data?.activeRollout ? (
+            controlPlaneHasActiveOperation ? (
+              <AnimatedGradientTextButton
+                className="hidden shrink-0 md:inline-flex"
+                onClick={() => router.push("/updates")}
+                prefixContent={
+                  controlPlaneOperation?.operation === "apply" ? "⚙️" : "⬇️"
+                }
+                speed={1.2}
+                colorFrom="oklch(0.63 0.22 28)"
+                colorTo="oklch(0.52 0.13 72)"
+                label={
+                  controlPlaneOperation?.operation === "apply"
+                    ? "Control plane apply in progress"
+                    : "Control plane download in progress"
+                }
+              />
+            ) : agentUpdatesSummaryQuery.data?.activeRollout ? (
               <AnimatedGradientTextButton
                 className="hidden shrink-0 md:inline-flex"
                 onClick={() => router.push("/updates")}
@@ -521,6 +569,26 @@ const TopbarContent = () => {
                     ? "Agent rollout paused"
                     : "Agent rollout in progress"
                 }
+              />
+            ) : controlPlaneHasPreparedRelease ? (
+              <AnimatedGradientTextButton
+                className="hidden shrink-0 md:inline-flex"
+                onClick={() => router.push("/updates")}
+                prefixContent="🧩"
+                speed={1.2}
+                colorFrom="oklch(0.63 0.22 28)"
+                colorTo="oklch(0.52 0.13 72)"
+                label="Control plane update ready"
+              />
+            ) : controlPlaneHasAvailableUpdate ? (
+              <AnimatedGradientTextButton
+                className="hidden shrink-0 md:inline-flex"
+                onClick={() => router.push("/updates")}
+                prefixContent="✨"
+                speed={1.2}
+                colorFrom="oklch(0.63 0.22 28)"
+                colorTo="oklch(0.52 0.13 72)"
+                label="Control plane update available"
               />
             ) : (
               <AnimatedGradientTextButton

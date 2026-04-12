@@ -1,5 +1,7 @@
 "use client";
 
+import { startTransition } from "react";
+import { useRouter } from "next/navigation";
 import { AlertTriangle, Boxes, CirclePlay, ServerCog } from "lucide-react";
 
 import { NodeTelemetryBoard } from "@/components/dashboard/node-telemetry-board";
@@ -8,6 +10,8 @@ import { EmptyState } from "@/components/empty-state";
 import { AppShell } from "@/components/layout/app-shell";
 import { NodeActionMenu } from "@/components/nodes/node-action-menu";
 import { NodeStatusBadge } from "@/components/nodes/node-status-badge";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { SectionPanel } from "@/components/ui/section-panel";
 import { Skeleton } from "@/components/ui/skeleton";
 import { StatStrip } from "@/components/ui/stat-strip";
@@ -20,10 +24,29 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { TimeDisplay } from "@/components/ui/time-display";
-import { useDashboardOverview } from "@/lib/hooks/use-noderax-data";
+import {
+  useControlPlaneUpdateSummary,
+  useDashboardOverview,
+  useQueueControlPlaneUpdateDownload,
+} from "@/lib/hooks/use-noderax-data";
+import { useWorkspaceContext } from "@/lib/hooks/use-workspace-context";
 
 export const DashboardView = () => {
+  const router = useRouter();
+  const { isPlatformAdmin } = useWorkspaceContext();
   const overviewQuery = useDashboardOverview();
+  const controlPlaneSummaryQuery = useControlPlaneUpdateSummary(isPlatformAdmin);
+  const queueControlPlaneDownload = useQueueControlPlaneUpdateDownload();
+  const controlPlaneSummary = controlPlaneSummaryQuery.data;
+  const controlPlaneOperation = controlPlaneSummary?.operation ?? null;
+  const controlPlanePrepared = controlPlaneSummary?.preparedRelease ?? null;
+  const showControlPlaneCard = Boolean(
+    isPlatformAdmin &&
+      controlPlaneSummary?.supported &&
+      (controlPlaneOperation ||
+        controlPlanePrepared ||
+        controlPlaneSummary?.updateAvailable),
+  );
 
   return (
     <AppShell>
@@ -51,6 +74,90 @@ export const DashboardView = () => {
         />
       ) : overviewQuery.data ? (
         <div className="space-y-6">
+          {showControlPlaneCard ? (
+            <SectionPanel
+              eyebrow="Control Plane"
+              title="Self-update ready"
+              description="Installer-managed control-plane updates can be staged here, then confirmed from the Update Center before the runtime is rolled forward."
+              variant="feature"
+              action={
+                controlPlaneOperation ? (
+                  <Badge variant="outline" className="rounded-full px-3 py-1">
+                    {controlPlaneOperation.operation === "apply"
+                      ? "Apply in progress"
+                      : "Download in progress"}
+                  </Badge>
+                ) : null
+              }
+            >
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+                <div className="grid gap-3 md:grid-cols-3">
+                  <div className="rounded-[18px] border border-border/70 bg-background/82 p-4">
+                    <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
+                      Current
+                    </p>
+                    <p className="mt-2 text-lg font-semibold">
+                      {controlPlaneSummary?.currentRelease?.version ?? "Unknown"}
+                    </p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {controlPlaneSummary?.currentRelease?.releaseId ??
+                        "Current release metadata is not yet available."}
+                    </p>
+                  </div>
+                  <div className="rounded-[18px] border border-border/70 bg-background/82 p-4">
+                    <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
+                      Latest
+                    </p>
+                    <p className="mt-2 text-lg font-semibold">
+                      {controlPlaneSummary?.latestRelease?.version ?? "Unavailable"}
+                    </p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {controlPlaneSummary?.latestRelease?.releaseId ??
+                        "Official release feed unavailable."}
+                    </p>
+                  </div>
+                  <div className="rounded-[18px] border border-border/70 bg-background/82 p-4">
+                    <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
+                      Prepared
+                    </p>
+                    <p className="mt-2 text-lg font-semibold">
+                      {controlPlanePrepared?.version ?? "Not staged"}
+                    </p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {controlPlanePrepared?.releaseId ??
+                        "Download the latest control-plane build to stage it."}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                  {controlPlaneSummary?.updateAvailable &&
+                  !controlPlaneOperation &&
+                  !controlPlanePrepared ? (
+                    <Button
+                      onClick={() => queueControlPlaneDownload.mutate()}
+                      disabled={queueControlPlaneDownload.isPending}
+                    >
+                      {queueControlPlaneDownload.isPending
+                        ? "Queueing download..."
+                        : "Download latest update"}
+                    </Button>
+                  ) : null}
+                  <Button
+                    variant={controlPlanePrepared ? "default" : "outline"}
+                    onClick={() =>
+                      startTransition(() => {
+                        router.push("/updates");
+                      })
+                    }
+                  >
+                    {controlPlanePrepared ? "Review and apply" : "Open Update Center"}
+                  </Button>
+                </div>
+              </div>
+            </SectionPanel>
+          ) : null}
+
           <StatStrip
             items={[
               {
