@@ -12,6 +12,9 @@ const PUBLIC_ROOT_API_PATHS = new Set([
   "/health/ready",
   "/health/dependencies",
 ]);
+const API_PATH_ALIASES = new Map<string, string>([
+  ["/metrics", "/platform-metrics"],
+]);
 
 export type ApiBaseUrlSource = "cookie" | "env" | "missing";
 
@@ -94,6 +97,9 @@ const normalizePathname = (value: string) =>
 const isPublicRootApiPath = (path: string) =>
   PUBLIC_ROOT_API_PATHS.has(normalizePathname(path));
 
+const resolveApiRequestPath = (path: string) =>
+  API_PATH_ALIASES.get(normalizePathname(path)) ?? path;
+
 const joinApiUrl = (baseUrl: string, path: string) => {
   const url = new URL(baseUrl);
   const normalizedBasePath =
@@ -151,10 +157,12 @@ export const getApiRequestUrls = (path: string, override?: string | null) => {
     return [];
   }
 
-  const urls = baseUrls.flatMap((baseUrl) => {
-    const prefixedUrl = joinApiUrl(resolveRestBaseUrl(baseUrl).href, path);
+  const resolvedPath = resolveApiRequestPath(path);
 
-    if (!isPublicRootApiPath(path)) {
+  const urls = baseUrls.flatMap((baseUrl) => {
+    const prefixedUrl = joinApiUrl(resolveRestBaseUrl(baseUrl).href, resolvedPath);
+
+    if (!isPublicRootApiPath(resolvedPath)) {
       return [prefixedUrl];
     }
 
@@ -165,7 +173,7 @@ export const getApiRequestUrls = (path: string, override?: string | null) => {
     }
 
     return [
-      joinApiUrl(publicRootBaseUrl.href, path),
+      joinApiUrl(publicRootBaseUrl.href, resolvedPath),
       prefixedUrl,
     ];
   });

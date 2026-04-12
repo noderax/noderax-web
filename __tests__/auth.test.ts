@@ -24,7 +24,7 @@ describe("auth API URL resolution", () => {
     const urls = getApiRequestUrls("/metrics", "http://nginx/api/v1");
 
     expect(urls.map((url) => url.toString())).toEqual([
-      "http://nginx/api/v1/metrics",
+      "http://nginx/api/v1/platform-metrics",
     ]);
   });
 });
