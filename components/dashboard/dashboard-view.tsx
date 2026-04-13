@@ -40,13 +40,27 @@ export const DashboardView = () => {
   const controlPlaneSummary = controlPlaneSummaryQuery.data;
   const controlPlaneOperation = controlPlaneSummary?.operation ?? null;
   const controlPlanePrepared = controlPlaneSummary?.preparedRelease ?? null;
-  const showControlPlaneCard = Boolean(
+  const showControlPlaneAlert = Boolean(
     isPlatformAdmin &&
       controlPlaneSummary?.supported &&
       (controlPlaneOperation ||
         controlPlanePrepared ||
         controlPlaneSummary?.updateAvailable),
   );
+  const controlPlaneAlertTitle = controlPlaneOperation
+    ? controlPlaneOperation.operation === "apply"
+      ? "Control plane update is being applied"
+      : "Control plane update download is in progress"
+    : controlPlanePrepared
+      ? "Control plane update is ready to apply"
+      : "New control plane version available";
+  const controlPlaneAlertDescription = controlPlaneOperation
+    ? controlPlaneOperation.operation === "apply"
+      ? "A newer control-plane build is replacing the active runtime. Open the Update Center to monitor the rollout."
+      : "A newer control-plane build is being downloaded and staged. Open the Update Center to follow progress."
+    : controlPlanePrepared
+      ? "A newer control-plane build has already been staged on disk. Review it and confirm apply from the Update Center."
+      : "A newer installer-managed control-plane build is available. Open the Update Center to download and stage it.";
 
   return (
     <AppShell>
@@ -74,11 +88,11 @@ export const DashboardView = () => {
         />
       ) : overviewQuery.data ? (
         <div className="space-y-6">
-          {showControlPlaneCard ? (
+          {showControlPlaneAlert ? (
             <SectionPanel
               eyebrow="Control Plane"
-              title="Self-update ready"
-              description="Installer-managed control-plane updates can be staged here, then confirmed from the Update Center before the runtime is rolled forward."
+              title={controlPlaneAlertTitle}
+              description={controlPlaneAlertDescription}
               variant="feature"
               action={
                 controlPlaneOperation ? (
@@ -90,43 +104,31 @@ export const DashboardView = () => {
                 ) : null
               }
             >
-              <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-                <div className="grid gap-3 md:grid-cols-3">
-                  <div className="rounded-[18px] border border-border/70 bg-background/82 p-4">
-                    <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
-                      Current
-                    </p>
-                    <p className="mt-2 text-lg font-semibold">
-                      {controlPlaneSummary?.currentRelease?.version ?? "Unknown"}
-                    </p>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      {controlPlaneSummary?.currentRelease?.releaseId ??
-                        "Current release metadata is not yet available."}
-                    </p>
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                <div className="flex items-start gap-3">
+                  <div className="mt-0.5 rounded-full border border-tone-warning/30 bg-tone-warning/10 p-2 text-tone-warning">
+                    <AlertTriangle className="size-4" />
                   </div>
-                  <div className="rounded-[18px] border border-border/70 bg-background/82 p-4">
-                    <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
-                      Latest
-                    </p>
-                    <p className="mt-2 text-lg font-semibold">
+                  <div className="space-y-1">
+                    <p className="text-sm font-medium text-foreground">
+                      {controlPlaneSummary?.currentRelease?.version ?? "Unknown"}{" "}
+                      <span className="text-muted-foreground">to</span>{" "}
                       {controlPlaneSummary?.latestRelease?.version ?? "Unavailable"}
                     </p>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      {controlPlaneSummary?.latestRelease?.releaseId ??
-                        "Official release feed unavailable."}
-                    </p>
-                  </div>
-                  <div className="rounded-[18px] border border-border/70 bg-background/82 p-4">
-                    <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
-                      Prepared
-                    </p>
-                    <p className="mt-2 text-lg font-semibold">
-                      {controlPlanePrepared?.version ?? "Not staged"}
-                    </p>
-                    <p className="mt-1 text-xs text-muted-foreground">
+                    <p className="text-sm text-muted-foreground">
+                      Current:{" "}
+                      {controlPlaneSummary?.currentRelease?.releaseId ??
+                        "Unknown release"}
+                      {" · "}Latest:{" "}
                       {controlPlanePrepared?.releaseId ??
-                        "Download the latest control-plane build to stage it."}
+                        controlPlaneSummary?.latestRelease?.releaseId ??
+                        "Unavailable"}
                     </p>
+                    {controlPlanePrepared ? (
+                      <p className="text-xs text-muted-foreground">
+                        Prepared release: {controlPlanePrepared.releaseId}
+                      </p>
+                    ) : null}
                   </div>
                 </div>
 
