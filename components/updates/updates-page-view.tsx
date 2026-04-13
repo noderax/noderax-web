@@ -1,6 +1,11 @@
 "use client";
 
-import { type ReactNode, useDeferredValue, useMemo, useState } from "react";
+import {
+  type ReactNode,
+  useDeferredValue,
+  useMemo,
+  useState,
+} from "react";
 import {
   Activity,
   AlertTriangle,
@@ -48,6 +53,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Table,
   TableBody,
@@ -109,6 +115,7 @@ const ACTIVE_CONTROL_PLANE_UPDATE_STATUSES = new Set([
   "applying",
   "recreating_services",
 ]);
+type UpdateTabId = "control-plane" | "agents";
 
 const getControlPlaneTone = (
   status: ControlPlaneUpdateOperation["status"] | "available" | "prepared",
@@ -487,6 +494,7 @@ export const UpdatesPageView = () => {
     useState<(typeof TABLE_PAGE_SIZE_OPTIONS)[number]>(10);
   const [historyPageIndex, setHistoryPageIndex] = useState(0);
   const [isApplyDialogOpen, setIsApplyDialogOpen] = useState(false);
+  const [selectedTab, setSelectedTab] = useState<UpdateTabId | null>(null);
   const deferredSearch = useDeferredValue(search);
 
   const workspaces = workspacesQuery.data ?? EMPTY_WORKSPACES;
@@ -508,6 +516,39 @@ export const UpdatesPageView = () => {
     releasesQuery.isFetching ||
     rolloutsQuery.isFetching ||
     nodesQuery.isFetching;
+  const controlPlaneTabHasUpdate = Boolean(
+    controlPlaneHasActiveOperation ||
+      controlPlanePreparedRelease ||
+      controlPlaneSummary?.updateAvailable,
+  );
+  const agentTabHasUpdate = Boolean(
+    activeRollout || (summaryQuery.data?.outdatedNodeCount ?? 0) > 0,
+  );
+  const controlPlaneTabLabel = controlPlaneHasActiveOperation
+    ? controlPlaneOperation?.operation === "apply"
+      ? "Applying"
+      : "Downloading"
+    : controlPlanePreparedRelease
+      ? "Ready"
+      : controlPlaneSummary?.updateAvailable
+        ? "New"
+        : null;
+  const agentTabLabel = activeRollout
+    ? activeRollout.rollback
+      ? "Rollback live"
+      : "Rollout live"
+    : (summaryQuery.data?.eligibleOutdatedNodeCount ?? 0) > 0
+      ? `${summaryQuery.data?.eligibleOutdatedNodeCount} ready`
+      : (summaryQuery.data?.outdatedNodeCount ?? 0) > 0
+      ? `${summaryQuery.data?.outdatedNodeCount} outdated`
+        : null;
+  const activeTab =
+    selectedTab ??
+    (controlPlaneTabHasUpdate
+      ? "control-plane"
+      : agentTabHasUpdate
+        ? "agents"
+        : "control-plane");
 
   const workspaceNameById = useMemo(
     () =>
@@ -1071,66 +1112,77 @@ export const UpdatesPageView = () => {
   return (
     <AppShell>
       <div className="space-y-4">
-        <SectionPanel
-          eyebrow="Release Center"
-          title="Control plane updates"
-          description="Track the installer-managed control plane, stage the latest official bundle, and confirm runtime apply only after the new release is ready on disk."
-          variant="feature"
-          action={
-            <>
-              <Badge variant="outline" className="rounded-full px-3 py-1">
-                Installer-managed only
-              </Badge>
-              {controlPlaneOperation ? (
-                <Badge
-                  variant="outline"
-                  className={cn(
-                    "rounded-full px-3 py-1",
-                    getControlPlaneTone(controlPlaneOperation.status),
-                  )}
-                >
-                  {controlPlaneOperation.operation} {controlPlaneOperation.status}
-                </Badge>
-              ) : null}
-            </>
-          }
+        <Tabs
+          value={activeTab}
+          onValueChange={(value) => {
+            if (value === "control-plane" || value === "agents") {
+              setSelectedTab(value);
+            }
+          }}
+          className="space-y-4"
         >
-          {controlPlaneSummaryQuery.isPending ? (
-            <div className="grid gap-4 lg:grid-cols-[1.25fr_0.95fr]">
-              <Skeleton className="h-[220px] rounded-[24px]" />
-              <Skeleton className="h-[220px] rounded-[24px]" />
-            </div>
-          ) : controlPlaneSummaryQuery.isError ? (
-            <EmptyState
-              title="Control-plane updates are unavailable"
-              description="The authenticated API connection could not load the installer-managed control-plane update summary."
-              icon={AlertTriangle}
-              variant="plain"
-              actionLabel="Retry"
-              onAction={() => {
-                void controlPlaneSummaryQuery.refetch();
-              }}
-            />
-          ) : controlPlaneSummary?.supported ? (
-            <div className="grid gap-4 lg:grid-cols-[1.25fr_0.95fr]">
-              <div
-                className="overflow-hidden rounded-[30px] border border-border/70 p-5 shadow-[var(--shadow-dashboard-hover)]"
-                style={{
-                  backgroundImage:
-                    "radial-gradient(circle at top left, color-mix(in oklch, var(--primary) 14%, transparent), transparent 36%), radial-gradient(circle at 88% 18%, color-mix(in oklch, var(--semantic-success) 12%, transparent), transparent 24%), linear-gradient(180deg, color-mix(in oklch, var(--surface-feature) 85%, white 15%), var(--surface-feature))",
-                }}
+          <SectionPanel
+            eyebrow="Update Center"
+            title="Managed release operations"
+            description="Switch between control-plane and agent update flows. Tabs indicate where newer builds, staged work, or live rollout activity exist."
+            variant="feature"
+          >
+            <TabsList variant="line" className="w-full justify-start overflow-x-auto">
+              <TabsTrigger
+                value="control-plane"
+                className="min-w-fit justify-start gap-2 px-1.5 sm:min-w-[220px] sm:px-2.5"
               >
-                <div className="flex flex-wrap items-center gap-2">
-                  <Badge variant="outline" className="rounded-full px-3 py-1">
-                    <Sparkles className="mr-1 size-3.5" />
-                    Latest-only channel
+                <Server className="size-4" />
+                <span>Control plane</span>
+                {controlPlaneTabLabel ? (
+                  <Badge
+                    variant="outline"
+                    className={cn(
+                      "rounded-full px-2 py-0.5 text-[11px]",
+                      controlPlaneHasActiveOperation
+                        ? getControlPlaneTone(controlPlaneOperation?.status ?? "queued")
+                        : controlPlanePreparedRelease
+                          ? getControlPlaneTone("prepared")
+                          : "tone-brand",
+                    )}
+                  >
+                    {controlPlaneTabLabel}
                   </Badge>
-                  {controlPlaneSummary.updateAvailable ? (
-                    <Badge className="rounded-full px-3 py-1">
-                      Latest {controlPlaneSummary.latestRelease?.version}
-                    </Badge>
-                  ) : null}
-                  {controlPlanePreparedRelease ? (
+                ) : null}
+              </TabsTrigger>
+              <TabsTrigger
+                value="agents"
+                className="min-w-fit justify-start gap-2 px-1.5 sm:min-w-[220px] sm:px-2.5"
+              >
+                <ArrowUpCircle className="size-4" />
+                <span>Agent updates</span>
+                {agentTabLabel ? (
+                  <Badge
+                    variant="outline"
+                    className={cn(
+                      "rounded-full px-2 py-0.5 text-[11px]",
+                      activeRollout ? getRolloutTone(activeRollout.status) : "tone-brand",
+                    )}
+                  >
+                    {agentTabLabel}
+                  </Badge>
+                ) : null}
+              </TabsTrigger>
+            </TabsList>
+          </SectionPanel>
+
+          <TabsContent value="control-plane" className="space-y-4">
+            <SectionPanel
+              eyebrow="Release Center"
+              title="Control plane updates"
+              description="Track the installer-managed control plane, stage the latest official bundle, and confirm runtime apply only after the new release is ready on disk."
+              variant="feature"
+              action={
+                <>
+                  <Badge variant="outline" className="rounded-full px-3 py-1">
+                    Installer-managed only
+                  </Badge>
+                  {controlPlaneOperation ? (
                     <Badge
                       variant="outline"
                       className={cn(
@@ -1141,257 +1193,310 @@ export const UpdatesPageView = () => {
                       Prepared
                     </Badge>
                   ) : null}
+                </>
+              }
+            >
+              {controlPlaneSummaryQuery.isPending ? (
+                <div className="grid gap-4 lg:grid-cols-[1.25fr_0.95fr]">
+                  <Skeleton className="h-[220px] rounded-[24px]" />
+                  <Skeleton className="h-[220px] rounded-[24px]" />
                 </div>
-
-                <div className="mt-5 max-w-3xl">
-                  <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
-                    Control-plane runtime
-                  </p>
-                  <h2 className="mt-3 text-3xl font-semibold tracking-tight text-foreground sm:text-[2.45rem]">
-                    <AnimatedGradientText
-                      className="font-semibold"
-                      colorFrom="#d95f31"
-                      colorTo="#ffb54c"
-                      speed={1.2}
-                    >
-                      Stage first, apply deliberately
-                    </AnimatedGradientText>
-                  </h2>
-                  <p className="mt-4 max-w-2xl text-sm leading-7 text-muted-foreground">
-                    Downloads run on the host supervisor and only mutate the live
-                    runtime after an explicit apply confirmation.
-                  </p>
-                </div>
-
-                <div className="mt-6 flex flex-wrap gap-2">
-                  {controlPlaneSummary.updateAvailable &&
-                  !controlPlaneHasActiveOperation &&
-                  !controlPlanePreparedRelease ? (
-                    <ShimmerButton
-                      className="action-btn"
-                      onClick={() => queueControlPlaneDownload.mutate()}
-                      disabled={queueControlPlaneDownload.isPending}
-                    >
-                      {queueControlPlaneDownload.isPending
-                        ? "Queueing download..."
-                        : "Download latest update"}
-                    </ShimmerButton>
-                  ) : null}
-                  {controlPlanePreparedRelease ? (
-                    <Button onClick={() => setIsApplyDialogOpen(true)}>
-                      Apply prepared update
-                    </Button>
-                  ) : null}
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      void controlPlaneSummaryQuery.refetch();
+              ) : controlPlaneSummaryQuery.isError ? (
+                <EmptyState
+                  title="Control-plane updates are unavailable"
+                  description="The authenticated API connection could not load the installer-managed control-plane update summary."
+                  icon={AlertTriangle}
+                  variant="plain"
+                  actionLabel="Retry"
+                  onAction={() => {
+                    void controlPlaneSummaryQuery.refetch();
+                  }}
+                />
+              ) : controlPlaneSummary?.supported ? (
+                <div className="grid gap-4 lg:grid-cols-[1.25fr_0.95fr]">
+                  <div
+                    className="overflow-hidden rounded-[30px] border border-border/70 p-5 shadow-[var(--shadow-dashboard-hover)]"
+                    style={{
+                      backgroundImage:
+                        "radial-gradient(circle at top left, color-mix(in oklch, var(--primary) 14%, transparent), transparent 36%), radial-gradient(circle at 88% 18%, color-mix(in oklch, var(--semantic-success) 12%, transparent), transparent 24%), linear-gradient(180deg, color-mix(in oklch, var(--surface-feature) 85%, white 15%), var(--surface-feature))",
                     }}
                   >
-                    Refresh control plane
-                  </Button>
-                </div>
-              </div>
-
-              <div className="grid gap-4">
-                <UpdateStatCard
-                  label="Current build"
-                  value={formatControlPlaneRelease(controlPlaneSummary.currentRelease)}
-                  description={
-                    controlPlaneSummary.currentRelease?.releasedAt ? (
-                      <TimeDisplay
-                        value={controlPlaneSummary.currentRelease.releasedAt}
-                        mode="datetime"
-                      />
-                    ) : (
-                      "Current release timestamp unavailable."
-                    )
-                  }
-                  icon={<Server className="size-4" />}
-                />
-                <UpdateStatCard
-                  label="Latest build"
-                  value={formatControlPlaneRelease(controlPlaneSummary.latestRelease)}
-                  description={
-                    controlPlaneSummary.latestRelease?.releasedAt ? (
-                      <TimeDisplay
-                        value={controlPlaneSummary.latestRelease.releasedAt}
-                        mode="datetime"
-                      />
-                    ) : (
-                      "Latest release feed unavailable."
-                    )
-                  }
-                  icon={<ArrowUpCircle className="size-4" />}
-                  tone={
-                    controlPlaneSummary.updateAvailable
-                      ? "tone-brand"
-                      : "tone-success"
-                  }
-                />
-                <UpdateStatCard
-                  label="Prepared build"
-                  value={formatControlPlaneRelease(controlPlanePreparedRelease)}
-                  description={
-                    controlPlaneOperation?.message ??
-                    "No staged control-plane release is waiting to be applied."
-                  }
-                  icon={
-                    controlPlaneOperation?.status === "failed" ? (
-                      <AlertTriangle className="size-4" />
-                    ) : (
-                      <Clock3 className="size-4" />
-                    )
-                  }
-                  tone={
-                    controlPlaneOperation?.status === "failed"
-                      ? "tone-danger"
-                      : controlPlanePreparedRelease
-                        ? "tone-warning"
-                        : "tone-brand"
-                  }
-                />
-              </div>
-
-              <SectionPanel
-                eyebrow="Operation"
-                title="Control-plane state"
-                description="The host-side supervisor updates this state while downloading, verifying, extracting, or applying the prepared release."
-                className="lg:col-span-2"
-              >
-                {controlPlaneOperation ? (
-                  <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-start">
-                    <div className="space-y-3">
-                      <Badge
-                        variant="outline"
-                        className={cn(
-                          "rounded-full px-3 py-1",
-                          getControlPlaneTone(controlPlaneOperation.status),
-                        )}
-                      >
-                        {controlPlaneOperation.operation} {controlPlaneOperation.status}
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Badge variant="outline" className="rounded-full px-3 py-1">
+                        <Sparkles className="mr-1 size-3.5" />
+                        Latest-only channel
                       </Badge>
-                      <p className="text-sm leading-7 text-muted-foreground">
-                        {controlPlaneOperation.error ??
-                          controlPlaneOperation.message ??
-                          "Waiting for the next control-plane update action."}
+                      {controlPlaneSummary.updateAvailable ? (
+                        <Badge className="rounded-full px-3 py-1">
+                          Latest {controlPlaneSummary.latestRelease?.version}
+                        </Badge>
+                      ) : null}
+                      {controlPlanePreparedRelease ? (
+                        <Badge
+                          variant="outline"
+                          className={cn(
+                            "rounded-full px-3 py-1",
+                            getControlPlaneTone("prepared"),
+                          )}
+                        >
+                          Prepared
+                        </Badge>
+                      ) : null}
+                    </div>
+
+                    <div className="mt-5 max-w-3xl">
+                      <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
+                        Control-plane runtime
                       </p>
-                      <div className="flex flex-wrap gap-4 text-xs text-muted-foreground">
-                        <span>
-                          Requested <TimeDisplay value={controlPlaneOperation.requestedAt} mode="datetime" />
-                        </span>
-                        {controlPlaneOperation.completedAt ? (
-                          <span>
-                            Completed <TimeDisplay value={controlPlaneOperation.completedAt} mode="datetime" />
-                          </span>
-                        ) : null}
-                        {controlPlaneOperation.rollbackStatus ? (
-                          <span>Rollback {controlPlaneOperation.rollbackStatus}</span>
+                      <h2 className="mt-3 text-3xl font-semibold tracking-tight text-foreground sm:text-[2.45rem]">
+                        <AnimatedGradientText
+                          className="font-semibold"
+                          colorFrom="#d95f31"
+                          colorTo="#ffb54c"
+                          speed={1.2}
+                        >
+                          Stage first, apply deliberately
+                        </AnimatedGradientText>
+                      </h2>
+                      <p className="mt-4 max-w-2xl text-sm leading-7 text-muted-foreground">
+                        Downloads run on the host supervisor and only mutate the live
+                        runtime after an explicit apply confirmation.
+                      </p>
+                    </div>
+
+                    <div className="mt-6 flex flex-wrap gap-2">
+                      {controlPlaneSummary.updateAvailable &&
+                      !controlPlaneHasActiveOperation &&
+                      !controlPlanePreparedRelease ? (
+                        <ShimmerButton
+                          className="action-btn"
+                          onClick={() => queueControlPlaneDownload.mutate()}
+                          disabled={queueControlPlaneDownload.isPending}
+                        >
+                          {queueControlPlaneDownload.isPending
+                            ? "Queueing download..."
+                            : "Download latest update"}
+                        </ShimmerButton>
+                      ) : null}
+                      {controlPlanePreparedRelease ? (
+                        <Button onClick={() => setIsApplyDialogOpen(true)}>
+                          Apply prepared update
+                        </Button>
+                      ) : null}
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          void controlPlaneSummaryQuery.refetch();
+                        }}
+                      >
+                        Refresh control plane
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="grid gap-4">
+                    <UpdateStatCard
+                      label="Current build"
+                      value={formatControlPlaneRelease(controlPlaneSummary.currentRelease)}
+                      description={
+                        controlPlaneSummary.currentRelease?.releasedAt ? (
+                          <TimeDisplay
+                            value={controlPlaneSummary.currentRelease.releasedAt}
+                            mode="datetime"
+                          />
+                        ) : (
+                          "Current release timestamp unavailable."
+                        )
+                      }
+                      icon={<Server className="size-4" />}
+                    />
+                    <UpdateStatCard
+                      label="Latest build"
+                      value={formatControlPlaneRelease(controlPlaneSummary.latestRelease)}
+                      description={
+                        controlPlaneSummary.latestRelease?.releasedAt ? (
+                          <TimeDisplay
+                            value={controlPlaneSummary.latestRelease.releasedAt}
+                            mode="datetime"
+                          />
+                        ) : (
+                          "Latest release feed unavailable."
+                        )
+                      }
+                      icon={<ArrowUpCircle className="size-4" />}
+                      tone={
+                        controlPlaneSummary.updateAvailable
+                          ? "tone-brand"
+                          : "tone-success"
+                      }
+                    />
+                    <UpdateStatCard
+                      label="Prepared build"
+                      value={formatControlPlaneRelease(controlPlanePreparedRelease)}
+                      description={
+                        controlPlaneOperation?.message ??
+                        "No staged control-plane release is waiting to be applied."
+                      }
+                      icon={
+                        controlPlaneOperation?.status === "failed" ? (
+                          <AlertTriangle className="size-4" />
+                        ) : (
+                          <Clock3 className="size-4" />
+                        )
+                      }
+                      tone={
+                        controlPlaneOperation?.status === "failed"
+                          ? "tone-danger"
+                          : controlPlanePreparedRelease
+                            ? "tone-warning"
+                            : "tone-brand"
+                      }
+                    />
+                  </div>
+
+                  <SectionPanel
+                    eyebrow="Operation"
+                    title="Control-plane state"
+                    description="The host-side supervisor updates this state while downloading, verifying, extracting, or applying the prepared release."
+                    className="lg:col-span-2"
+                  >
+                    {controlPlaneOperation ? (
+                      <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-start">
+                        <div className="space-y-3">
+                          <Badge
+                            variant="outline"
+                            className={cn(
+                              "rounded-full px-3 py-1",
+                              getControlPlaneTone(controlPlaneOperation.status),
+                            )}
+                          >
+                            {controlPlaneOperation.operation} {controlPlaneOperation.status}
+                          </Badge>
+                          <p className="text-sm leading-7 text-muted-foreground">
+                            {controlPlaneOperation.error ??
+                              controlPlaneOperation.message ??
+                              "Waiting for the next control-plane update action."}
+                          </p>
+                          <div className="flex flex-wrap gap-4 text-xs text-muted-foreground">
+                            <span>
+                              Requested <TimeDisplay value={controlPlaneOperation.requestedAt} mode="datetime" />
+                            </span>
+                            {controlPlaneOperation.completedAt ? (
+                              <span>
+                                Completed <TimeDisplay value={controlPlaneOperation.completedAt} mode="datetime" />
+                              </span>
+                            ) : null}
+                            {controlPlaneOperation.rollbackStatus ? (
+                              <span>Rollback {controlPlaneOperation.rollbackStatus}</span>
+                            ) : null}
+                          </div>
+                        </div>
+                        {controlPlanePreparedRelease &&
+                        !controlPlaneHasActiveOperation ? (
+                          <Button onClick={() => setIsApplyDialogOpen(true)}>
+                            Apply prepared update
+                          </Button>
                         ) : null}
                       </div>
-                    </div>
-                    {controlPlanePreparedRelease &&
-                    !controlPlaneHasActiveOperation ? (
-                      <Button onClick={() => setIsApplyDialogOpen(true)}>
-                        Apply prepared update
-                      </Button>
-                    ) : null}
-                  </div>
-                ) : (
-                  <p className="text-sm leading-7 text-muted-foreground">
-                    No control-plane update operation is active. If the latest
-                    release differs from the installed build, you can stage it
-                    here and confirm the apply separately.
-                  </p>
-                )}
-              </SectionPanel>
-            </div>
-          ) : (
-            <EmptyState
-              title="Control-plane self-update is unavailable"
-              description="This deployment is not marked as installer-managed, so the dashboard exposes the control-plane section in read-only mode."
-              icon={ShieldAlert}
-              variant="plain"
-            />
-          )}
-        </SectionPanel>
-
-        <SectionPanel
-          eyebrow="Release Center"
-          title="Agent updates"
-          description="Track official tagged agent releases, watch live version changes land on the fleet, and keep selection, rollout, and rollback controls visible without bouncing between disconnected panels."
-          variant="feature"
-          action={
-            <>
-              <Badge
-                variant="outline"
-                className={cn(
-                  "rounded-full px-3 py-1",
-                  getRealtimeTone(realtimeStatus),
-                )}
-              >
-                <Wifi className="mr-1 size-3.5" />
-                {getRealtimeLabel(realtimeStatus)}
-              </Badge>
-              <Badge variant="outline" className="rounded-full px-3 py-1">
-                Official source only
-              </Badge>
-              <ShimmerButton
-                className="action-btn border-border/70 bg-(--control-surface) text-foreground shadow-none"
-                background="var(--control-surface)"
-                onClick={() => {
-                  void controlPlaneSummaryQuery.refetch();
-                  void summaryQuery.refetch();
-                  void releasesQuery.refetch();
-                  void rolloutsQuery.refetch();
-                  void nodesQuery.refetch();
-                }}
-                disabled={isRefreshingData}
-              >
-                <RefreshCcw
-                  className={
-                    isRefreshingData
-                      ? "size-4 animate-spin"
-                      : "action-icon-spin size-4"
-                  }
+                    ) : (
+                      <p className="text-sm leading-7 text-muted-foreground">
+                        No control-plane update operation is active. If the latest
+                        release differs from the installed build, you can stage it
+                        here and confirm the apply separately.
+                      </p>
+                    )}
+                  </SectionPanel>
+                </div>
+              ) : (
+                <EmptyState
+                  title="Control-plane self-update is unavailable"
+                  description="This deployment is not marked as installer-managed, so the dashboard exposes the control-plane section in read-only mode."
+                  icon={ShieldAlert}
+                  variant="plain"
                 />
-                Refresh data
-              </ShimmerButton>
-            </>
-          }
-        >
-          <div className="grid gap-4 xl:grid-cols-[minmax(0,1.45fr)_minmax(320px,0.95fr)]">
-            <div
-              className="overflow-hidden rounded-[30px] border border-border/70 p-5 shadow-[var(--shadow-dashboard-hover)]"
-              style={{
-                backgroundImage:
-                  "radial-gradient(circle at top left, color-mix(in oklch, var(--primary) 14%, transparent), transparent 36%), radial-gradient(circle at 88% 18%, color-mix(in oklch, var(--semantic-success) 12%, transparent), transparent 24%), linear-gradient(180deg, color-mix(in oklch, var(--surface-feature) 85%, white 15%), var(--surface-feature))",
-              }}
-            >
-              <div className="flex flex-wrap items-center gap-2">
-                <Badge variant="outline" className="rounded-full px-3 py-1">
-                  <Sparkles className="mr-1 size-3.5" />
-                  Live command deck
-                </Badge>
-                {latestRelease ? (
-                  <Badge className="rounded-full px-3 py-1">
-                    Latest {latestRelease.version}
-                  </Badge>
-                ) : null}
-                {activeRollout ? (
+              )}
+            </SectionPanel>
+          </TabsContent>
+
+          <TabsContent value="agents" className="space-y-4">
+            <SectionPanel
+              eyebrow="Release Center"
+              title="Agent updates"
+              description="Track official tagged agent releases, watch live version changes land on the fleet, and keep selection, rollout, and rollback controls visible without bouncing between disconnected panels."
+              variant="feature"
+              action={
+                <>
                   <Badge
                     variant="outline"
                     className={cn(
                       "rounded-full px-3 py-1",
-                      getRolloutTone(activeRollout.status),
+                      getRealtimeTone(realtimeStatus),
                     )}
                   >
-                    {activeRollout.rollback ? "Rollback" : "Rollout"} live
+                    <Wifi className="mr-1 size-3.5" />
+                    {getRealtimeLabel(realtimeStatus)}
                   </Badge>
-                ) : null}
-              </div>
+                  <Badge variant="outline" className="rounded-full px-3 py-1">
+                    Official source only
+                  </Badge>
+                  <ShimmerButton
+                    className="action-btn border-border/70 bg-(--control-surface) text-foreground shadow-none"
+                    background="var(--control-surface)"
+                    onClick={() => {
+                      void controlPlaneSummaryQuery.refetch();
+                      void summaryQuery.refetch();
+                      void releasesQuery.refetch();
+                      void rolloutsQuery.refetch();
+                      void nodesQuery.refetch();
+                    }}
+                    disabled={isRefreshingData}
+                  >
+                    <RefreshCcw
+                      className={
+                        isRefreshingData
+                          ? "size-4 animate-spin"
+                          : "action-icon-spin size-4"
+                      }
+                    />
+                    Refresh data
+                  </ShimmerButton>
+                </>
+              }
+            >
+              <div className="grid gap-4 xl:grid-cols-[minmax(0,1.45fr)_minmax(320px,0.95fr)]">
+                <div
+                  className="overflow-hidden rounded-[30px] border border-border/70 p-5 shadow-[var(--shadow-dashboard-hover)]"
+                  style={{
+                    backgroundImage:
+                      "radial-gradient(circle at top left, color-mix(in oklch, var(--primary) 14%, transparent), transparent 36%), radial-gradient(circle at 88% 18%, color-mix(in oklch, var(--semantic-success) 12%, transparent), transparent 24%), linear-gradient(180deg, color-mix(in oklch, var(--surface-feature) 85%, white 15%), var(--surface-feature))",
+                  }}
+                >
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge variant="outline" className="rounded-full px-3 py-1">
+                      <Sparkles className="mr-1 size-3.5" />
+                      Live command deck
+                    </Badge>
+                    {latestRelease ? (
+                      <Badge
+                        className="rounded-full px-3 py-1"
+                      >
+                        Latest {latestRelease.version}
+                      </Badge>
+                    ) : null}
+                    {activeRollout ? (
+                      <Badge
+                        variant="outline"
+                        className={cn(
+                          "rounded-full px-3 py-1",
+                          getRolloutTone(activeRollout.status),
+                        )}
+                      >
+                        {activeRollout.rollback ? "Rollback" : "Rollout"} live
+                      </Badge>
+                    ) : null}
+                  </div>
 
-              <div className="mt-5 max-w-3xl">
+                  <div className="mt-5 max-w-3xl">
                 <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
                   Fleet release operations
                 </p>
@@ -1416,65 +1521,65 @@ export const UpdatesPageView = () => {
                 </p>
               </div>
 
-              <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                {summaryQuery.isPending ? (
-                  Array.from({ length: 4 }).map((_, index) => (
-                    <Skeleton key={index} className="h-40 rounded-[22px]" />
-                  ))
-                ) : (
-                  <>
-                    <UpdateStatCard
-                      label="Latest release"
-                      value={latestRelease?.version ?? "Unavailable"}
-                      description={
-                        latestRelease ? (
-                          <TimeDisplay
-                            value={latestRelease.publishedAt}
-                            mode="datetime"
-                          />
-                        ) : (
-                          "No tagged release available yet."
-                        )
-                      }
-                      icon={<Sparkles className="size-4" />}
-                    />
-                    <UpdateStatCard
-                      label="Outdated nodes"
-                      value={summaryQuery.data?.outdatedNodeCount ?? 0}
-                      description="Servers not yet on the newest tagged agent release."
-                      icon={<Server className="size-4" />}
-                      tone="tone-warning"
-                    />
-                    <UpdateStatCard
-                      label="Eligible now"
-                      value={summaryQuery.data?.eligibleOutdatedNodeCount ?? 0}
-                      description="Online, supported, and ready for the current target."
-                      icon={<CheckCircle2 className="size-4" />}
-                      tone="tone-success"
-                    />
-                    <UpdateStatCard
-                      label="Live transitions"
-                      value={activeRollout?.counts.active ?? 0}
-                      description={
-                        realtimeHealth.lastEventAt ? (
-                          <>
-                            Last signal{" "}
-                            <TimeDisplay
-                              value={realtimeHealth.lastEventAt}
-                              mode="datetime"
-                            />
-                          </>
-                        ) : (
-                          "Waiting for the first realtime event."
-                        )
-                      }
-                      icon={<Activity className="size-4" />}
-                    />
-                  </>
-                )}
-              </div>
+                  <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                    {summaryQuery.isPending ? (
+                      Array.from({ length: 4 }).map((_, index) => (
+                        <Skeleton key={index} className="h-40 rounded-[22px]" />
+                      ))
+                    ) : (
+                      <>
+                        <UpdateStatCard
+                          label="Latest release"
+                          value={latestRelease?.version ?? "Unavailable"}
+                          description={
+                            latestRelease ? (
+                              <TimeDisplay
+                                value={latestRelease.publishedAt}
+                                mode="datetime"
+                              />
+                            ) : (
+                              "No tagged release available yet."
+                            )
+                          }
+                          icon={<Sparkles className="size-4" />}
+                        />
+                        <UpdateStatCard
+                          label="Outdated nodes"
+                          value={summaryQuery.data?.outdatedNodeCount ?? 0}
+                          description="Servers not yet on the newest tagged agent release."
+                          icon={<Server className="size-4" />}
+                          tone="tone-warning"
+                        />
+                        <UpdateStatCard
+                          label="Eligible now"
+                          value={summaryQuery.data?.eligibleOutdatedNodeCount ?? 0}
+                          description="Online, supported, and ready for the current target."
+                          icon={<CheckCircle2 className="size-4" />}
+                          tone="tone-success"
+                        />
+                        <UpdateStatCard
+                          label="Live transitions"
+                          value={activeRollout?.counts.active ?? 0}
+                          description={
+                            realtimeHealth.lastEventAt ? (
+                              <>
+                                Last signal{" "}
+                                <TimeDisplay
+                                  value={realtimeHealth.lastEventAt}
+                                  mode="datetime"
+                                />
+                              </>
+                            ) : (
+                              "Waiting for the first realtime event."
+                            )
+                          }
+                          icon={<Activity className="size-4" />}
+                        />
+                      </>
+                    )}
+                  </div>
 
-              <div className="mt-5 grid gap-3 lg:grid-cols-2 lg:items-stretch">
+                  <div className="mt-5 grid gap-3 lg:grid-cols-2 lg:items-stretch">
                 <div className="rounded-[24px] border border-border/70 bg-background/80 p-5">
                   <div className="flex flex-wrap items-center gap-2">
                     <p className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
@@ -1578,111 +1683,111 @@ export const UpdatesPageView = () => {
                 </div>
               </div>
 
-              <div className="mt-3">{activeRolloutPanel}</div>
-            </div>
+                  <div className="mt-3">{activeRolloutPanel}</div>
+                </div>
 
-            <div className="space-y-4">
-              <SectionPanel
-                eyebrow="Live pulse"
-                title={
-                  activeRollout ? activeRollout.targetVersion : "Rollout watch"
-                }
-                description="Realtime status, queue pressure, and the node currently carrying update work."
-              >
-                {activeRollout ? (
-                  <div className="space-y-4">
-                    <div className="flex flex-wrap items-center justify-between gap-3">
-                      <Badge
-                        variant="outline"
-                        className={cn(
-                          "rounded-full px-3 py-1",
-                          getRolloutTone(activeRollout.status),
-                        )}
-                      >
-                        {activeRollout.status}
-                      </Badge>
-                      <Badge
-                        variant="outline"
-                        className="rounded-full px-3 py-1"
-                      >
-                        {activeRollout.counts.total} targets
-                      </Badge>
-                    </div>
-                    <Progress value={rolloutProgress}>
-                      <ProgressLabel>Overall progress</ProgressLabel>
-                      <ProgressValue>
-                        {(_, value) => `${value ?? rolloutProgress}%`}
-                      </ProgressValue>
-                    </Progress>
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      <div className="rounded-[20px] border border-border/70 bg-background/85 p-4">
-                        <p className="text-xs text-muted-foreground">
-                          Current node
-                        </p>
-                        <p className="mt-1 font-semibold">
-                          {currentRolloutTarget?.nodeNameSnapshot ?? "Queued"}
-                        </p>
-                        <p className="mt-2 text-sm text-muted-foreground">
-                          {currentRolloutTarget?.statusMessage ??
-                            "Waiting for the next target to start."}
+                <div className="space-y-4">
+                  <SectionPanel
+                    eyebrow="Live pulse"
+                    title={
+                      activeRollout ? activeRollout.targetVersion : "Rollout watch"
+                    }
+                    description="Realtime status, queue pressure, and the node currently carrying update work."
+                  >
+                    {activeRollout ? (
+                      <div className="space-y-4">
+                        <div className="flex flex-wrap items-center justify-between gap-3">
+                          <Badge
+                            variant="outline"
+                            className={cn(
+                              "rounded-full px-3 py-1",
+                              getRolloutTone(activeRollout.status),
+                            )}
+                          >
+                            {activeRollout.status}
+                          </Badge>
+                          <Badge
+                            variant="outline"
+                            className="rounded-full px-3 py-1"
+                          >
+                            {activeRollout.counts.total} targets
+                          </Badge>
+                        </div>
+                        <Progress value={rolloutProgress}>
+                          <ProgressLabel>Overall progress</ProgressLabel>
+                          <ProgressValue>
+                            {(_, value) => `${value ?? rolloutProgress}%`}
+                          </ProgressValue>
+                        </Progress>
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          <div className="rounded-[20px] border border-border/70 bg-background/85 p-4">
+                            <p className="text-xs text-muted-foreground">
+                              Current node
+                            </p>
+                            <p className="mt-1 font-semibold">
+                              {currentRolloutTarget?.nodeNameSnapshot ?? "Queued"}
+                            </p>
+                            <p className="mt-2 text-sm text-muted-foreground">
+                              {currentRolloutTarget?.statusMessage ??
+                                "Waiting for the next target to start."}
+                            </p>
+                          </div>
+                          <div className="rounded-[20px] border border-border/70 bg-background/85 p-4">
+                            <p className="text-xs text-muted-foreground">
+                              Queue mix
+                            </p>
+                            <p className="mt-1 font-semibold">
+                              {activeRollout.counts.completed}/
+                              {activeRollout.counts.total} complete
+                            </p>
+                            <p className="mt-2 text-sm text-muted-foreground">
+                              {activeRollout.counts.active} active,{" "}
+                              {activeRollout.counts.pending} pending,{" "}
+                              {activeRollout.counts.failed} failed
+                            </p>
+                          </div>
+                        </div>
+                        <p className="text-sm text-muted-foreground">
+                          {activeRollout.statusMessage}
                         </p>
                       </div>
-                      <div className="rounded-[20px] border border-border/70 bg-background/85 p-4">
-                        <p className="text-xs text-muted-foreground">
-                          Queue mix
+                    ) : (
+                      <div className="space-y-4">
+                        <p className="text-sm text-muted-foreground">
+                          No rollout is active right now. Build a selection on the
+                          left, choose the target release on the right, and start
+                          the next update or rollback from the command deck.
                         </p>
-                        <p className="mt-1 font-semibold">
-                          {activeRollout.counts.completed}/
-                          {activeRollout.counts.total} complete
-                        </p>
-                        <p className="mt-2 text-sm text-muted-foreground">
-                          {activeRollout.counts.active} active,{" "}
-                          {activeRollout.counts.pending} pending,{" "}
-                          {activeRollout.counts.failed} failed
-                        </p>
+                        <div className="rounded-[20px] border border-border/70 bg-background/85 p-4">
+                          <p className="text-xs text-muted-foreground">
+                            Current latest target
+                          </p>
+                          <p className="mt-1 font-semibold">
+                            {latestRelease?.version ??
+                              "Waiting for release metadata"}
+                          </p>
+                          <p className="mt-2 text-sm text-muted-foreground">
+                            Only official tagged releases appear here. Preview or
+                            main channel binaries stay out of the operator flow.
+                          </p>
+                        </div>
                       </div>
-                    </div>
-                    <p className="text-sm text-muted-foreground">
-                      {activeRollout.statusMessage}
-                    </p>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    <p className="text-sm text-muted-foreground">
-                      No rollout is active right now. Build a selection on the
-                      left, choose the target release on the right, and start
-                      the next update or rollback from the command deck.
-                    </p>
-                    <div className="rounded-[20px] border border-border/70 bg-background/85 p-4">
-                      <p className="text-xs text-muted-foreground">
-                        Current latest target
-                      </p>
-                      <p className="mt-1 font-semibold">
-                        {latestRelease?.version ??
-                          "Waiting for release metadata"}
-                      </p>
-                      <p className="mt-2 text-sm text-muted-foreground">
-                        Only official tagged releases appear here. Preview or
-                        main channel binaries stay out of the operator flow.
-                      </p>
-                    </div>
-                  </div>
-                )}
-              </SectionPanel>
+                    )}
+                  </SectionPanel>
 
-              {commandDeckPanel}
-            </div>
-          </div>
-        </SectionPanel>
+                  {commandDeckPanel}
+                </div>
+              </div>
+            </SectionPanel>
 
-        <div className="grid gap-4 xl:grid-cols-[minmax(0,1.55fr)_minmax(320px,0.92fr)] xl:items-start">
-          <div className="space-y-4 xl:col-span-2">
-            <SectionPanel
-              eyebrow="Fleet board"
-              title="Target selection"
-              description="Filter the fleet, watch live version movement in the rows, and keep active rollout nodes pinned near the top of the table."
-              contentClassName="p-0"
-            >
+            <div className="grid gap-4 xl:grid-cols-[minmax(0,1.55fr)_minmax(320px,0.92fr)] xl:items-start">
+              <div className="space-y-4 xl:col-span-2">
+                <SectionPanel
+                  eyebrow="Fleet board"
+                  title="Target selection"
+                  description="Filter the fleet, watch live version movement in the rows, and keep active rollout nodes pinned near the top of the table."
+                  contentClassName="p-0"
+                >
               <div className="border-b border-border/70 px-4 py-3 sm:px-5">
                 <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-7">
                   <Input
@@ -2040,18 +2145,18 @@ export const UpdatesPageView = () => {
                   }
                 />
               ) : null}
-            </SectionPanel>
+                </SectionPanel>
 
-            <div className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(300px,0.85fr)] xl:items-start">
-              <SectionPanel
-                eyebrow="Release notes"
-                title={
-                  selectedRelease
-                    ? `Agent ${selectedRelease.version}`
-                    : "Select a release"
-                }
-                description="Read the selected changelog while the official catalog stays visible beside it."
-              >
+                <div className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(300px,0.85fr)] xl:items-start">
+                  <SectionPanel
+                    eyebrow="Release notes"
+                    title={
+                      selectedRelease
+                        ? `Agent ${selectedRelease.version}`
+                        : "Select a release"
+                    }
+                    description="Read the selected changelog while the official catalog stays visible beside it."
+                  >
                 {!selectedRelease ? (
                   <EmptyState
                     title="No release selected"
@@ -2109,15 +2214,15 @@ export const UpdatesPageView = () => {
                     </div>
                   </div>
                 )}
-              </SectionPanel>
+                  </SectionPanel>
 
-              <SectionPanel
-                eyebrow="Catalog"
-                title="Official releases"
-                description="Pick the release that powers the command deck and notes panel."
-                contentClassName="p-0"
-                className="h-full"
-              >
+                  <SectionPanel
+                    eyebrow="Catalog"
+                    title="Official releases"
+                    description="Pick the release that powers the command deck and notes panel."
+                    contentClassName="p-0"
+                    className="h-full"
+                  >
                 {releasesQuery.isPending ? (
                   <div className="space-y-3 px-4 py-3 sm:px-5">
                     {Array.from({ length: 4 }).map((_, index) => (
@@ -2197,15 +2302,15 @@ export const UpdatesPageView = () => {
                     </div>
                   </ScrollArea>
                 )}
-              </SectionPanel>
-            </div>
+                  </SectionPanel>
+                </div>
 
-            <SectionPanel
-              eyebrow="History"
-              title="Recent rollouts"
-              description="Audit recent fleet operations without pushing the live command deck below the fold."
-              contentClassName="p-0"
-            >
+                <SectionPanel
+                  eyebrow="History"
+                  title="Recent rollouts"
+                  description="Audit recent fleet operations without pushing the live command deck below the fold."
+                  contentClassName="p-0"
+                >
               {!recentRollouts.length ? (
                 <div className="px-4 py-5 sm:px-5">
                   <EmptyState
@@ -2292,9 +2397,11 @@ export const UpdatesPageView = () => {
                   }
                 />
               ) : null}
-            </SectionPanel>
-          </div>
-        </div>
+                </SectionPanel>
+              </div>
+            </div>
+          </TabsContent>
+        </Tabs>
         <Dialog open={isApplyDialogOpen} onOpenChange={setIsApplyDialogOpen}>
           <DialogContent className="sm:max-w-lg">
             <DialogHeader>

@@ -90,6 +90,27 @@ const shouldRetryInteractiveQuery = (failureCount: number, error: unknown) => {
   return failureCount < 1;
 };
 
+const ACTIVE_CONTROL_PLANE_UPDATE_QUERY_STATUSES = new Set([
+  "queued",
+  "downloading",
+  "verifying",
+  "extracting",
+  "loading_images",
+  "applying",
+  "recreating_services",
+]);
+
+const shouldRetryControlPlaneSummaryQuery = (
+  failureCount: number,
+  error: unknown,
+) => {
+  if (error instanceof ApiError && error.status === 429) {
+    return false;
+  }
+
+  return failureCount < 4;
+};
+
 const requireWorkspaceId = (workspaceId: string | null) => {
   if (!workspaceId) {
     throw new Error("Select a workspace before running this action.");
@@ -467,9 +488,20 @@ export const useControlPlaneUpdateSummary = (enabled = true) =>
     queryFn: apiClient.getControlPlaneUpdateSummary,
     enabled,
     staleTime: 10_000,
-    refetchInterval: enabled ? 15_000 : false,
+    refetchInterval: enabled
+      ? (query) => {
+          const summary = query.state.data as
+            | ControlPlaneUpdateSummary
+            | undefined;
+          const operationStatus = summary?.operation?.status ?? null;
+          return operationStatus &&
+            ACTIVE_CONTROL_PLANE_UPDATE_QUERY_STATUSES.has(operationStatus)
+            ? 3_000
+            : 15_000;
+        }
+      : false,
     refetchIntervalInBackground: true,
-    retry: shouldRetryInteractiveQuery,
+    retry: shouldRetryControlPlaneSummaryQuery,
   });
 
 export const useAgentUpdateSummary = (enabled = true) =>
