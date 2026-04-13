@@ -9,6 +9,7 @@ import { getRealtimeClient, type RealtimeMessage } from "@/lib/websocket";
 import type {
   DashboardOverview,
   EventRecord,
+  MetricDto,
   NodeInstallDto,
   NodeDetail,
   RootAccessProfile,
@@ -111,6 +112,17 @@ const updateDashboardNodes = (
       onlineNodes: nextNodes.filter((node) => node.status === "online").length,
     },
   };
+};
+
+const prependMetric = (
+  current: MetricDto[] | undefined,
+  value: MetricDto,
+  limit?: number,
+) => {
+  const next = [value, ...(current ?? []).filter((metric) => metric.id !== value.id)]
+    .sort((left, right) => right.recordedAt.localeCompare(left.recordedAt));
+
+  return typeof limit === "number" ? next.slice(0, limit) : next;
 };
 
 const isNodeListQuery = (query: Query) =>
@@ -659,6 +671,31 @@ export const useRealtimeBridge = () => {
       if (!shouldAcceptMessage(`node.metric:${message.data.nodeId}`, message)) {
         return;
       }
+
+      queryClient
+        .getQueriesData<MetricDto[]>({
+          predicate: (query) =>
+            query.queryKey[0] === "metrics" && query.queryKey[2] === "list",
+        })
+        .forEach(([queryKey, current]) => {
+          const filters =
+            Array.isArray(queryKey) &&
+            queryKey.length > 3 &&
+            queryKey[3] &&
+            typeof queryKey[3] === "object" &&
+            !Array.isArray(queryKey[3])
+              ? (queryKey[3] as { nodeId?: string; limit?: number })
+              : {};
+
+          if (filters.nodeId && filters.nodeId !== message.data.nodeId) {
+            return;
+          }
+
+          queryClient.setQueryData<MetricDto[]>(
+            queryKey,
+            prependMetric(current, message.data, filters.limit),
+          );
+        });
 
       const point = mapMetricDtoToPoint(message.data);
       enqueueMetric(message.data.nodeId, point, message.data.networkStats);
