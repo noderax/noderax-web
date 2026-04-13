@@ -30,7 +30,9 @@ Current product surface:
 - Account security controls with QR-based TOTP MFA enrollment and recovery codes
 - Platform identity controls for SSO provider management and provider testing
 - Platform-admin audit view plus workspace audit history
-- Platform-admin `Updates` center for official tagged agent releases, changelog review, and fleet rollout orchestration
+- Platform-admin `Updates` center with separate `Control plane` and `Agent updates` tabs
+- Installer-managed control-plane update download/apply flow with prepared-release visibility
+- Official tagged agent release history, changelog review, and fleet rollout orchestration
 - Workspace task templates and team-targeted task execution flows
 - Unified settings surface with:
   - `Account`
@@ -47,6 +49,7 @@ Current product surface:
 - Linux node interactive terminal route with live xterm.js console, optional root sessions, and persisted transcript history
 - Task detail with live lifecycle and logs
 - Platform-admin workspaces page
+- Control-plane maintenance freeze overlay during blocking apply/recreate stages
 - User-centric membership management:
   - `Users` is the only account creation surface
   - workspace members are assigned from existing accepted active users
@@ -128,11 +131,14 @@ The top-level non-workspace pages continue to exist as convenience or fallback s
 - Workspace-aware navigation and workspace cookie persistence
 - Default workspace fallback when a prior workspace disappears
 - Platform-admin workspace creation and workspace inventory
-- Platform-admin agent update center with:
-  - global "new agent version available" / rollout-in-progress CTA in the topbar
-  - official tagged release history and changelog cards
+- Platform-admin updates center with:
+  - split `Control plane` and `Agent updates` tabs
+  - per-tab status badges for available, prepared, or active update work
+  - official tagged agent release history and changelog cards
   - platform-wide node filtering and selection
   - sequential rollout progress with retry, skip, resume, cancel, and rollback actions
+  - control-plane prepared/apply actions for installer-managed deployments
+- Global maintenance freeze overlay while control-plane update stages are restarting API, web, or nginx
 - Workspace archive / restore controls with read-only UI states
 - Workspace member and team management built on top of the global user directory
 - Task templates with prefill/save UX in task creation flows
@@ -250,8 +256,11 @@ The app consumes these realtime events:
 Important implementation notes:
 
 - Node subscriptions are derived from active queries only
+- Accessible workspace rooms are the main live fanout surface for dashboard, events, metrics, and add-node progress
 - Node detail cache writes are scoped to the matching `nodeId`
 - Task detail cache writes are scoped to the matching `taskId`
+- Control-plane update summary polling switches to a faster cadence while download/apply is active
+- Blocking control-plane apply stages intentionally freeze the rest of the authenticated UI behind a modal rendered from `AppShell`
 - This prevents cross-node telemetry pollution when multiple nodes are visible in cache history
 
 Surfaces kept fresh by realtime:
@@ -275,18 +284,30 @@ Terminal-specific notes:
 - Live terminal traffic uses the separate `/terminal` namespace rather than the general `/realtime` stream
 - Only the session creator can attach to and control a live terminal session
 
-## Agent Updates
+## Updates Center
 
-The platform `Updates` page is the web entrypoint for official agent release management.
+The platform `Updates` page is split into two operator surfaces:
 
-- The web UI reads summary, releases, and rollout state from the authenticated API only.
-- Release source selection is not operator-configurable in the browser; the API uses the official CDN catalog first and official GitHub Releases as fallback metadata.
-- Only tagged official releases appear in the UI. Preview or `main` binaries are ignored for badges, notifications, and rollout actions.
-- Fleet rollout selection is platform-wide rather than workspace-scoped, but workspace and team filters remain available to narrow the target set.
-- Nodes that are offline, in maintenance mode, already on the target version, or on unsupported architectures remain visible yet cannot be selected.
-- Persisted transcript chunks are polled while a session is active so the history panel stays current
-- Leaving the page no longer closes the shell immediately; the UI advertises the 5-minute reattach window
-- The selected live session also polls its own detail state so missed close events do not leave the UI stuck in `terminating`
+- `Control plane`
+  - reads installer-managed control-plane summary state from the authenticated API
+  - shows current, latest, and prepared release identities
+  - exposes `Download latest update` and `Apply prepared update`
+  - reflects active download/apply stages with stage-specific badges
+  - pairs with the global freeze overlay during blocking apply/recreate stages
+- `Agent updates`
+  - reads release catalog, rollout summary, and rollout target state from the authenticated API
+  - only shows official tagged releases
+  - supports sequential rollout progress with retry, skip, resume, cancel, and rollback actions
+  - keeps platform-wide node filtering and selection
+
+Additional behavior:
+
+- The default tab follows whichever surface currently has actionable update work.
+- Topbar notices prefer active control-plane work over agent rollout banners.
+- Preview or `main` agent binaries are ignored for badges, notifications, and rollout actions.
+- Persisted transcript chunks are polled while a session is active so the history panel stays current.
+- Leaving the page no longer closes the shell immediately; the UI advertises the 5-minute reattach window.
+- The selected live session also polls its own detail state so missed close events do not leave the UI stuck in `terminating`.
 
 ## API Surface Used By The Web App
 
@@ -349,6 +370,9 @@ Primary upstream routes:
 - `GET /platform-settings`
 - `PATCH /platform-settings`
 - `POST /platform-settings/validate/smtp`
+- `GET /control-plane-updates/summary`
+- `POST /control-plane-updates/download`
+- `POST /control-plane-updates/apply`
 - `GET /setup/status`
 - `POST /setup/validate/postgres`
 - `POST /setup/validate/redis`
