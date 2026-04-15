@@ -7,6 +7,10 @@ export const MAINTENANCE_COMPLETION_STORAGE_KEY =
   "noderax.maintenance-completion";
 export const MAINTENANCE_SNAPSHOT_EVENT = "noderax:maintenance-snapshot";
 export const MAINTENANCE_COOKIE_MAX_AGE_SECONDS = 60 * 30;
+const MAINTENANCE_MAX_AGE_MS: Record<MaintenanceKind, number> = {
+  control_plane_update: 15 * 60 * 1_000,
+  platform_api_restart: 5 * 60 * 1_000,
+};
 
 export type MaintenanceKind =
   | "control_plane_update"
@@ -73,6 +77,23 @@ const decodeCookieValue = (value?: string | null) => {
 export const isMaintenanceKind = (value: unknown): value is MaintenanceKind =>
   value === "control_plane_update" || value === "platform_api_restart";
 
+const getMaintenanceSnapshotReferenceTime = (snapshot: MaintenanceSnapshot) => {
+  const referenceMs = Date.parse(snapshot.requestedAt ?? snapshot.startedAt);
+  return Number.isFinite(referenceMs) ? referenceMs : null;
+};
+
+export const isMaintenanceSnapshotExpired = (
+  snapshot: MaintenanceSnapshot,
+  now = Date.now(),
+) => {
+  const referenceMs = getMaintenanceSnapshotReferenceTime(snapshot);
+  if (referenceMs === null) {
+    return false;
+  }
+
+  return now - referenceMs >= MAINTENANCE_MAX_AGE_MS[snapshot.kind];
+};
+
 export const parseMaintenanceSnapshot = (
   value: unknown,
 ): MaintenanceSnapshot | null => {
@@ -109,7 +130,12 @@ export const parseMaintenanceSnapshotValue = (
     return null;
   }
 
-  return parseMaintenanceSnapshot(parseJson(decoded));
+  const snapshot = parseMaintenanceSnapshot(parseJson(decoded));
+  if (!snapshot || isMaintenanceSnapshotExpired(snapshot)) {
+    return null;
+  }
+
+  return snapshot;
 };
 
 export const serializeMaintenanceSnapshot = (snapshot: MaintenanceSnapshot) =>
@@ -166,9 +192,13 @@ const readRawMaintenanceSnapshotFromBrowser = () => {
 
 const updateCachedBrowserSnapshot = (rawValue: string | null) => {
   cachedBrowserSnapshotRaw = rawValue;
-  cachedBrowserSnapshot = rawValue
+  const parsedSnapshot = rawValue
     ? parseMaintenanceSnapshot(parseJson(rawValue))
     : null;
+  cachedBrowserSnapshot =
+    parsedSnapshot && !isMaintenanceSnapshotExpired(parsedSnapshot)
+      ? parsedSnapshot
+      : null;
 
   return cachedBrowserSnapshot;
 };
@@ -183,7 +213,13 @@ export const readMaintenanceSnapshotFromBrowser = () => {
     return cachedBrowserSnapshot;
   }
 
-  return updateCachedBrowserSnapshot(rawValue);
+  const snapshot = updateCachedBrowserSnapshot(rawValue);
+  if (!snapshot && rawValue) {
+    window.sessionStorage.removeItem(MAINTENANCE_SNAPSHOT_STORAGE_KEY);
+    clearCookie(MAINTENANCE_SNAPSHOT_COOKIE);
+  }
+
+  return snapshot;
 };
 
 export const persistMaintenanceSnapshot = (snapshot: MaintenanceSnapshot) => {
