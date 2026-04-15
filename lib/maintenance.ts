@@ -36,6 +36,9 @@ export type MaintenanceCompletion = {
   completedAt: string;
 };
 
+let cachedBrowserSnapshotRaw: string | null = null;
+let cachedBrowserSnapshot: MaintenanceSnapshot | null = null;
+
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   Boolean(value) && typeof value === "object" && !Array.isArray(value);
 
@@ -142,7 +145,7 @@ const clearCookie = (name: string) => {
   document.cookie = `${name}=; Path=/; Max-Age=0; SameSite=Lax`;
 };
 
-export const readMaintenanceSnapshotFromBrowser = () => {
+const readRawMaintenanceSnapshotFromBrowser = () => {
   if (typeof window === "undefined") {
     return null;
   }
@@ -150,16 +153,37 @@ export const readMaintenanceSnapshotFromBrowser = () => {
   const storageValue = window.sessionStorage.getItem(
     MAINTENANCE_SNAPSHOT_STORAGE_KEY,
   );
-  const parsedFromStorage = parseMaintenanceSnapshot(parseJson(storageValue));
-  if (parsedFromStorage) {
-    return parsedFromStorage;
+  if (storageValue) {
+    return storageValue;
   }
 
   const cookieMatch = document.cookie
     .split("; ")
     .find((entry) => entry.startsWith(`${MAINTENANCE_SNAPSHOT_COOKIE}=`));
 
-  return parseMaintenanceSnapshotValue(cookieMatch?.split("=").slice(1).join("="));
+  return decodeCookieValue(cookieMatch?.split("=").slice(1).join("="));
+};
+
+const updateCachedBrowserSnapshot = (rawValue: string | null) => {
+  cachedBrowserSnapshotRaw = rawValue;
+  cachedBrowserSnapshot = rawValue
+    ? parseMaintenanceSnapshot(parseJson(rawValue))
+    : null;
+
+  return cachedBrowserSnapshot;
+};
+
+export const readMaintenanceSnapshotFromBrowser = () => {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  const rawValue = readRawMaintenanceSnapshotFromBrowser();
+  if (rawValue === cachedBrowserSnapshotRaw) {
+    return cachedBrowserSnapshot;
+  }
+
+  return updateCachedBrowserSnapshot(rawValue);
 };
 
 export const persistMaintenanceSnapshot = (snapshot: MaintenanceSnapshot) => {
@@ -167,15 +191,21 @@ export const persistMaintenanceSnapshot = (snapshot: MaintenanceSnapshot) => {
     return;
   }
 
+  const rawValue = JSON.stringify(snapshot);
+  if (rawValue === cachedBrowserSnapshotRaw) {
+    return;
+  }
+
   window.sessionStorage.setItem(
     MAINTENANCE_SNAPSHOT_STORAGE_KEY,
-    JSON.stringify(snapshot),
+    rawValue,
   );
   setCookie(
     MAINTENANCE_SNAPSHOT_COOKIE,
     serializeMaintenanceSnapshot(snapshot),
     MAINTENANCE_COOKIE_MAX_AGE_SECONDS,
   );
+  updateCachedBrowserSnapshot(rawValue);
   emitSnapshotChange();
 };
 
@@ -184,8 +214,13 @@ export const clearMaintenanceSnapshot = () => {
     return;
   }
 
+  if (!readMaintenanceSnapshotFromBrowser()) {
+    return;
+  }
+
   window.sessionStorage.removeItem(MAINTENANCE_SNAPSHOT_STORAGE_KEY);
   clearCookie(MAINTENANCE_SNAPSHOT_COOKIE);
+  updateCachedBrowserSnapshot(null);
   emitSnapshotChange();
 };
 
