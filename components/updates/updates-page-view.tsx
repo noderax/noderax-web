@@ -53,7 +53,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Table,
   TableBody,
@@ -494,7 +493,9 @@ export const UpdatesPageView = () => {
     useState<(typeof TABLE_PAGE_SIZE_OPTIONS)[number]>(10);
   const [historyPageIndex, setHistoryPageIndex] = useState(0);
   const [isApplyDialogOpen, setIsApplyDialogOpen] = useState(false);
-  const [selectedTab, setSelectedTab] = useState<UpdateTabId | null>(null);
+  const [selectedTab, setSelectedTab] =
+    useState<UpdateTabId>("control-plane");
+  const [hasUserSelectedTab, setHasUserSelectedTab] = useState(false);
   const deferredSearch = useDeferredValue(search);
 
   const workspaces = workspacesQuery.data ?? EMPTY_WORKSPACES;
@@ -542,13 +543,12 @@ export const UpdatesPageView = () => {
       : (summaryQuery.data?.outdatedNodeCount ?? 0) > 0
       ? `${summaryQuery.data?.outdatedNodeCount} outdated`
         : null;
-  const activeTab =
-    selectedTab ??
-    (controlPlaneTabHasUpdate
-      ? "control-plane"
-      : agentTabHasUpdate
-        ? "agents"
-        : "control-plane");
+  const recommendedTab: UpdateTabId = controlPlaneTabHasUpdate
+    ? "control-plane"
+    : agentTabHasUpdate
+      ? "agents"
+      : "control-plane";
+  const activeTab = hasUserSelectedTab ? selectedTab : recommendedTab;
 
   const workspaceNameById = useMemo(
     () =>
@@ -1112,66 +1112,92 @@ export const UpdatesPageView = () => {
   return (
     <AppShell>
       <div className="space-y-4">
-        <Tabs
-          value={activeTab}
-          onValueChange={(value) => {
-            if (value === "control-plane" || value === "agents") {
-              setSelectedTab(value);
-            }
-          }}
-          className="space-y-4"
+        <SectionPanel
+          eyebrow="Update Center"
+          title="Managed release operations"
+          description="Switch between control-plane and agent update flows. Tabs indicate where newer builds, staged work, or live rollout activity exist."
+          variant="feature"
         >
-          <SectionPanel
-            eyebrow="Update Center"
-            title="Managed release operations"
-            description="Switch between control-plane and agent update flows. Tabs indicate where newer builds, staged work, or live rollout activity exist."
-            variant="feature"
+          <div
+            role="tablist"
+            aria-label="Update areas"
+            className="flex w-full flex-wrap items-center gap-2 overflow-x-auto border-b border-border/70 pb-1"
           >
-            <TabsList variant="line" className="w-full justify-start overflow-x-auto">
-              <TabsTrigger
-                value="control-plane"
-                className="min-w-fit justify-start gap-2 px-1.5 sm:min-w-[220px] sm:px-2.5"
-              >
-                <Server className="size-4" />
-                <span>Control plane</span>
-                {controlPlaneTabLabel ? (
-                  <Badge
-                    variant="outline"
-                    className={cn(
-                      "rounded-full px-2 py-0.5 text-[11px]",
-                      controlPlaneHasActiveOperation
-                        ? getControlPlaneTone(controlPlaneOperation?.status ?? "queued")
-                        : controlPlanePreparedRelease
-                          ? getControlPlaneTone("prepared")
-                          : "tone-brand",
-                    )}
-                  >
-                    {controlPlaneTabLabel}
-                  </Badge>
-                ) : null}
-              </TabsTrigger>
-              <TabsTrigger
-                value="agents"
-                className="min-w-fit justify-start gap-2 px-1.5 sm:min-w-[220px] sm:px-2.5"
-              >
-                <ArrowUpCircle className="size-4" />
-                <span>Agent updates</span>
-                {agentTabLabel ? (
-                  <Badge
-                    variant="outline"
-                    className={cn(
-                      "rounded-full px-2 py-0.5 text-[11px]",
-                      activeRollout ? getRolloutTone(activeRollout.status) : "tone-brand",
-                    )}
-                  >
-                    {agentTabLabel}
-                  </Badge>
-                ) : null}
-              </TabsTrigger>
-            </TabsList>
-          </SectionPanel>
+            <button
+              id="control-plane-tab"
+              type="button"
+              role="tab"
+              aria-selected={activeTab === "control-plane"}
+              className={cn(
+                "inline-flex min-w-fit items-center justify-start gap-2 border-b-2 px-1.5 py-2 text-sm font-medium transition-colors sm:min-w-[220px] sm:px-2.5",
+                activeTab === "control-plane"
+                  ? "border-primary text-foreground"
+                  : "border-transparent text-muted-foreground hover:text-foreground",
+              )}
+              onClick={() => {
+                setHasUserSelectedTab(true);
+                setSelectedTab("control-plane");
+              }}
+            >
+              <Server className="size-4" />
+              <span>Control plane</span>
+              {controlPlaneTabLabel ? (
+                <Badge
+                  variant="outline"
+                  className={cn(
+                    "rounded-full px-2 py-0.5 text-[11px]",
+                    controlPlaneHasActiveOperation
+                      ? getControlPlaneTone(
+                          controlPlaneOperation?.status ?? "queued",
+                        )
+                      : controlPlanePreparedRelease
+                        ? getControlPlaneTone("prepared")
+                        : "tone-brand",
+                  )}
+                >
+                  {controlPlaneTabLabel}
+                </Badge>
+              ) : null}
+            </button>
+            <button
+              id="agent-updates-tab"
+              type="button"
+              role="tab"
+              aria-selected={activeTab === "agents"}
+              className={cn(
+                "inline-flex min-w-fit items-center justify-start gap-2 border-b-2 px-1.5 py-2 text-sm font-medium transition-colors sm:min-w-[220px] sm:px-2.5",
+                activeTab === "agents"
+                  ? "border-primary text-foreground"
+                  : "border-transparent text-muted-foreground hover:text-foreground",
+              )}
+              onClick={() => {
+                setHasUserSelectedTab(true);
+                setSelectedTab("agents");
+              }}
+            >
+              <ArrowUpCircle className="size-4" />
+              <span>Agent updates</span>
+              {agentTabLabel ? (
+                <Badge
+                  variant="outline"
+                  className={cn(
+                    "rounded-full px-2 py-0.5 text-[11px]",
+                    activeRollout ? getRolloutTone(activeRollout.status) : "tone-brand",
+                  )}
+                >
+                  {agentTabLabel}
+                </Badge>
+              ) : null}
+            </button>
+          </div>
+        </SectionPanel>
 
-          <TabsContent value="control-plane" className="space-y-4">
+        {activeTab === "control-plane" ? (
+          <div
+            role="tabpanel"
+            aria-labelledby="control-plane-tab"
+            className="space-y-4"
+          >
             <SectionPanel
               eyebrow="Release Center"
               title="Control plane updates"
@@ -1416,9 +1442,11 @@ export const UpdatesPageView = () => {
                 />
               )}
             </SectionPanel>
-          </TabsContent>
+          </div>
+        ) : null}
 
-          <TabsContent value="agents" className="space-y-4">
+        {activeTab === "agents" ? (
+          <div role="tabpanel" aria-labelledby="agent-updates-tab" className="space-y-4">
             <SectionPanel
               eyebrow="Release Center"
               title="Agent updates"
@@ -2400,8 +2428,8 @@ export const UpdatesPageView = () => {
                 </SectionPanel>
               </div>
             </div>
-          </TabsContent>
-        </Tabs>
+          </div>
+        ) : null}
         <Dialog open={isApplyDialogOpen} onOpenChange={setIsApplyDialogOpen}>
           <DialogContent className="sm:max-w-lg">
             <DialogHeader>
