@@ -14,38 +14,35 @@ import {
   subscribeToMaintenanceSnapshot,
 } from "@/lib/maintenance";
 
-const isRecoveredControlPlaneApplySummary = (input: {
-  currentReleaseId: string | null;
-  preparedReleaseId: string | null;
-  latestReleaseId: string | null;
-  updateAvailable: boolean;
+const CONTROL_PLANE_FREEZE_GRACE_MS = 45_000;
+
+const isControlPlaneFreezeWindowExpired = (input: {
   operationStatus: string | null;
-  operationType: string | null;
-}) =>
-  Boolean(
-    input.operationType === "apply" &&
-      input.operationStatus &&
-      isControlPlaneMaintenanceStatus(input.operationStatus) &&
-      input.currentReleaseId &&
-      (input.currentReleaseId === input.preparedReleaseId ||
-        input.currentReleaseId === input.latestReleaseId) &&
-      input.updateAvailable === false,
-  );
+  startedAt: string | null;
+  requestedAt: string | null;
+}) => {
+  if (!input.operationStatus || !isControlPlaneMaintenanceStatus(input.operationStatus)) {
+    return false;
+  }
+
+  const startedAtMs = Date.parse(input.startedAt ?? input.requestedAt ?? "");
+  if (!Number.isFinite(startedAtMs)) {
+    return false;
+  }
+
+  return Date.now() - startedAtMs >= CONTROL_PLANE_FREEZE_GRACE_MS;
+};
 
 export const ControlPlaneUpdateFreeze = () => {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const { isPlatformAdmin } = useWorkspaceContext();
   const controlPlaneSummaryQuery = useControlPlaneUpdateSummary(isPlatformAdmin);
-  const controlPlaneSummary = controlPlaneSummaryQuery.data ?? null;
   const liveOperation = controlPlaneSummaryQuery.data?.operation ?? null;
-  const recoveredControlPlaneApplySummary = isRecoveredControlPlaneApplySummary({
-    currentReleaseId: controlPlaneSummary?.currentRelease?.releaseId ?? null,
-    preparedReleaseId: controlPlaneSummary?.preparedRelease?.releaseId ?? null,
-    latestReleaseId: controlPlaneSummary?.latestRelease?.releaseId ?? null,
-    updateAvailable: controlPlaneSummary?.updateAvailable ?? false,
+  const controlPlaneFreezeWindowExpired = isControlPlaneFreezeWindowExpired({
     operationStatus: liveOperation?.status ?? null,
-    operationType: liveOperation?.operation ?? null,
+    startedAt: liveOperation?.startedAt ?? null,
+    requestedAt: liveOperation?.requestedAt ?? null,
   });
   const maintenanceSnapshot = useSyncExternalStore(
     subscribeToMaintenanceSnapshot,
@@ -67,7 +64,7 @@ export const ControlPlaneUpdateFreeze = () => {
       return;
     }
 
-    if (recoveredControlPlaneApplySummary) {
+    if (controlPlaneFreezeWindowExpired) {
       clearMaintenanceSnapshot();
       return;
     }
@@ -100,7 +97,7 @@ export const ControlPlaneUpdateFreeze = () => {
     maintenanceSnapshot,
     pathname,
     searchParams,
-    recoveredControlPlaneApplySummary,
+    controlPlaneFreezeWindowExpired,
   ]);
 
   useEffect(() => {
@@ -112,7 +109,7 @@ export const ControlPlaneUpdateFreeze = () => {
       return;
     }
 
-    if (recoveredControlPlaneApplySummary) {
+    if (controlPlaneFreezeWindowExpired) {
       clearMaintenanceSnapshot();
       return;
     }
@@ -131,7 +128,7 @@ export const ControlPlaneUpdateFreeze = () => {
     isPlatformAdmin,
     liveOperation,
     maintenanceSnapshot,
-    recoveredControlPlaneApplySummary,
+    controlPlaneFreezeWindowExpired,
   ]);
 
   return null;

@@ -5,10 +5,7 @@ import {
   AUTH_TOKEN_COOKIE,
   fetchApiWithFallback,
 } from "@/lib/auth";
-import {
-  getMaintenanceSnapshotFromCookies,
-  isControlPlaneMaintenanceStatus,
-} from "@/lib/maintenance";
+import { getMaintenanceSnapshotFromCookies } from "@/lib/maintenance";
 import type {
   ControlPlaneUpdateSummary,
   HealthResponse,
@@ -25,25 +22,6 @@ const getJsonResponse = async <T,>(response: Response) => {
   }
 
   return (await response.json()) as T;
-};
-
-const isRecoveredControlPlaneApplySummary = (
-  summary: ControlPlaneUpdateSummary | null,
-) => {
-  const operation = summary?.operation ?? null;
-  const currentReleaseId = summary?.currentRelease?.releaseId ?? null;
-  const preparedReleaseId = summary?.preparedRelease?.releaseId ?? null;
-  const latestReleaseId = summary?.latestRelease?.releaseId ?? null;
-
-  return Boolean(
-    operation?.operation === "apply" &&
-      operation.status &&
-      isControlPlaneMaintenanceStatus(operation.status) &&
-      currentReleaseId &&
-      summary?.updateAvailable === false &&
-      (preparedReleaseId === currentReleaseId ||
-        latestReleaseId === currentReleaseId)
-  );
 };
 
 export async function GET() {
@@ -155,23 +133,6 @@ export async function GET() {
             operation.error ??
             operation.message ??
             "The control-plane update reported a failed state.",
-        });
-      }
-
-      if (summary && isRecoveredControlPlaneApplySummary(summary)) {
-        return NextResponse.json({
-          status: "ready" as const,
-          kind: snapshot.kind,
-        });
-      }
-
-      if (operation && isControlPlaneMaintenanceStatus(operation.status)) {
-        return NextResponse.json({
-          status: "waiting" as const,
-          kind: snapshot.kind,
-          message:
-            operation.message ??
-            "The control-plane supervisor is still recreating services.",
         });
       }
     } catch {
