@@ -13,6 +13,7 @@ import {
   fetchApiWithFallback,
   normalizeAuthSession,
 } from "@/lib/auth";
+import { getMaintenanceSnapshotFromCookies } from "@/lib/maintenance";
 import { fetchSetupApi } from "@/lib/setup";
 import type { UserDto } from "@/lib/types";
 
@@ -41,6 +42,11 @@ export async function GET() {
   const token = cookieStore.get(AUTH_TOKEN_COOKIE)?.value;
   const cachedSession = decodeSession(cookieStore.get(AUTH_SESSION_COOKIE)?.value);
   const isPersistent = cookieStore.get(AUTH_PERSIST_COOKIE)?.value === "1";
+  const maintenanceSnapshot = getMaintenanceSnapshotFromCookies(cookieStore);
+
+  const unavailableMessage = maintenanceSnapshot
+    ? "Platform maintenance is in progress. Retry once the API restart window completes."
+    : "The API is temporarily unavailable. Retry shortly.";
 
   try {
     const setupStatusResponse = await fetchSetupApi("/setup/status", {
@@ -56,24 +62,19 @@ export async function GET() {
         setupStatus.mode === "setup" ||
         setupStatus.mode === "promoting"
       ) {
-        const response = NextResponse.json(
+        return NextResponse.json(
           { message: "Initial setup is not complete yet." },
           { status: 409 },
         );
-        clearAuthCookies(response);
-        return response;
       }
     }
   } catch {
-    const response = NextResponse.json(
+    return NextResponse.json(
       {
-        message:
-          "API URL is not configured. Set NODERAX_API_URL on the web app or provide an API URL from the setup screen.",
+        message: unavailableMessage,
       },
-      { status: 500 },
+      { status: 503 },
     );
-    clearAuthCookies(response);
-    return response;
   }
 
   if (!token) {
@@ -92,33 +93,50 @@ export async function GET() {
       cache: "no-store",
     });
   } catch {
-    const response = NextResponse.json(
+    return NextResponse.json(
       {
-        message:
-          "API URL is not configured. Set NODERAX_API_URL on the web app or provide an API URL from the setup screen.",
+        message: unavailableMessage,
       },
-      { status: 500 },
+      { status: 503 },
     );
-    clearAuthCookies(response);
-    return response;
   }
 
   if (!upstreamResponse) {
-    const response = NextResponse.json(
+    return NextResponse.json(
       {
-        message:
-          "API URL is not configured. Set NODERAX_API_URL on the web app or provide an API URL from the setup screen.",
+        message: unavailableMessage,
       },
-      { status: 500 },
+      { status: 503 },
     );
-    clearAuthCookies(response);
-    return response;
   }
 
   if (!upstreamResponse.ok) {
-    const response = NextResponse.json({ message: "Unauthorized." }, { status: 401 });
-    clearAuthCookies(response);
-    return response;
+    if (upstreamResponse.status === 401) {
+      const response = NextResponse.json(
+        { message: "Unauthorized." },
+        { status: 401 },
+      );
+      clearAuthCookies(response);
+      return response;
+    }
+
+    return NextResponse.json(
+      {
+        message:
+          (await upstreamResponse
+            .clone()
+            .json()
+            .then((payload: { message?: string | string[]; error?: string }) => {
+              if (Array.isArray(payload.message)) {
+                return payload.message.join(" ");
+              }
+
+              return payload.message ?? payload.error ?? unavailableMessage;
+            })
+            .catch(() => unavailableMessage)) ?? unavailableMessage,
+      },
+      { status: upstreamResponse.status >= 500 ? 503 : upstreamResponse.status },
+    );
   }
 
   const user = (await upstreamResponse.json()) as UserDto;

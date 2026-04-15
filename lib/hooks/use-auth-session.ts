@@ -9,7 +9,7 @@ import {
   type QueryClient,
 } from "@tanstack/react-query";
 
-import { apiClient } from "@/lib/api";
+import { ApiError, apiClient } from "@/lib/api";
 import { clearPersistedWorkspaceSlug } from "@/lib/workspace";
 import type {
   AuthSession,
@@ -77,7 +77,7 @@ export const useAuthSession = () => {
   ]);
 
   useEffect(() => {
-    if (query.error) {
+    if (query.error instanceof ApiError && query.error.status === 401) {
       clearSession();
     }
   }, [query.error, clearSession]);

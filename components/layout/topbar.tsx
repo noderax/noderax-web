@@ -7,6 +7,7 @@ import {
   useEffect,
   useMemo,
   useState,
+  useSyncExternalStore,
 } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
@@ -40,6 +41,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { apiClient } from "@/lib/api";
+import { ApiError } from "@/lib/api";
 import { useAuthSession } from "@/lib/hooks/use-auth-session";
 import {
   useAgentUpdateSummary,
@@ -47,6 +49,10 @@ import {
   useWorkspaceSearch,
 } from "@/lib/hooks/use-noderax-data";
 import { useWorkspaceContext } from "@/lib/hooks/use-workspace-context";
+import {
+  readMaintenanceSnapshotFromBrowser,
+  subscribeToMaintenanceSnapshot,
+} from "@/lib/maintenance";
 import { buildWorkspacePath } from "@/lib/workspace";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/store/useAppStore";
@@ -173,6 +179,11 @@ const TopbarContent = () => {
     data: workspaces = [],
   } = useWorkspaceContext();
   const { session } = authQuery;
+  const maintenanceSnapshot = useSyncExternalStore(
+    subscribeToMaintenanceSnapshot,
+    readMaintenanceSnapshotFromBrowser,
+    () => null,
+  );
   const isPlatformAdmin = session?.user.role === "platform_admin";
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const realtimeStatus = useAppStore((state) => state.realtimeStatus);
@@ -338,12 +349,17 @@ const TopbarContent = () => {
     )?.[1] ?? "Manage your operations workspace.";
 
   useEffect(() => {
-    if (authQuery.isError && !session) {
+    if (
+      authQuery.error instanceof ApiError &&
+      authQuery.error.status === 401 &&
+      !session &&
+      !maintenanceSnapshot
+    ) {
       startTransition(() => {
         router.replace("/login");
       });
     }
-  }, [authQuery.isError, router, session]);
+  }, [authQuery.error, maintenanceSnapshot, router, session]);
 
   useEffect(() => {
     if (!searchParams.has("q")) {

@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 
 import { buildClearedApiBaseUrlCookieOptions } from "@/lib/auth";
+import { MAINTENANCE_SNAPSHOT_COOKIE } from "@/lib/maintenance";
 
 const AUTH_TOKEN_COOKIE = "noderax_token";
 const API_BASE_URL_COOKIE = "noderax_api_url";
@@ -53,6 +54,10 @@ export async function proxy(request: NextRequest) {
   const isLoginRoute = pathname === "/login";
   const isPublicRoute = isPublicAuthRoute(pathname);
   const isSetupRoute = pathname === "/setup" || pathname.startsWith("/setup/");
+  const isMaintenanceRoute =
+    pathname === "/maintenance/recovering" ||
+    pathname.startsWith("/maintenance/");
+  const maintenanceSnapshot = request.cookies.get(MAINTENANCE_SNAPSHOT_COOKIE)?.value;
   const shouldClearApiOverride = Boolean(apiUrlOverride);
   let clearCookieForInstalledSystem = false;
   const finalizeResponse = (response: NextResponse, clearCookie = false) => {
@@ -66,6 +71,13 @@ export async function proxy(request: NextRequest) {
 
     return response;
   };
+
+  if (maintenanceSnapshot && !isPublicRoute && !isSetupRoute && !isMaintenanceRoute) {
+    return finalizeResponse(
+      NextResponse.rewrite(new URL("/maintenance/recovering", request.url)),
+      clearCookieForInstalledSystem,
+    );
+  }
 
   try {
     const status = await readSetupStatus();

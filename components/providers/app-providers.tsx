@@ -5,9 +5,17 @@ import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { ThemeProvider } from "next-themes";
 import { useState } from "react";
 
+import { GlobalMaintenanceGate } from "@/components/layout/global-maintenance-gate";
 import { Toaster } from "@/components/ui/sonner";
+import type { MaintenanceSnapshot } from "@/lib/maintenance";
 
-export const AppProviders = ({ children }: { children: React.ReactNode }) => {
+export const AppProviders = ({
+  children,
+  initialMaintenanceSnapshot,
+}: {
+  children: React.ReactNode;
+  initialMaintenanceSnapshot: MaintenanceSnapshot | null;
+}) => {
   const [queryClient] = useState(
     () =>
       new QueryClient({
@@ -33,6 +41,7 @@ export const AppProviders = ({ children }: { children: React.ReactNode }) => {
     >
       <QueryClientProvider client={queryClient}>
         {children}
+        <GlobalMaintenanceGate initialSnapshot={initialMaintenanceSnapshot} />
         <Toaster position="top-right" richColors />
         <ReactQueryDevtools buttonPosition="bottom-left" />
       </QueryClientProvider>

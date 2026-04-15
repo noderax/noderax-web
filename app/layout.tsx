@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import { JetBrains_Mono, Plus_Jakarta_Sans } from "next/font/google";
+import { cookies } from "next/headers";
 
 import { AppProviders } from "@/components/providers/app-providers";
+import { getMaintenanceSnapshotFromCookies } from "@/lib/maintenance";
 import { cn } from "@/lib/utils";
 
 import "./globals.css";
@@ -25,11 +27,15 @@ export const metadata: Metadata = {
     "Realtime infrastructure control plane for nodes, tasks, metrics, and operational events.",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const cookieStore = await cookies();
+  const initialMaintenanceSnapshot =
+    getMaintenanceSnapshotFromCookies(cookieStore);
+
   return (
     <html lang="en" suppressHydrationWarning>
       <body
@@ -40,7 +46,9 @@ export default function RootLayout({
           "min-h-screen bg-background font-sans text-foreground antialiased",
         )}
       >
-        <AppProviders>{children}</AppProviders>
+        <AppProviders initialMaintenanceSnapshot={initialMaintenanceSnapshot}>
+          {children}
+        </AppProviders>
       </body>
     </html>
   );

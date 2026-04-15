@@ -1,6 +1,12 @@
 "use client";
 
-import { Suspense, useEffect, useEffectEvent, useMemo, useState } from "react";
+import {
+  Suspense,
+  useEffect,
+  useMemo,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -10,7 +16,6 @@ import {
   Clock3,
   Globe2,
   KeyRound,
-  LoaderCircle,
   Mail,
   Palette,
   RefreshCcw,
@@ -64,7 +69,13 @@ import {
   useWorkspaceContext,
   workspacesQueryKey,
 } from "@/lib/hooks/use-workspace-context";
-import { ApiError, apiClient } from "@/lib/api";
+import { apiClient } from "@/lib/api";
+import {
+  buildApiRestartMaintenanceSnapshot,
+  persistMaintenanceSnapshot,
+  readMaintenanceSnapshotFromBrowser,
+  subscribeToMaintenanceSnapshot,
+} from "@/lib/maintenance";
 import { DEFAULT_TIMEZONE, getBrowserTimeZone } from "@/lib/timezone";
 import {
   EventSeverity,
@@ -90,23 +101,12 @@ type SmtpTestState = {
   message: string;
 };
 
-type PlatformRestartState = {
-  phase: "polling" | "timed_out";
-  startedAt: number;
-  lastCheckedAt: number;
-  previousBootId: string | null;
-  requestedAt: string;
-  observedDowntime: boolean;
-};
-
 const SETTINGS_TABS: SettingsTab[] = [
   "account",
   "notifications",
   "workspace",
   "platform",
 ];
-const PLATFORM_RESTART_POLL_INTERVAL_MS = 2_000;
-const PLATFORM_RESTART_TIMEOUT_MS = 90_000;
 
 const isSettingsTab = (value: string | null): value is SettingsTab =>
   SETTINGS_TABS.includes((value ?? "") as SettingsTab);
@@ -184,6 +184,11 @@ function SettingsPageContent({
     (state) => state.setActiveWorkspaceSlug,
   );
   const clearSession = useAppStore((state) => state.clearSession);
+  const maintenanceSnapshot = useSyncExternalStore(
+    subscribeToMaintenanceSnapshot,
+    readMaintenanceSnapshotFromBrowser,
+    () => null,
+  );
 
   const updatePreferences = useUpdateCurrentUserPreferences();
   const changePassword = useChangeCurrentUserPassword();
@@ -284,8 +289,6 @@ function SettingsPageContent({
     useState<SmtpTestState | null>(null);
   const [platformRestartDialogOpen, setPlatformRestartDialogOpen] =
     useState(false);
-  const [platformRestartState, setPlatformRestartState] =
-    useState<PlatformRestartState | null>(null);
 
   useEffect(() => {
     setActiveTab(resolvedTab);
@@ -620,133 +623,10 @@ function SettingsPageContent({
   };
 
   const platformEditable = platformSettingsQuery.data?.editable ?? false;
-  const platformRestartPending = platformRestartState?.phase === "polling";
-  const platformRestartTimedOut = platformRestartState?.phase === "timed_out";
+  const platformRestartPending =
+    maintenanceSnapshot?.kind === "platform_api_restart";
   const platformActionsDisabled =
-    restartPlatformApi.isPending ||
-    platformRestartPending ||
-    platformRestartTimedOut;
-  const restartPhase = platformRestartState?.phase;
-  const restartStartedAt = platformRestartState?.startedAt ?? null;
-  const restartLastCheckedAt = platformRestartState?.lastCheckedAt ?? null;
-
-  const handlePlatformRestartReauth = useEffectEvent(async () => {
-    await apiClient.logout().catch(() => undefined);
-    clearSession();
-    queryClient.clear();
-    toast.message("API restarted", {
-      description:
-        "Your session is no longer valid. Sign in again to continue.",
-    });
-    router.replace("/login?message=api-restarted");
-  });
-
-  const pollPlatformRestart = useEffectEvent(async (signal: AbortSignal) => {
-    if (!platformRestartState || platformRestartState.phase !== "polling") {
-      return;
-    }
-
-    try {
-      const health = await apiClient.getHealth(signal);
-      if (signal.aborted) {
-        return;
-      }
-
-      const restartObserved = platformRestartState.previousBootId
-        ? health.bootId !== platformRestartState.previousBootId
-        : platformRestartState.observedDowntime;
-
-      if (!restartObserved) {
-        setPlatformRestartState((current) =>
-          current?.phase === "polling"
-            ? {
-                ...current,
-                lastCheckedAt: Date.now(),
-              }
-            : current,
-        );
-        return;
-      }
-
-      const result = await platformSettingsQuery.refetch();
-      if (signal.aborted) {
-        return;
-      }
-
-      if (result.error) {
-        if (result.error instanceof ApiError && result.error.status === 401) {
-          await handlePlatformRestartReauth();
-          return;
-        }
-
-        setPlatformRestartState((current) =>
-          current?.phase === "polling"
-            ? {
-                ...current,
-                lastCheckedAt: Date.now(),
-              }
-            : current,
-        );
-        return;
-      }
-
-      setPlatformMailTestStatus(null);
-      setPlatformRestartState(null);
-      toast.success("API restarted", {
-        description: "Platform settings reconnected successfully.",
-      });
-    } catch {
-      if (signal.aborted) {
-        return;
-      }
-
-      setPlatformRestartState((current) =>
-        current?.phase === "polling"
-          ? {
-              ...current,
-              observedDowntime: true,
-              lastCheckedAt: Date.now(),
-            }
-          : current,
-      );
-    }
-  });
-
-  useEffect(() => {
-    if (
-      restartPhase !== "polling" ||
-      restartStartedAt === null ||
-      restartLastCheckedAt === null
-    ) {
-      return;
-    }
-
-    if (Date.now() - restartStartedAt >= PLATFORM_RESTART_TIMEOUT_MS) {
-      setPlatformRestartState((current) =>
-        current?.phase === "polling"
-          ? {
-              ...current,
-              phase: "timed_out",
-            }
-          : current,
-      );
-      return;
-    }
-
-    const abortController = new AbortController();
-    const delay =
-      restartLastCheckedAt === restartStartedAt
-        ? 900
-        : PLATFORM_RESTART_POLL_INTERVAL_MS;
-    const timer = window.setTimeout(() => {
-      void pollPlatformRestart(abortController.signal);
-    }, delay);
-
-    return () => {
-      abortController.abort();
-      window.clearTimeout(timer);
-    };
-  }, [restartLastCheckedAt, restartPhase, restartStartedAt]);
+    restartPlatformApi.isPending || Boolean(platformRestartPending);
 
   const handlePlatformRestart = async () => {
     let previousBootId: string | null = null;
@@ -759,39 +639,25 @@ function SettingsPageContent({
 
     try {
       const response = await restartPlatformApi.mutateAsync();
-      const now = Date.now();
+      const resumePath = `${pathname}${searchParams.size ? `?${searchParams.toString()}` : ""}`;
 
       setPlatformRestartDialogOpen(false);
       setPlatformMailTestStatus(null);
-      setPlatformRestartState({
-        phase: "polling",
-        startedAt: now,
-        lastCheckedAt: now,
-        previousBootId,
-        requestedAt: response.requestedAt,
-        observedDowntime: false,
-      });
+      persistMaintenanceSnapshot(
+        buildApiRestartMaintenanceSnapshot({
+          previousBootId,
+          requestedAt: response.requestedAt,
+          message: response.message,
+          resumePath,
+        }),
+      );
       toast.message("API restart requested", {
-        description: response.message,
+        description:
+          "This page is now locked until the restarted API reports healthy again.",
       });
     } catch {
       return;
     }
-  };
-
-  const handleRetryPlatformReconnect = () => {
-    const now = Date.now();
-
-    setPlatformRestartState((current) =>
-      current
-        ? {
-            ...current,
-            phase: "polling",
-            startedAt: now,
-            lastCheckedAt: now,
-          }
-        : current,
-    );
   };
 
   return (
@@ -2047,54 +1913,6 @@ function SettingsPageContent({
                               </p>
                             </div>
                           ))}
-                        </div>
-                      ) : null}
-
-                      {platformRestartState ? (
-                        <div
-                          className={cn(
-                            "flex flex-col gap-3 rounded-[18px] border px-4 py-3 text-sm md:flex-row md:items-center md:justify-between",
-                            platformRestartTimedOut
-                              ? "border-tone-warning/40 bg-tone-warning/10 text-muted-foreground"
-                              : "surface-subtle border-border/70 text-muted-foreground",
-                          )}
-                        >
-                          <div className="flex items-start gap-3">
-                            {platformRestartTimedOut ? (
-                              <AlertTriangle className="mt-0.5 size-4 shrink-0 text-tone-warning" />
-                            ) : (
-                              <LoaderCircle className="mt-0.5 size-4 shrink-0 animate-spin text-tone-warning" />
-                            )}
-                            <div className="space-y-1">
-                              <p className="font-medium text-foreground">
-                                {platformRestartTimedOut
-                                  ? "Waiting for the API to come back timed out"
-                                  : "API restart requested"}
-                              </p>
-                              <p>
-                                Requested at{" "}
-                                <span className="font-medium text-foreground">
-                                  {new Date(
-                                    platformRestartState.requestedAt,
-                                  ).toLocaleTimeString()}
-                                </span>
-                                .{" "}
-                                {platformRestartTimedOut
-                                  ? "If the supervisor restarted the API, retry the connection check."
-                                  : "Waiting for the current process to exit and a new instance to report healthy."}
-                              </p>
-                            </div>
-                          </div>
-                          {platformRestartTimedOut ? (
-                            <Button
-                              type="button"
-                              variant="outline"
-                              onClick={handleRetryPlatformReconnect}
-                            >
-                              <RefreshCcw className="action-icon-spin size-4" />
-                              Retry connection
-                            </Button>
-                          ) : null}
                         </div>
                       ) : null}
 

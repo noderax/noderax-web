@@ -82,19 +82,28 @@ async function forwardRequest(
       : await request.arrayBuffer();
 
   let response: Response | null = null;
+  let lastFetchError: Error | null = null;
 
   for (const upstreamUrl of upstreamUrls) {
     request.nextUrl.searchParams.forEach((value, key) => {
       upstreamUrl.searchParams.set(key, value);
     });
 
-    response = await fetch(upstreamUrl, {
-      method: request.method,
-      headers,
-      body: requestBody,
-      cache: "no-store",
-      redirect: "manual",
-    });
+    try {
+      response = await fetch(upstreamUrl, {
+        method: request.method,
+        headers,
+        body: requestBody,
+        cache: "no-store",
+        redirect: "manual",
+      });
+    } catch (error) {
+      lastFetchError =
+        error instanceof Error
+          ? error
+          : new Error("Unable to reach upstream API.");
+      continue;
+    }
 
     if (response.status !== 404) {
       break;
@@ -103,8 +112,11 @@ async function forwardRequest(
 
   if (!response) {
     return NextResponse.json(
-      { message: "Unable to reach upstream API." },
-      { status: 502 },
+      {
+        message:
+          lastFetchError?.message ?? "Unable to reach upstream API.",
+      },
+      { status: 503 },
     );
   }
 
