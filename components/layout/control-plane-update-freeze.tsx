@@ -14,12 +14,36 @@ import {
   subscribeToMaintenanceSnapshot,
 } from "@/lib/maintenance";
 
+const isStaleNoopApplySummary = (input: {
+  currentReleaseId: string | null;
+  preparedReleaseId: string | null;
+  updateAvailable: boolean;
+  operationStatus: string | null;
+  operationType: string | null;
+}) =>
+  Boolean(
+    input.operationType === "apply" &&
+      input.operationStatus &&
+      isControlPlaneMaintenanceStatus(input.operationStatus) &&
+      input.currentReleaseId &&
+      input.currentReleaseId === input.preparedReleaseId &&
+      input.updateAvailable === false,
+  );
+
 export const ControlPlaneUpdateFreeze = () => {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const { isPlatformAdmin } = useWorkspaceContext();
   const controlPlaneSummaryQuery = useControlPlaneUpdateSummary(isPlatformAdmin);
+  const controlPlaneSummary = controlPlaneSummaryQuery.data ?? null;
   const liveOperation = controlPlaneSummaryQuery.data?.operation ?? null;
+  const staleNoopApplySummary = isStaleNoopApplySummary({
+    currentReleaseId: controlPlaneSummary?.currentRelease?.releaseId ?? null,
+    preparedReleaseId: controlPlaneSummary?.preparedRelease?.releaseId ?? null,
+    updateAvailable: controlPlaneSummary?.updateAvailable ?? false,
+    operationStatus: liveOperation?.status ?? null,
+    operationType: liveOperation?.operation ?? null,
+  });
   const maintenanceSnapshot = useSyncExternalStore(
     subscribeToMaintenanceSnapshot,
     readMaintenanceSnapshotFromBrowser,
@@ -37,6 +61,11 @@ export const ControlPlaneUpdateFreeze = () => {
 
   useEffect(() => {
     if (!isPlatformAdmin || !liveOperation) {
+      return;
+    }
+
+    if (staleNoopApplySummary) {
+      clearMaintenanceSnapshot();
       return;
     }
 
@@ -68,6 +97,7 @@ export const ControlPlaneUpdateFreeze = () => {
     maintenanceSnapshot,
     pathname,
     searchParams,
+    staleNoopApplySummary,
   ]);
 
   useEffect(() => {
@@ -76,6 +106,11 @@ export const ControlPlaneUpdateFreeze = () => {
       controlPlaneSummaryQuery.isPending ||
       maintenanceSnapshot?.kind !== "control_plane_update"
     ) {
+      return;
+    }
+
+    if (staleNoopApplySummary) {
+      clearMaintenanceSnapshot();
       return;
     }
 
@@ -93,6 +128,7 @@ export const ControlPlaneUpdateFreeze = () => {
     isPlatformAdmin,
     liveOperation,
     maintenanceSnapshot,
+    staleNoopApplySummary,
   ]);
 
   return null;

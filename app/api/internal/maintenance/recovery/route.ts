@@ -27,6 +27,23 @@ const getJsonResponse = async <T,>(response: Response) => {
   return (await response.json()) as T;
 };
 
+const isStaleNoopApplySummary = (
+  summary: ControlPlaneUpdateSummary | null,
+) => {
+  const operation = summary?.operation ?? null;
+  const currentReleaseId = summary?.currentRelease?.releaseId ?? null;
+  const preparedReleaseId = summary?.preparedRelease?.releaseId ?? null;
+
+  return Boolean(
+    operation?.operation === "apply" &&
+      operation.status &&
+      isControlPlaneMaintenanceStatus(operation.status) &&
+      currentReleaseId &&
+      preparedReleaseId === currentReleaseId &&
+      summary?.updateAvailable === false,
+  );
+};
+
 export async function GET() {
   const cookieStore = await cookies();
   const snapshot = getMaintenanceSnapshotFromCookies(cookieStore);
@@ -136,6 +153,13 @@ export async function GET() {
             operation.error ??
             operation.message ??
             "The control-plane update reported a failed state.",
+        });
+      }
+
+      if (summary && isStaleNoopApplySummary(summary)) {
+        return NextResponse.json({
+          status: "ready" as const,
+          kind: snapshot.kind,
         });
       }
 
