@@ -27,20 +27,22 @@ const getJsonResponse = async <T,>(response: Response) => {
   return (await response.json()) as T;
 };
 
-const isStaleNoopApplySummary = (
+const isRecoveredControlPlaneApplySummary = (
   summary: ControlPlaneUpdateSummary | null,
 ) => {
   const operation = summary?.operation ?? null;
   const currentReleaseId = summary?.currentRelease?.releaseId ?? null;
   const preparedReleaseId = summary?.preparedRelease?.releaseId ?? null;
+  const latestReleaseId = summary?.latestRelease?.releaseId ?? null;
 
   return Boolean(
     operation?.operation === "apply" &&
       operation.status &&
       isControlPlaneMaintenanceStatus(operation.status) &&
       currentReleaseId &&
-      preparedReleaseId === currentReleaseId &&
-      summary?.updateAvailable === false,
+      summary?.updateAvailable === false &&
+      (preparedReleaseId === currentReleaseId ||
+        latestReleaseId === currentReleaseId)
   );
 };
 
@@ -156,7 +158,7 @@ export async function GET() {
         });
       }
 
-      if (summary && isStaleNoopApplySummary(summary)) {
+      if (summary && isRecoveredControlPlaneApplySummary(summary)) {
         return NextResponse.json({
           status: "ready" as const,
           kind: snapshot.kind,

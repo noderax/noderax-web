@@ -294,7 +294,12 @@ const ActiveMaintenanceOverlay = ({
     const remainingSeconds = Math.max(0, stageEstimateSeconds - elapsedSeconds);
     const progressValue =
       stageEstimateSeconds > 0
-        ? Math.min(96, Math.round((elapsedSeconds / stageEstimateSeconds) * 100))
+        ? elapsedSeconds >= stageEstimateSeconds
+          ? 99
+          : Math.min(
+              96,
+              Math.round((elapsedSeconds / stageEstimateSeconds) * 100),
+            )
         : 100;
 
     return {
@@ -306,7 +311,9 @@ const ActiveMaintenanceOverlay = ({
   }, [snapshot, tick]);
 
   const isFailed = probeStatus === "failed" || snapshot.status === "failed";
-  const showManualActions = isFailed || progressState.timedOut;
+  const isOverStageEstimate = progressState.remainingSeconds === 0;
+  const showManualActions =
+    isFailed || progressState.timedOut || isOverStageEstimate;
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-background/76 px-4 backdrop-blur-md">
@@ -338,7 +345,7 @@ const ActiveMaintenanceOverlay = ({
           >
             {isFailed
               ? "Needs operator review"
-              : progressState.timedOut
+              : progressState.timedOut || isOverStageEstimate
                 ? "Still recovering"
                 : "Waiting for backend health"}
           </div>
