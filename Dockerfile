@@ -31,15 +31,12 @@ RUN pnpm prune --prod
 FROM node:20-alpine AS runner
 
 ENV NODE_ENV=production
-ENV PNPM_HOME="/pnpm"
-ENV PATH="$PNPM_HOME:$PATH"
 ENV PORT=3000
 ENV HOSTNAME=0.0.0.0
 
 WORKDIR /app
 
 RUN apk add --no-cache libc6-compat \
-  && corepack enable \
   && addgroup -S nextjs \
   && adduser -S nextjs -G nextjs
 
@@ -54,4 +51,4 @@ USER nextjs
 
 EXPOSE 3000
 
-CMD ["pnpm", "start"]
+CMD ["node", "./scripts/run-next.mjs", "start"]
