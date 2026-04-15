@@ -67,21 +67,43 @@ export const useAppStore = create<AppState>()(
         realtimeCounters: initialRealtimeCounters,
         session: null,
         activeWorkspaceSlug: null,
-        setSidebarCollapsed: (sidebarCollapsed) => set({ sidebarCollapsed }),
+        setSidebarCollapsed: (sidebarCollapsed) =>
+          set((state) =>
+            state.sidebarCollapsed === sidebarCollapsed
+              ? state
+              : { sidebarCollapsed },
+          ),
         toggleSidebar: () =>
           set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed })),
-        setMobileSidebarOpen: (mobileSidebarOpen) => set({ mobileSidebarOpen }),
-        setSearchQuery: (searchQuery) => set({ searchQuery }),
+        setMobileSidebarOpen: (mobileSidebarOpen) =>
+          set((state) =>
+            state.mobileSidebarOpen === mobileSidebarOpen
+              ? state
+              : { mobileSidebarOpen },
+          ),
+        setSearchQuery: (searchQuery) =>
+          set((state) =>
+            state.searchQuery === searchQuery ? state : { searchQuery },
+          ),
         setEventSeverityFilter: (eventSeverityFilter) =>
-          set({ eventSeverityFilter }),
+          set((state) =>
+            state.eventSeverityFilter === eventSeverityFilter
+              ? state
+              : { eventSeverityFilter },
+          ),
         setRealtimeStatus: (realtimeStatus) =>
-          set((state) => ({
-            realtimeStatus,
-            realtimeHealth: {
-              ...state.realtimeHealth,
-              status: realtimeStatus,
-            },
-          })),
+          set((state) =>
+            state.realtimeStatus === realtimeStatus &&
+            state.realtimeHealth.status === realtimeStatus
+              ? state
+              : {
+                  realtimeStatus,
+                  realtimeHealth: {
+                    ...state.realtimeHealth,
+                    status: realtimeStatus,
+                  },
+                },
+          ),
         patchRealtimeHealth: (patch) =>
           set((state) => ({
             realtimeHealth: {
@@ -97,15 +119,24 @@ export const useAppStore = create<AppState>()(
             },
           })),
         setRealtimeCounter: (key, value) =>
-          set((state) => ({
-            realtimeCounters: {
-              ...state.realtimeCounters,
-              [key]: value,
-            },
-          })),
-        setSession: (session) => set({ session }),
+          set((state) =>
+            state.realtimeCounters[key] === value
+              ? state
+              : {
+                  realtimeCounters: {
+                    ...state.realtimeCounters,
+                    [key]: value,
+                  },
+                },
+          ),
+        setSession: (session) =>
+          set((state) => (state.session === session ? state : { session })),
         setActiveWorkspaceSlug: (activeWorkspaceSlug) =>
-          set({ activeWorkspaceSlug }),
+          set((state) =>
+            state.activeWorkspaceSlug === activeWorkspaceSlug
+              ? state
+              : { activeWorkspaceSlug },
+          ),
         clearSession: () =>
           set({
             session: null,

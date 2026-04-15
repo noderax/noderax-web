@@ -70,5 +70,30 @@ export const ControlPlaneUpdateFreeze = () => {
     searchParams,
   ]);
 
+  useEffect(() => {
+    if (
+      !isPlatformAdmin ||
+      controlPlaneSummaryQuery.isPending ||
+      maintenanceSnapshot?.kind !== "control_plane_update"
+    ) {
+      return;
+    }
+
+    if (
+      liveOperation &&
+      (isControlPlaneMaintenanceStatus(liveOperation.status) ||
+        liveOperation.status === "failed")
+    ) {
+      return;
+    }
+
+    clearMaintenanceSnapshot();
+  }, [
+    controlPlaneSummaryQuery.isPending,
+    isPlatformAdmin,
+    liveOperation,
+    maintenanceSnapshot,
+  ]);
+
   return null;
 };

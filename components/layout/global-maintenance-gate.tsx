@@ -135,6 +135,7 @@ export const GlobalMaintenanceGate = ({
 }: {
   initialSnapshot: MaintenanceSnapshot | null;
 }) => {
+  const seededInitialSnapshotRef = useRef(false);
   const maintenanceSnapshot = useSyncExternalStore(
     subscribeToMaintenanceSnapshot,
     readMaintenanceSnapshotFromBrowser,
@@ -153,10 +154,15 @@ export const GlobalMaintenanceGate = ({
   }, []);
 
   useEffect(() => {
-    if (!initialSnapshot || maintenanceSnapshot) {
+    if (
+      seededInitialSnapshotRef.current ||
+      !initialSnapshot ||
+      maintenanceSnapshot
+    ) {
       return;
     }
 
+    seededInitialSnapshotRef.current = true;
     persistMaintenanceSnapshot(initialSnapshot);
   }, [initialSnapshot, maintenanceSnapshot]);
 
