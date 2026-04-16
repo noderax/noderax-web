@@ -5,6 +5,8 @@ export const MAINTENANCE_SNAPSHOT_STORAGE_KEY =
   "noderax.maintenance-snapshot";
 export const MAINTENANCE_COMPLETION_STORAGE_KEY =
   "noderax.maintenance-completion";
+export const MAINTENANCE_SUPPRESSION_STORAGE_KEY =
+  "noderax.maintenance-suppression";
 export const MAINTENANCE_SNAPSHOT_EVENT = "noderax:maintenance-snapshot";
 export const MAINTENANCE_COOKIE_MAX_AGE_SECONDS = 60 * 30;
 const MAINTENANCE_MAX_AGE_MS: Record<MaintenanceKind, number> = {
@@ -38,6 +40,11 @@ export type MaintenanceCompletion = {
   title: string;
   description: string;
   completedAt: string;
+};
+
+type MaintenanceSuppression = {
+  fingerprint: string;
+  expiresAt: string;
 };
 
 let cachedBrowserSnapshotRaw: string | null = null;
@@ -203,6 +210,62 @@ const updateCachedBrowserSnapshot = (rawValue: string | null) => {
   return cachedBrowserSnapshot;
 };
 
+const getSnapshotFingerprint = (snapshot: MaintenanceSnapshot) =>
+  [
+    snapshot.kind,
+    snapshot.startedAt,
+    snapshot.requestedAt ?? "",
+    snapshot.resumePath,
+  ].join(":");
+
+const readMaintenanceSuppression = (): MaintenanceSuppression | null => {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  const rawValue = window.sessionStorage.getItem(
+    MAINTENANCE_SUPPRESSION_STORAGE_KEY,
+  );
+  if (!rawValue) {
+    return null;
+  }
+
+  const parsed = parseJson(rawValue);
+  if (!isRecord(parsed)) {
+    window.sessionStorage.removeItem(MAINTENANCE_SUPPRESSION_STORAGE_KEY);
+    return null;
+  }
+
+  const fingerprint = normalizeString(parsed.fingerprint);
+  const expiresAt = normalizeString(parsed.expiresAt);
+  if (!fingerprint || !expiresAt) {
+    window.sessionStorage.removeItem(MAINTENANCE_SUPPRESSION_STORAGE_KEY);
+    return null;
+  }
+
+  const expiresAtMs = Date.parse(expiresAt);
+  if (!Number.isFinite(expiresAtMs) || expiresAtMs <= Date.now()) {
+    window.sessionStorage.removeItem(MAINTENANCE_SUPPRESSION_STORAGE_KEY);
+    return null;
+  }
+
+  return {
+    fingerprint,
+    expiresAt,
+  };
+};
+
+export const isMaintenanceSnapshotSuppressed = (
+  snapshot: MaintenanceSnapshot,
+) => {
+  const suppression = readMaintenanceSuppression();
+  if (!suppression) {
+    return false;
+  }
+
+  return suppression.fingerprint === getSnapshotFingerprint(snapshot);
+};
+
 export const readMaintenanceSnapshotFromBrowser = () => {
   if (typeof window === "undefined") {
     return null;
@@ -214,6 +277,13 @@ export const readMaintenanceSnapshotFromBrowser = () => {
   }
 
   const snapshot = updateCachedBrowserSnapshot(rawValue);
+  if (snapshot && isMaintenanceSnapshotSuppressed(snapshot)) {
+    window.sessionStorage.removeItem(MAINTENANCE_SNAPSHOT_STORAGE_KEY);
+    clearCookie(MAINTENANCE_SNAPSHOT_COOKIE);
+    updateCachedBrowserSnapshot(null);
+    return null;
+  }
+
   if (!snapshot && rawValue) {
     window.sessionStorage.removeItem(MAINTENANCE_SNAPSHOT_STORAGE_KEY);
     clearCookie(MAINTENANCE_SNAPSHOT_COOKIE);
@@ -224,6 +294,10 @@ export const readMaintenanceSnapshotFromBrowser = () => {
 
 export const persistMaintenanceSnapshot = (snapshot: MaintenanceSnapshot) => {
   if (typeof window === "undefined") {
+    return;
+  }
+
+  if (isMaintenanceSnapshotSuppressed(snapshot)) {
     return;
   }
 
@@ -243,6 +317,23 @@ export const persistMaintenanceSnapshot = (snapshot: MaintenanceSnapshot) => {
   );
   updateCachedBrowserSnapshot(rawValue);
   emitSnapshotChange();
+};
+
+export const suppressMaintenanceSnapshot = (
+  snapshot: MaintenanceSnapshot,
+  durationMs = 2 * 60 * 1_000,
+) => {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  window.sessionStorage.setItem(
+    MAINTENANCE_SUPPRESSION_STORAGE_KEY,
+    JSON.stringify({
+      fingerprint: getSnapshotFingerprint(snapshot),
+      expiresAt: new Date(Date.now() + durationMs).toISOString(),
+    } satisfies MaintenanceSuppression),
+  );
 };
 
 export const clearMaintenanceSnapshot = () => {

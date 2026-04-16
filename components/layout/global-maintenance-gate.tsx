@@ -24,6 +24,7 @@ import {
 import {
   clearMaintenanceSnapshot,
   consumeMaintenanceCompletion,
+  suppressMaintenanceSnapshot,
   type MaintenanceKind,
   type MaintenanceRecoveryStatus,
   type MaintenanceSnapshot,
@@ -248,11 +249,13 @@ const ActiveMaintenanceOverlay = ({
         }
 
         if (payload.status === "inactive") {
+          suppressMaintenanceSnapshot(snapshot);
           clearMaintenanceSnapshot();
           return;
         }
 
         if (payload.status === "failed") {
+          suppressMaintenanceSnapshot(snapshot);
           toast.error(
             snapshot.kind === "control_plane_update"
               ? "Control-plane update failed"
@@ -270,6 +273,7 @@ const ActiveMaintenanceOverlay = ({
 
         if (payload.status === "ready" && !reloadScheduledRef.current) {
           reloadScheduledRef.current = true;
+          suppressMaintenanceSnapshot(snapshot);
           persistMaintenanceCompletion({
             kind: snapshot.kind,
             ...getCompletion(snapshot),

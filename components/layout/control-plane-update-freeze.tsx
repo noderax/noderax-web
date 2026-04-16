@@ -8,6 +8,7 @@ import { useWorkspaceContext } from "@/lib/hooks/use-workspace-context";
 import {
   buildControlPlaneMaintenanceSnapshot,
   clearMaintenanceSnapshot,
+  isMaintenanceSnapshotSuppressed,
   isControlPlaneMaintenanceStatus,
   persistMaintenanceSnapshot,
   readMaintenanceSnapshotFromBrowser,
@@ -70,11 +71,18 @@ export const ControlPlaneUpdateFreeze = () => {
     }
 
     const resumePath = `${pathname}${searchParams.size ? `?${searchParams.toString()}` : ""}`;
+    const nextSnapshot = buildControlPlaneMaintenanceSnapshot(
+      liveOperation,
+      resumePath,
+    );
 
     if (isControlPlaneMaintenanceStatus(liveOperation.status)) {
-      persistMaintenanceSnapshot(
-        buildControlPlaneMaintenanceSnapshot(liveOperation, resumePath),
-      );
+      if (isMaintenanceSnapshotSuppressed(nextSnapshot)) {
+        clearMaintenanceSnapshot();
+        return;
+      }
+
+      persistMaintenanceSnapshot(nextSnapshot);
       return;
     }
 
