@@ -252,6 +252,22 @@ const ActiveMaintenanceOverlay = ({
           return;
         }
 
+        if (payload.status === "failed") {
+          toast.error(
+            snapshot.kind === "control_plane_update"
+              ? "Control-plane update failed"
+              : "Maintenance operation failed",
+            {
+              description:
+                payload.message ??
+                snapshot.message ??
+                "The backend recovered, but the maintenance operation did not complete cleanly.",
+            },
+          );
+          clearMaintenanceSnapshot();
+          return;
+        }
+
         if (payload.status === "ready" && !reloadScheduledRef.current) {
           reloadScheduledRef.current = true;
           persistMaintenanceCompletion({
