@@ -1208,7 +1208,19 @@ export const UpdatesPageView = () => {
                   <Badge variant="outline" className="rounded-full px-3 py-1">
                     Installer-managed only
                   </Badge>
-                  {controlPlaneOperation ? (
+                  {controlPlaneHasActiveOperation ? (
+                    <Badge
+                      variant="outline"
+                      className={cn(
+                        "rounded-full px-3 py-1",
+                        getControlPlaneTone(controlPlaneOperation?.status ?? "available"),
+                      )}
+                    >
+                      {controlPlaneOperation?.operation === "apply"
+                        ? "Applying"
+                        : "Downloading"}
+                    </Badge>
+                  ) : controlPlanePreparedRelease ? (
                     <Badge
                       variant="outline"
                       className={cn(
