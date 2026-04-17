@@ -124,6 +124,9 @@ export async function GET() {
         summaryResponse,
       );
       const operation = summary?.operation ?? null;
+      const currentReleaseId = summary?.currentRelease?.releaseId ?? null;
+      const preparedReleaseId = summary?.preparedRelease?.releaseId ?? null;
+      const snapshotTargetReleaseId = snapshot.targetReleaseId ?? null;
 
       if (operation?.status === "failed") {
         return NextResponse.json({
@@ -134,6 +137,35 @@ export async function GET() {
             operation.message ??
             "The control-plane update reported a failed state.",
         });
+      }
+
+      if (snapshotTargetReleaseId) {
+        if (currentReleaseId === snapshotTargetReleaseId) {
+          return NextResponse.json({
+            status: "ready" as const,
+            kind: snapshot.kind,
+            message:
+              summary?.latestRelease?.releaseId &&
+              summary.latestRelease.releaseId !== snapshotTargetReleaseId
+                ? `Control-plane release ${snapshot.targetVersion ?? snapshotTargetReleaseId} is active. A newer official release is already available.`
+                : undefined,
+          });
+        }
+
+        const operationStillTargetsSnapshot =
+          operation?.targetReleaseId === snapshotTargetReleaseId;
+        const preparedStillTargetsSnapshot =
+          preparedReleaseId === snapshotTargetReleaseId;
+
+        if (!operationStillTargetsSnapshot && !preparedStillTargetsSnapshot) {
+          return NextResponse.json({
+            status: "failed" as const,
+            kind: snapshot.kind,
+            message: currentReleaseId
+              ? `The runtime recovered on control-plane release ${currentReleaseId}, but expected ${snapshot.targetVersion ?? snapshotTargetReleaseId} to become active.`
+              : `The runtime recovered, but control-plane release ${snapshot.targetVersion ?? snapshotTargetReleaseId} did not become active.`,
+          });
+        }
       }
     } catch {
       // Health already recovered; treat summary probe failure as non-blocking.

@@ -535,6 +535,8 @@ export interface ControlPlaneUpdateOperation {
   completedAt: string | null;
   requestedByEmailSnapshot: string | null;
   rollbackStatus: "not_needed" | "succeeded" | "failed" | null;
+  targetReleaseId: string | null;
+  targetVersion: string | null;
 }
 
 export interface ControlPlaneUpdateSummary {

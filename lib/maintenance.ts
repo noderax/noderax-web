@@ -31,6 +31,8 @@ export type MaintenanceSnapshot = {
   message?: string | null;
   resumePath: string;
   requestedAt?: string | null;
+  targetReleaseId?: string | null;
+  targetVersion?: string | null;
   previousBootId?: string | null;
   observedDowntime?: boolean;
 };
@@ -124,6 +126,8 @@ export const parseMaintenanceSnapshot = (
     resumePath,
     message: normalizeString(value.message),
     requestedAt: normalizeString(value.requestedAt),
+    targetReleaseId: normalizeString(value.targetReleaseId),
+    targetVersion: normalizeString(value.targetVersion),
     previousBootId: normalizeString(value.previousBootId),
     observedDowntime: value.observedDowntime === true,
   };
@@ -216,6 +220,7 @@ const getSnapshotFingerprint = (snapshot: MaintenanceSnapshot) =>
     snapshot.startedAt,
     snapshot.requestedAt ?? "",
     snapshot.resumePath,
+    snapshot.targetReleaseId ?? "",
   ].join(":");
 
 const readMaintenanceSuppression = (): MaintenanceSuppression | null => {
@@ -423,6 +428,8 @@ export const buildControlPlaneMaintenanceSnapshot = (
   requestedAt: operation.requestedAt,
   message: operation.error ?? operation.message,
   resumePath,
+  targetReleaseId: operation.targetReleaseId,
+  targetVersion: operation.targetVersion,
 });
 
 export const buildApiRestartMaintenanceSnapshot = (input: {
