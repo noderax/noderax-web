@@ -5,6 +5,7 @@ import { Clock3, Mail, Send, Settings2, BellRing } from "lucide-react";
 
 import { AppShell } from "@/components/layout/app-shell";
 import { EmptyState } from "@/components/empty-state";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,7 +15,18 @@ import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { useUpdateWorkspace } from "@/lib/hooks/use-noderax-data";
 import { useWorkspaceContext } from "@/lib/hooks/use-workspace-context";
-import type { WorkspaceDto, UpdateWorkspacePayload } from "@/lib/types";
+import { cn } from "@/lib/utils";
+import type {
+  EventSeverity,
+  WorkspaceDto,
+  UpdateWorkspacePayload,
+} from "@/lib/types";
+
+const NOTIFICATION_SEVERITY_OPTIONS = [
+  "info",
+  "warning",
+  "critical",
+] as EventSeverity[];
 
 export const WorkspaceSettingsPageView = () => {
   const { workspace, isWorkspaceAdmin } = useWorkspaceContext();
@@ -82,6 +94,28 @@ const WorkspaceSettingsEditor = ({
   const [automationTelegramChatId, setAutomationTelegramChatId] = useState(
     workspace.automationTelegramChatId ?? "",
   );
+  const [automationEmailLevels, setAutomationEmailLevels] = useState<
+    EventSeverity[]
+  >(workspace.automationEmailLevels ?? ["critical"]);
+  const [automationTelegramLevels, setAutomationTelegramLevels] = useState<
+    EventSeverity[]
+  >(workspace.automationTelegramLevels ?? ["critical"]);
+
+  const toggleEmailLevel = (level: EventSeverity) => {
+    setAutomationEmailLevels((current) =>
+      current.includes(level)
+        ? current.filter((value) => value !== level)
+        : [...current, level],
+    );
+  };
+
+  const toggleTelegramLevel = (level: EventSeverity) => {
+    setAutomationTelegramLevels((current) =>
+      current.includes(level)
+        ? current.filter((value) => value !== level)
+        : [...current, level],
+    );
+  };
 
   return (
     <>
@@ -149,8 +183,8 @@ const WorkspaceSettingsEditor = ({
             <div className="space-y-1">
               <p className="font-medium">Email Notifications</p>
               <p className="text-sm text-muted-foreground">
-                Send critical event alerts to all workspace administrators via
-                email.
+                Send operational event alerts to all workspace administrators
+                via email.
               </p>
             </div>
           </div>
@@ -163,6 +197,41 @@ const WorkspaceSettingsEditor = ({
               onCheckedChange={setAutomationEmailEnabled}
             />
           </div>
+          {automationEmailEnabled && (
+            <div className="animate-in fade-in slide-in-from-top-2 mt-4 space-y-3 rounded-xl border bg-background/50 p-4 duration-300">
+              <div className="space-y-1">
+                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  Severities to notify
+                </p>
+                <div className="flex flex-wrap gap-2 pt-1">
+                  {NOTIFICATION_SEVERITY_OPTIONS.map((level) => (
+                    <Badge
+                      key={level}
+                      variant={
+                        automationEmailLevels.includes(level)
+                          ? "default"
+                          : "outline"
+                      }
+                      className={cn(
+                        "cursor-pointer rounded-full px-3 py-1 capitalize transition-all select-none",
+                        automationEmailLevels.includes(level)
+                          ? "tone-brand border-transparent shadow-sm"
+                          : "hover:border-sidebar-border hover:bg-sidebar-accent",
+                      )}
+                      onClick={() => toggleEmailLevel(level)}
+                    >
+                      {level}
+                    </Badge>
+                  ))}
+                </div>
+                <p className="pt-1 text-[11px] text-muted-foreground">
+                  Many built-in operational alerts are recorded as warning or
+                  info. Leave only <b>critical</b> selected if you want a
+                  quieter channel.
+                </p>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Telegram Notifications */}
@@ -187,6 +256,36 @@ const WorkspaceSettingsEditor = ({
               onCheckedChange={setAutomationTelegramEnabled}
             />
           </div>
+          {automationTelegramEnabled && (
+            <div className="animate-in fade-in slide-in-from-top-2 mt-4 space-y-3 rounded-xl border bg-background/50 p-4 duration-300">
+              <div className="space-y-1">
+                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  Severities to notify
+                </p>
+                <div className="flex flex-wrap gap-2 pt-1">
+                  {NOTIFICATION_SEVERITY_OPTIONS.map((level) => (
+                    <Badge
+                      key={level}
+                      variant={
+                        automationTelegramLevels.includes(level)
+                          ? "default"
+                          : "outline"
+                      }
+                      className={cn(
+                        "cursor-pointer rounded-full px-3 py-1 capitalize transition-all select-none",
+                        automationTelegramLevels.includes(level)
+                          ? "tone-brand border-transparent shadow-sm"
+                          : "hover:border-sidebar-border hover:bg-sidebar-accent",
+                      )}
+                      onClick={() => toggleTelegramLevel(level)}
+                    >
+                      {level}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -234,6 +333,8 @@ const WorkspaceSettingsEditor = ({
               automationTelegramEnabled,
               automationTelegramBotToken: automationTelegramBotToken || undefined,
               automationTelegramChatId: automationTelegramChatId || undefined,
+              automationEmailLevels,
+              automationTelegramLevels,
             })
           }
         >
