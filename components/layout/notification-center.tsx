@@ -66,6 +66,16 @@ type NotificationCenterItem = {
 };
 
 const MAX_LIVE_ITEMS = 40;
+const NOTIFICATION_TABS: Array<{
+  value: NotificationCenterTab;
+  label: string;
+}> = [
+  { value: "all", label: "All" },
+  { value: "events", label: "Events" },
+  { value: "tasks", label: "Tasks" },
+  { value: "nodes", label: "Nodes" },
+  { value: "runtime", label: "Runtime" },
+];
 
 const readStorageValue = <T,>(key: string, fallback: T): T => {
   if (typeof window === "undefined") {
@@ -506,88 +516,146 @@ export const NotificationCenter = ({
         ) : null}
       </Button>
       <Sheet open={open} onOpenChange={handleOpenChange}>
-        <SheetContent className="w-full sm:max-w-[460px]">
-          <SheetHeader>
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <SheetTitle>Notifications</SheetTitle>
-                <SheetDescription>
-                  Realtime workspace activity and platform runtime alerts.
-                </SheetDescription>
-              </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  const next = Array.from(
-                    new Set([...readIds, ...historyItems.map((item) => item.id)]),
-                  ).slice(-400);
-                  setReadIds(next);
-                  writeStorageValue(storageKey, next);
-                }}
-              >
-                <CheckCheck className="size-4" />
-                Mark all read
-              </Button>
-            </div>
-          </SheetHeader>
-
-          <div className="mt-4 space-y-4">
-            <Tabs value={activeTab} onValueChange={(value) => onTabChange(value as NotificationCenterTab)}>
-              <TabsList className="grid w-full grid-cols-5">
-                <TabsTrigger value="all">All</TabsTrigger>
-                <TabsTrigger value="events">Events</TabsTrigger>
-                <TabsTrigger value="tasks">Tasks</TabsTrigger>
-                <TabsTrigger value="nodes">Nodes</TabsTrigger>
-                <TabsTrigger value="runtime">Runtime</TabsTrigger>
-              </TabsList>
-            </Tabs>
-
-            <div className="flex flex-wrap gap-2">
-              {(["all", "info", "warning", "critical"] as const).map((value) => (
+        <SheetContent className="w-full gap-0 p-0 sm:max-w-[460px] lg:max-w-[540px]">
+          <div className="sticky top-0 z-10 border-b border-border/70 bg-background/96 backdrop-blur-xl">
+            <SheetHeader className="gap-3 border-b border-border/60 pb-4">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <SheetTitle>Notifications</SheetTitle>
+                    {unreadCount > 0 ? (
+                      <Badge variant="secondary">{unreadCount} new</Badge>
+                    ) : null}
+                  </div>
+                  <SheetDescription className="mt-1 max-w-[28rem] text-balance">
+                    Realtime workspace activity, task updates, node state changes,
+                    and platform runtime alerts.
+                  </SheetDescription>
+                </div>
                 <Button
-                  key={value}
-                  type="button"
-                  variant={severityFilter === value ? "default" : "outline"}
+                  variant="ghost"
                   size="sm"
-                  onClick={() => setSeverityFilter(value)}
+                  className="shrink-0"
+                  onClick={() => {
+                    const next = Array.from(
+                      new Set([...readIds, ...historyItems.map((item) => item.id)]),
+                    ).slice(-400);
+                    setReadIds(next);
+                    writeStorageValue(storageKey, next);
+                  }}
                 >
-                  {value === "all"
-                    ? "All severities"
-                    : value.charAt(0).toUpperCase() + value.slice(1)}
+                  <CheckCheck className="size-4" />
+                  <span className="hidden sm:inline">Mark all read</span>
+                  <span className="sm:hidden">Read</span>
                 </Button>
-              ))}
-            </div>
+              </div>
 
+              <div className="grid grid-cols-3 gap-2">
+                <div className="rounded-2xl border border-border/70 bg-muted/30 px-3 py-2.5">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                    Unread
+                  </p>
+                  <p className="mt-1 text-lg font-semibold text-foreground">
+                    {unreadCount}
+                  </p>
+                </div>
+                <div className="rounded-2xl border border-border/70 bg-muted/30 px-3 py-2.5">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                    Feed
+                  </p>
+                  <p className="mt-1 text-lg font-semibold text-foreground">
+                    {historyItems.length}
+                  </p>
+                </div>
+                <div className="rounded-2xl border border-border/70 bg-muted/30 px-3 py-2.5">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                    Runtime
+                  </p>
+                  <p className="mt-1 text-lg font-semibold text-foreground">
+                    {runtimeItems.length}
+                  </p>
+                </div>
+              </div>
+            </SheetHeader>
+
+            <div className="space-y-3 px-4 py-4">
+              <Tabs
+                value={activeTab}
+                onValueChange={(value) =>
+                  onTabChange(value as NotificationCenterTab)
+                }
+              >
+                <ScrollArea className="w-full whitespace-nowrap">
+                  <TabsList className="inline-flex min-w-full sm:min-w-0">
+                    {NOTIFICATION_TABS.map((tab) => (
+                      <TabsTrigger
+                        key={tab.value}
+                        value={tab.value}
+                        className="min-w-[88px] flex-none"
+                      >
+                        {tab.label}
+                      </TabsTrigger>
+                    ))}
+                  </TabsList>
+                </ScrollArea>
+              </Tabs>
+
+              <ScrollArea className="w-full whitespace-nowrap">
+                <div className="flex w-max gap-2 pb-1">
+                  {(["all", "info", "warning", "critical"] as const).map((value) => (
+                    <Button
+                      key={value}
+                      type="button"
+                      variant={severityFilter === value ? "default" : "outline"}
+                      size="sm"
+                      className={cn(
+                        "rounded-full px-3.5",
+                        severityFilter === value &&
+                          "bg-[linear-gradient(135deg,oklch(0.68_0.2_32),oklch(0.61_0.23_18))] text-white hover:bg-[linear-gradient(135deg,oklch(0.66_0.2_32),oklch(0.59_0.23_18))]",
+                      )}
+                      onClick={() => setSeverityFilter(value)}
+                    >
+                      {value === "all"
+                        ? "All severities"
+                        : value.charAt(0).toUpperCase() + value.slice(1)}
+                    </Button>
+                  ))}
+                </div>
+              </ScrollArea>
+            </div>
+          </div>
+
+          <div className="px-4 pb-4 pt-3">
             {activeTab === "runtime" &&
             isPlatformAdmin &&
             outboxMeta &&
             outboxMeta.deadLetterCount > 0 ? (
-              <div className="rounded-2xl border border-tone-warning/30 bg-tone-warning/10 p-4">
+              <div className="mb-4 rounded-[24px] border border-tone-warning/30 bg-[linear-gradient(180deg,color-mix(in_oklch,var(--tone-warning)_8%,transparent),transparent)] p-4 shadow-sm">
                 <div className="flex items-start justify-between gap-3">
-                  <div>
+                  <div className="min-w-0">
                     <p className="text-sm font-semibold text-foreground">
                       Outbox remediation
                     </p>
-                    <p className="text-sm text-muted-foreground">
-                      Dead-letter notifications are blocking clean runtime health.
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      Dead-letter notifications are blocking clean runtime
+                      health.
                     </p>
                   </div>
-                  <Badge variant="outline">
+                  <Badge variant="outline" className="shrink-0">
                     {outboxMeta.deadLetterCount} dead letter
                   </Badge>
                 </div>
                 <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-muted-foreground">
-                  <div className="rounded-xl border bg-background/80 px-3 py-2">
+                  <div className="rounded-2xl border border-border/70 bg-background/80 px-3 py-2.5">
                     Backlog {outboxMeta.backlogCount}
                   </div>
-                  <div className="rounded-xl border bg-background/80 px-3 py-2">
+                  <div className="rounded-2xl border border-border/70 bg-background/80 px-3 py-2.5">
                     Due {outboxMeta.dueCount}
                   </div>
-                  <div className="rounded-xl border bg-background/80 px-3 py-2">
+                  <div className="rounded-2xl border border-border/70 bg-background/80 px-3 py-2.5">
                     Failed {outboxMeta.failedCount}
                   </div>
-                  <div className="rounded-xl border bg-background/80 px-3 py-2">
+                  <div className="rounded-2xl border border-border/70 bg-background/80 px-3 py-2.5">
                     Dead letter {outboxMeta.deadLetterCount}
                   </div>
                 </div>
@@ -602,7 +670,7 @@ export const NotificationCenter = ({
                           className={cn(
                             "w-full rounded-2xl border px-3 py-3 text-left transition",
                             selected
-                              ? "border-tone-warning bg-background"
+                              ? "border-tone-warning bg-background shadow-sm"
                               : "border-border/70 bg-background/80 hover:border-tone-warning/50",
                           )}
                           onClick={() =>
@@ -670,8 +738,8 @@ export const NotificationCenter = ({
               </div>
             ) : null}
 
-            <ScrollArea className="h-[calc(100vh-240px)] pr-3">
-              <div className="space-y-2">
+            <ScrollArea className="h-[calc(100vh-22rem)] min-h-[22rem] pr-2 sm:h-[calc(100vh-20rem)]">
+              <div className="space-y-3 pr-1">
                 {filteredItems.length ? (
                   filteredItems.map((item) => {
                     const unread = !readIds.includes(item.id);
@@ -680,8 +748,9 @@ export const NotificationCenter = ({
                         key={item.id}
                         type="button"
                         className={cn(
-                          "flex w-full items-start gap-3 rounded-2xl border px-3 py-3 text-left transition hover:border-border hover:bg-muted/40",
-                          unread && "border-tone-brand/30 bg-tone-brand/5",
+                          "group flex w-full items-start gap-3 rounded-[26px] border px-4 py-3.5 text-left transition hover:border-border hover:bg-muted/30",
+                          unread &&
+                            "border-tone-brand/25 bg-[linear-gradient(180deg,color-mix(in_oklch,var(--tone-brand)_8%,transparent),transparent)]",
                         )}
                         onClick={() => {
                           if (item.href) {
@@ -690,34 +759,45 @@ export const NotificationCenter = ({
                           }
                         }}
                       >
-                        <span className="mt-0.5 shrink-0">{item.icon}</span>
+                        <span className="mt-0.5 flex size-10 shrink-0 items-center justify-center rounded-2xl border border-border/70 bg-muted/40">
+                          {item.icon}
+                        </span>
                         <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-2">
-                            <p className="truncate text-sm font-medium">{item.title}</p>
-                            <Badge variant="outline" className="shrink-0">
-                              {item.badge}
-                            </Badge>
-                            {unread ? (
-                              <span className="size-2 shrink-0 rounded-full bg-tone-brand" />
-                            ) : null}
+                          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                            <div className="min-w-0">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <p className="max-w-full truncate text-[15px] font-semibold text-foreground">
+                                  {item.title}
+                                </p>
+                                <Badge
+                                  variant="outline"
+                                  className="max-w-full shrink-0"
+                                >
+                                  {item.badge}
+                                </Badge>
+                                {unread ? (
+                                  <span className="size-2 shrink-0 rounded-full bg-tone-brand" />
+                                ) : null}
+                              </div>
+                              <p className="mt-2 line-clamp-2 text-sm leading-6 text-muted-foreground">
+                                {item.message}
+                              </p>
+                            </div>
+                            <div className="shrink-0 text-xs text-muted-foreground sm:pt-0.5">
+                              <TimeDisplay value={item.timestamp} mode="relative" />
+                            </div>
                           </div>
-                          <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">
-                            {item.message}
-                          </p>
-                          <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
-                            <TimeDisplay value={item.timestamp} mode="relative" />
-                            {item.severity ? (
-                              <span className="uppercase tracking-[0.16em]">
-                                {item.severity}
-                              </span>
-                            ) : null}
+                          <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
+                            <span>{item.kind}</span>
+                            {item.severity ? <span>{item.severity}</span> : null}
+                            {item.href ? <span>Open</span> : <span>Info</span>}
                           </div>
                         </div>
                       </button>
                     );
                   })
                 ) : (
-                  <div className="rounded-2xl border border-dashed px-4 py-6 text-sm text-muted-foreground">
+                  <div className="rounded-[26px] border border-dashed px-4 py-8 text-sm text-muted-foreground">
                     No notifications matched the current filters.
                   </div>
                 )}
