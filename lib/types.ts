@@ -338,6 +338,27 @@ export interface ValidateSmtpResponse {
   success: true;
 }
 
+export interface RemediateOutboxDeadLetterPayload {
+  ids: string[];
+}
+
+export interface OutboxDeadLetterRecord {
+  id: string;
+  type: string;
+  attempts: number;
+  lastError: string | null;
+  updatedAt: string;
+}
+
+export interface OutboxDeadLetterListResponse {
+  items: OutboxDeadLetterRecord[];
+}
+
+export interface RemediateOutboxDeadLetterResponse {
+  success: true;
+  affected: number;
+}
+
 export interface SetupInstallPayload {
   postgres: ValidatePostgresSetupPayload;
   redis: ValidateRedisSetupPayload;
@@ -1182,6 +1203,21 @@ export interface DependencyHealthCheck {
   healthy: boolean;
   status: string;
   detail: string | null;
+  meta?: Record<string, unknown> | null;
+}
+
+export interface DependencyCheckAction {
+  id: string;
+  label: string;
+}
+
+export interface OutboxDependencyMeta {
+  backlogCount: number;
+  dueCount: number;
+  failedCount: number;
+  deadLetterCount: number;
+  deadLetters: OutboxDeadLetterRecord[];
+  actions: DependencyCheckAction[];
 }
 
 export interface DependencyHealthResponse {

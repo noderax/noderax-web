@@ -26,6 +26,8 @@ import {
 } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
+import { NotificationCenter } from "@/components/layout/notification-center";
+import { RuntimeAlertStrip } from "@/components/layout/runtime-alert-strip";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
 import { AnimatedGradientTextButton } from "@/components/ui/animated-gradient-text-button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -186,6 +188,9 @@ const TopbarContent = () => {
   );
   const isPlatformAdmin = session?.user.role === "platform_admin";
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [notificationCenterOpen, setNotificationCenterOpen] = useState(false);
+  const [notificationCenterTab, setNotificationCenterTab] =
+    useState<"all" | "events" | "tasks" | "nodes" | "runtime">("all");
   const realtimeStatus = useAppStore((state) => state.realtimeStatus);
   const searchQuery = useAppStore((state) => state.searchQuery);
   const setSearchQuery = useAppStore((state) => state.setSearchQuery);
@@ -283,11 +288,6 @@ const TopbarContent = () => {
       .slice(0, 2)
       .join("")
       .toUpperCase() ?? "NR";
-  const degradedDependencyLabels = Object.entries(
-    platformReadinessQuery.data?.checks ?? {},
-  )
-    .filter(([, check]) => !check.healthy)
-    .map(([key]) => key);
   const controlPlaneOperation = controlPlaneSummaryQuery.data?.operation ?? null;
   const controlPlanePrepared =
     controlPlaneSummaryQuery.data?.preparedRelease ?? null;
@@ -618,6 +618,18 @@ const TopbarContent = () => {
               />
             )
           ) : null}
+          <NotificationCenter
+            key={`${session?.user.id ?? "anonymous"}:${workspaceId ?? "global"}`}
+            open={notificationCenterOpen}
+            onOpenChange={setNotificationCenterOpen}
+            activeTab={notificationCenterTab}
+            onTabChange={setNotificationCenterTab}
+            workspaceId={workspaceId ?? null}
+            workspaceSlug={workspaceSlug ?? null}
+            sessionUserId={session?.user.id ?? null}
+            isPlatformAdmin={isPlatformAdmin}
+            readiness={platformReadinessQuery.data}
+          />
           <DropdownMenu>
             <DropdownMenuTrigger
               id="account-menu-trigger"
@@ -681,23 +693,16 @@ const TopbarContent = () => {
           </DropdownMenu>
         </div>
       </div>
-      {isPlatformAdmin &&
-      platformReadinessQuery.data &&
-      !platformReadinessQuery.data.ready ? (
-        <div className="border-t border-tone-warning/30 bg-tone-warning/10">
-          <div className="mx-auto flex w-full max-w-[1600px] items-center gap-2 px-4 py-2 text-sm text-muted-foreground sm:px-6 lg:px-8">
-            <AlertTriangle className="size-4 shrink-0 text-tone-warning" />
-            <span className="font-medium text-foreground">
-              Runtime degraded
-            </span>
-            <span>
-              {degradedDependencyLabels.length
-                ? `Checks failing: ${degradedDependencyLabels.join(", ")}.`
-                : "One or more dependency checks are currently unhealthy."}
-            </span>
-          </div>
-        </div>
-      ) : null}
+      <RuntimeAlertStrip
+        key={session?.user.id ?? "anonymous"}
+        readiness={platformReadinessQuery.data}
+        isPlatformAdmin={isPlatformAdmin}
+        sessionUserId={session?.user.id ?? null}
+        onReview={() => {
+          setNotificationCenterTab("runtime");
+          setNotificationCenterOpen(true);
+        }}
+      />
     </header>
   );
 };

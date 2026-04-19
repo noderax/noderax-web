@@ -107,6 +107,9 @@ import type {
   ResendUserInviteResponse,
   ResetPasswordPayload,
   ReadinessResponse,
+  OutboxDeadLetterListResponse,
+  RemediateOutboxDeadLetterPayload,
+  RemediateOutboxDeadLetterResponse,
   CreateLogPreviewPayload,
   RegenerateMfaRecoveryCodesPayload,
   ValidatePostgresSetupPayload,
@@ -959,6 +962,27 @@ export const apiClient = {
     return request<DependencyHealthResponse>("/api/proxy/health/dependencies", {
       signal,
     });
+  },
+  getOutboxDeadLetters() {
+    return request<OutboxDeadLetterListResponse>("/api/proxy/outbox/dead-letter");
+  },
+  requeueOutboxDeadLetters(payload: RemediateOutboxDeadLetterPayload) {
+    return request<RemediateOutboxDeadLetterResponse>(
+      "/api/proxy/outbox/dead-letter/requeue",
+      {
+        method: "POST",
+        body: JSON.stringify(payload),
+      },
+    );
+  },
+  deleteOutboxDeadLetters(payload: RemediateOutboxDeadLetterPayload) {
+    return request<RemediateOutboxDeadLetterResponse>(
+      "/api/proxy/outbox/dead-letter/delete",
+      {
+        method: "POST",
+        body: JSON.stringify(payload),
+      },
+    );
   },
   updateCurrentUserPreferences(payload: UpdateUserPreferencesPayload) {
     return request<UserDto>("/api/proxy/users/me/preferences", {
