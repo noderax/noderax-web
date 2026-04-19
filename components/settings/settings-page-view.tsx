@@ -608,9 +608,9 @@ function SettingsPageContent({
       await validatePlatformSmtp.mutateAsync(platformDraft.mail);
       setPlatformMailTestStatus({
         tone: "success",
-        message: `SMTP connectivity verified for ${platformDraft.mail.smtpHost}:${platformDraft.mail.smtpPort}.`,
+        message: `SMTP delivery verified for ${platformDraft.mail.smtpHost}:${platformDraft.mail.smtpPort}.`,
       });
-      toast.success("SMTP connection verified.");
+      toast.success("SMTP delivery verified.");
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "SMTP validation failed.";
@@ -2285,10 +2285,11 @@ function SettingsPageContent({
                               </div>
                               <div className="flex items-center justify-between gap-3 rounded-[16px] border bg-background/70 px-4 py-3">
                                 <div className="min-w-0">
-                                  <p className="font-medium">Connection test</p>
+                                  <p className="font-medium">Delivery test</p>
                                   <p className="text-sm text-muted-foreground">
-                                    Uses the current draft values without saving
-                                    them first.
+                                    Sends a lightweight validation email using
+                                    the current draft values without saving them
+                                    first.
                                   </p>
                                   {platformMailTestStatus ? (
                                     <p

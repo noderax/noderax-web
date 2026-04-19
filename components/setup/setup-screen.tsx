@@ -488,7 +488,7 @@ export const SetupScreen = () => {
         tone: "success",
         message: `SMTP connectivity verified for ${payload.mail.smtpHost}:${payload.mail.smtpPort}.`,
       });
-      toast.success("SMTP connection verified.");
+      toast.success("SMTP delivery verified.");
     } catch (error) {
       const message =
         error instanceof ApiError ? error.message : "SMTP validation failed.";
@@ -978,7 +978,7 @@ export const SetupScreen = () => {
                   </div>
                   <div className="lg:col-span-2 flex items-center justify-between gap-3 rounded-2xl border bg-background/70 px-4 py-3">
                     <div className="min-w-0">
-                      <p className="font-medium">Connection test</p>
+                      <p className="font-medium">Delivery test</p>
                       <p className="text-sm text-muted-foreground">
                         Verify database access and confirm the database is empty
                         before continuing.
@@ -1078,7 +1078,7 @@ export const SetupScreen = () => {
                   />
                   <div className="lg:col-span-2 flex items-center justify-between gap-3 rounded-2xl border bg-background/70 px-4 py-3">
                     <div>
-                      <p className="font-medium">Connection test</p>
+                      <p className="font-medium">Delivery test</p>
                       <p className="text-sm text-muted-foreground">
                         Redis access is required for eventing and caching.
                       </p>
@@ -1318,7 +1318,7 @@ export const SetupScreen = () => {
                   </div>
                   <div className="lg:col-span-2 flex items-center justify-between gap-3 rounded-2xl border bg-background/70 px-4 py-3">
                     <div className="min-w-0">
-                      <p className="font-medium">Connection test</p>
+                      <p className="font-medium">Delivery test</p>
                       <p className="text-sm text-muted-foreground">
                         Optional. Verify SMTP connectivity without blocking
                         installation.
