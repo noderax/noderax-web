@@ -639,10 +639,32 @@ function SettingsPageContent({
 
     try {
       const response = await restartPlatformApi.mutateAsync();
-      const resumePath = `${pathname}${searchParams.size ? `?${searchParams.toString()}` : ""}`;
 
       setPlatformRestartDialogOpen(false);
       setPlatformMailTestStatus(null);
+      if (response.scope === "cluster") {
+        toast.message("Runtime API restart requested", {
+          description:
+            "Both API instances are being recreated by the host supervisor. Refresh this page if the new settings do not appear within a few seconds.",
+        });
+        await Promise.all([
+          queryClient.invalidateQueries({
+            queryKey: ["platform-settings"],
+            refetchType: "active",
+          }),
+          queryClient.invalidateQueries({
+            queryKey: ["platform", "health", "ready", isPlatformAdmin],
+            refetchType: "active",
+          }),
+          queryClient.invalidateQueries({
+            queryKey: ["platform", "health", "dependencies", isPlatformAdmin],
+            refetchType: "active",
+          }),
+        ]);
+        return;
+      }
+
+      const resumePath = `${pathname}${searchParams.size ? `?${searchParams.toString()}` : ""}`;
       persistMaintenanceSnapshot(
         buildApiRestartMaintenanceSnapshot({
           previousBootId,

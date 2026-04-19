@@ -1165,6 +1165,7 @@ export type UpdatePlatformSettingsPayload = PlatformSettingsValues;
 
 export interface PlatformApiRestartResponse {
   accepted: true;
+  scope: "process" | "cluster";
   requestedAt: string;
   message: string;
 }
