@@ -4,18 +4,22 @@ import { useEffect, useEffectEvent, useRef } from "react";
 import { type Query, type QueryClient, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
-import { mapEventRecord, mapMetricDtoToPoint } from "@/lib/noderax";
+import { mapEventRecord, mapMetricDtoToPoint, mapTaskSummary } from "@/lib/noderax";
 import { getRealtimeClient, type RealtimeMessage } from "@/lib/websocket";
 import type {
   DashboardOverview,
   EventRecord,
   MetricDto,
+  NodeDto,
   NodeInstallDto,
   NodeDetail,
   RootAccessProfile,
   RootAccessSyncStatus,
   NodeSummary,
+  TaskDto,
+  TaskFilters,
   TaskDetail,
+  TaskSummary,
 } from "@/lib/types";
 import { queryKeys } from "@/lib/hooks/use-noderax-data";
 import { useWorkspaceContext } from "@/lib/hooks/use-workspace-context";
@@ -134,6 +138,9 @@ const isNodeDetailQuery = (query: Query) =>
 const isTaskDetailQuery = (query: Query) =>
   query.queryKey[0] === "tasks" && query.queryKey[2] === "detail";
 
+const isTaskListQuery = (query: Query) =>
+  query.queryKey[0] === "tasks" && query.queryKey[2] === "list";
+
 const isDashboardOverviewQuery = (query: Query) =>
   query.queryKey[0] === "dashboard" && query.queryKey[1] === "overview";
 
@@ -142,6 +149,80 @@ const isTrackedNodeSourceQuery = (query: Query) =>
   isNodeDetailQuery(query) ||
   isTaskDetailQuery(query) ||
   isDashboardOverviewQuery(query);
+
+const readTaskListFilters = (query: Query): TaskFilters | null => {
+  if (!isTaskListQuery(query)) {
+    return null;
+  }
+
+  const filters = query.queryKey[3];
+  if (!filters || typeof filters !== "object" || Array.isArray(filters)) {
+    return {};
+  }
+
+  return filters as TaskFilters;
+};
+
+const matchesTaskFilters = (task: TaskDto, filters: TaskFilters | null) => {
+  if (!filters) {
+    return true;
+  }
+
+  if (filters.status && task.status !== filters.status) {
+    return false;
+  }
+
+  if (filters.nodeId && task.nodeId !== filters.nodeId) {
+    return false;
+  }
+
+  if (filters.teamId && (task.targetTeamId ?? null) !== filters.teamId) {
+    return false;
+  }
+
+  return true;
+};
+
+const buildTrackedNodeLookup = (
+  queryClient: QueryClient,
+): Map<string, NodeDto | NodeSummary> => {
+  const lookup = new Map<string, NodeDto | NodeSummary>();
+
+  queryClient
+    .getQueriesData<NodeSummary[]>({
+      predicate: (query) => query.isActive() && isNodeListQuery(query),
+    })
+    .forEach(([, nodes]) => {
+      nodes?.forEach((node) => {
+        if (!lookup.has(node.id)) {
+          lookup.set(node.id, node);
+        }
+      });
+    });
+
+  queryClient
+    .getQueriesData<NodeDetail>({
+      predicate: (query) => query.isActive() && isNodeDetailQuery(query),
+    })
+    .forEach(([, node]) => {
+      if (node && !lookup.has(node.id)) {
+        lookup.set(node.id, node);
+      }
+    });
+
+  return lookup;
+};
+
+const upsertTaskSummary = (
+  current: TaskSummary[] | undefined,
+  value: TaskSummary,
+  limit?: number,
+) => {
+  const next = [value, ...(current ?? []).filter((task) => task.id !== value.id)]
+    .sort((left, right) => right.createdAt.localeCompare(left.createdAt));
+
+  return typeof limit === "number" ? next.slice(0, limit) : next;
+};
 
 const collectTrackedNodeIds = (queryClient: QueryClient) => {
   const trackedNodeIds = new Set<string>();
@@ -748,6 +829,35 @@ export const useRealtimeBridge = () => {
     if (message.type === "task.updated" || message.type === "task.created") {
       if (!shouldAcceptMessage(`task:${message.data.id}`, message)) {
         return;
+      }
+
+      if (message.type === "task.created") {
+        const nodeLookup = buildTrackedNodeLookup(queryClient);
+        const taskSummary = mapTaskSummary(
+          message.data as TaskDto,
+          nodeLookup,
+        );
+        const taskListQueries = queryClient
+          .getQueryCache()
+          .findAll({ predicate: isTaskListQuery });
+
+        taskListQueries.forEach((query) => {
+          const filters = readTaskListFilters(query);
+          if (!matchesTaskFilters(message.data as TaskDto, filters)) {
+            return;
+          }
+
+          const limit = typeof filters?.limit === "number" ? filters.limit : undefined;
+          const offset = typeof filters?.offset === "number" ? filters.offset : 0;
+          if (offset > 0) {
+            return;
+          }
+
+          queryClient.setQueryData<TaskSummary[] | undefined>(
+            query.queryKey,
+            (current) => upsertTaskSummary(current, taskSummary, limit),
+          );
+        });
       }
 
       queryClient.invalidateQueries({
