@@ -27,6 +27,13 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Sheet,
   SheetContent,
   SheetDescription,
@@ -585,7 +592,26 @@ export const NotificationCenter = ({
                   onTabChange(value as NotificationCenterTab)
                 }
               >
-                <div className="overflow-x-auto overscroll-x-contain pb-1 [-webkit-overflow-scrolling:touch] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                <div className="sm:hidden">
+                  <Select
+                    value={activeTab}
+                    onValueChange={(value) =>
+                      onTabChange(value as NotificationCenterTab)
+                    }
+                  >
+                    <SelectTrigger className="h-11 rounded-2xl">
+                      <SelectValue placeholder="Choose a feed" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {NOTIFICATION_TABS.map((tab) => (
+                        <SelectItem key={tab.value} value={tab.value}>
+                          {tab.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="hidden overflow-x-auto overscroll-x-contain pb-1 [-webkit-overflow-scrolling:touch] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:block">
                   <TabsList className="inline-flex w-max min-w-full sm:min-w-0">
                     {NOTIFICATION_TABS.map((tab) => (
                       <TabsTrigger
@@ -600,7 +626,30 @@ export const NotificationCenter = ({
                 </div>
               </Tabs>
 
-              <div className="overflow-x-auto overscroll-x-contain pb-1 [-webkit-overflow-scrolling:touch] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              <div className="sm:hidden">
+                <Select
+                  value={severityFilter}
+                  onValueChange={(value) =>
+                    setSeverityFilter(value as NotificationSeverityFilter)
+                  }
+                >
+                  <SelectTrigger className="h-11 rounded-2xl">
+                    <SelectValue placeholder="Choose severity" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(["all", "info", "warning", "critical"] as const).map(
+                      (value) => (
+                        <SelectItem key={value} value={value}>
+                          {value === "all"
+                            ? "All severities"
+                            : value.charAt(0).toUpperCase() + value.slice(1)}
+                        </SelectItem>
+                      ),
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="hidden overflow-x-auto overscroll-x-contain pb-1 [-webkit-overflow-scrolling:touch] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:block">
                 <div className="flex w-max gap-2">
                   {(["all", "info", "warning", "critical"] as const).map((value) => (
                     <Button

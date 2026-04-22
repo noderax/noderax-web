@@ -271,6 +271,7 @@ const MetricGauge = ({
   endColor,
   needleColor,
   ariaLabel,
+  themeKey,
 }: {
   value: number | null;
   max: number;
@@ -280,6 +281,7 @@ const MetricGauge = ({
   endColor: string;
   needleColor: string;
   ariaLabel: string;
+  themeKey: string;
 }) => {
   const hasValue = value !== null && Number.isFinite(value);
   const gaugeValue = clampMetric(value, max);
@@ -287,6 +289,7 @@ const MetricGauge = ({
   return (
     <div className="mx-auto flex w-full items-center justify-center bg-transparent">
       <ReactSpeedometer
+        key={`${ariaLabel}:${themeKey}`}
         minValue={0}
         maxValue={max}
         value={gaugeValue}
@@ -327,7 +330,7 @@ type NodeNotificationDraft = {
 
 export const NodeDetailView = ({ id }: { id: string }) => {
   const router = useRouter();
-  const { resolvedTheme } = useTheme();
+  const { resolvedTheme, theme } = useTheme();
   const { buildWorkspaceHref, isWorkspaceAdmin, workspace } =
     useWorkspaceContext();
   const [operationDraft, setOperationDraft] = useState<NodeOperationDraft>({
@@ -561,7 +564,9 @@ export const NodeDetailView = ({ id }: { id: string }) => {
       },
     },
   ];
-  const gaugeNeedleColor = resolvedTheme === "light" ? "#0f172a" : "#f8fafc";
+  const gaugeThemeKey = resolvedTheme ?? theme ?? "system";
+  const gaugeNeedleColor =
+    gaugeThemeKey === "light" ? "#0f172a" : "#f8fafc";
 
   return (
     <AppShell>
@@ -703,7 +708,11 @@ export const NodeDetailView = ({ id }: { id: string }) => {
               {metric.value}
             </p>
             <div className="mt-2">
-              <MetricGauge {...metric.gauge} needleColor={gaugeNeedleColor} />
+              <MetricGauge
+                {...metric.gauge}
+                needleColor={gaugeNeedleColor}
+                themeKey={gaugeThemeKey}
+              />
             </div>
             <p className="mt-1 text-center text-xs leading-5 text-muted-foreground">
               {metric.description}
