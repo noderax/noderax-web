@@ -59,6 +59,7 @@ const DEFAULT_COLS = 120;
 const DEFAULT_ROWS = 34;
 const HISTORY_PAGE_SIZE = 200;
 const TERMINAL_DETACH_GRACE_SECONDS = 300;
+const TERMINAL_RESIZE_DEBOUNCE_MS = 120;
 
 const LIVE_SESSION_STATUSES = new Set<TerminalSessionStatus>([
   "pending",
@@ -189,6 +190,12 @@ export const NodeTerminalView = ({ id }: { id: string }) => {
   const renderedChunkSeqRef = useRef(0);
   const hydratingConsoleRef = useRef(false);
   const pendingLiveChunksRef = useRef<TerminalTranscriptChunk[]>([]);
+  const resizeDebounceTimerRef = useRef<number | null>(null);
+  const lastSentResizeRef = useRef<{
+    sessionId: string;
+    cols: number;
+    rows: number;
+  } | null>(null);
 
   const sessions = useMemo(
     () => {
@@ -249,9 +256,13 @@ export const NodeTerminalView = ({ id }: { id: string }) => {
   const selectedSessionDetailQuery = useTerminalSession(selectedSessionKey ?? "", {
     enabled: Boolean(selectedSession && isLiveSession(selectedSession.status)),
     refetchIntervalMs: selectedSession
-      ? selectedSession.status === "terminating"
+      ? selectedSession.status === "pending" ||
+        selectedSession.status === "terminating"
         ? 3_000
-        : 10_000
+        : terminalStatus === "disconnected" ||
+            terminalStatus === "reconnecting"
+          ? 15_000
+          : false
       : false,
   });
 
@@ -291,9 +302,11 @@ export const NodeTerminalView = ({ id }: { id: string }) => {
       offset: historyPage * HISTORY_PAGE_SIZE,
       refetchIntervalMs:
         selectedSession && isLiveSession(selectedSession.status)
-          ? selectedSession.status === "terminating"
-            ? 3_000
-            : 5_000
+          ? selectedSession.status === "terminating" ||
+              terminalStatus === "disconnected" ||
+              terminalStatus === "reconnecting"
+            ? 4_000
+            : false
           : false,
     },
     canReadSelectedTranscript,
@@ -594,31 +607,57 @@ export const NodeTerminalView = ({ id }: { id: string }) => {
     }
 
     fitAddonRef.current.fit();
-    const dimensions = terminalRef.current.cols && terminalRef.current.rows
-      ? {
-          cols: terminalRef.current.cols,
-          rows: terminalRef.current.rows,
-        }
-      : {
-          cols: DEFAULT_COLS,
-          rows: DEFAULT_ROWS,
-        };
-
-    const sessionId = activeSessionIdRef.current;
-    const client = terminalClientRef.current;
-
-    if (
-      !sessionId ||
-      !client ||
-      selectedSessionStatus !== "open" ||
-      sessionId !== selectedSessionKey
-    ) {
-      return;
+    if (resizeDebounceTimerRef.current !== null) {
+      window.clearTimeout(resizeDebounceTimerRef.current);
     }
 
-    void client.resize(sessionId, dimensions.cols, dimensions.rows).catch(() => {
-      // Resize failures are non-fatal and are surfaced by the server error event.
-    });
+    resizeDebounceTimerRef.current = window.setTimeout(() => {
+      resizeDebounceTimerRef.current = null;
+
+      const terminal = terminalRef.current;
+      const sessionId = activeSessionIdRef.current;
+      const client = terminalClientRef.current;
+
+      if (
+        !terminal ||
+        !sessionId ||
+        !client ||
+        selectedSessionStatus !== "open" ||
+        sessionId !== selectedSessionKey
+      ) {
+        return;
+      }
+
+      const dimensions = terminal.cols && terminal.rows
+        ? {
+            cols: terminal.cols,
+            rows: terminal.rows,
+          }
+        : {
+            cols: DEFAULT_COLS,
+            rows: DEFAULT_ROWS,
+          };
+
+      const lastSent = lastSentResizeRef.current;
+      if (
+        lastSent &&
+        lastSent.sessionId === sessionId &&
+        lastSent.cols === dimensions.cols &&
+        lastSent.rows === dimensions.rows
+      ) {
+        return;
+      }
+
+      lastSentResizeRef.current = {
+        sessionId,
+        cols: dimensions.cols,
+        rows: dimensions.rows,
+      };
+
+      void client.resize(sessionId, dimensions.cols, dimensions.rows).catch(() => {
+        // Resize failures are non-fatal and are surfaced by the server error event.
+      });
+    }, TERMINAL_RESIZE_DEBOUNCE_MS);
   });
 
   useEffect(() => {
@@ -660,6 +699,11 @@ export const NodeTerminalView = ({ id }: { id: string }) => {
       renderedChunkSeqRef.current = 0;
       hydratingConsoleRef.current = false;
       pendingLiveChunksRef.current = [];
+      lastSentResizeRef.current = null;
+      if (resizeDebounceTimerRef.current !== null) {
+        window.clearTimeout(resizeDebounceTimerRef.current);
+        resizeDebounceTimerRef.current = null;
+      }
       terminalStatusRef.current = "idle";
       setTerminalStatus("idle");
       terminalClientRef.current?.disconnect();
@@ -679,6 +723,7 @@ export const NodeTerminalView = ({ id }: { id: string }) => {
       renderedChunkSeqRef.current = 0;
       hydratingConsoleRef.current = true;
       pendingLiveChunksRef.current = [];
+      lastSentResizeRef.current = null;
     }
 
     activeSessionIdRef.current = selectedSessionKey;
@@ -748,6 +793,10 @@ export const NodeTerminalView = ({ id }: { id: string }) => {
       unsubscribeClosed();
       unsubscribeError();
       disposed = true;
+      if (resizeDebounceTimerRef.current !== null) {
+        window.clearTimeout(resizeDebounceTimerRef.current);
+        resizeDebounceTimerRef.current = null;
+      }
       client.disconnect();
 
       if (terminalClientRef.current === client) {
@@ -770,6 +819,11 @@ export const NodeTerminalView = ({ id }: { id: string }) => {
       renderedChunkSeqRef.current = 0;
       hydratingConsoleRef.current = false;
       pendingLiveChunksRef.current = [];
+      lastSentResizeRef.current = null;
+      if (resizeDebounceTimerRef.current !== null) {
+        window.clearTimeout(resizeDebounceTimerRef.current);
+        resizeDebounceTimerRef.current = null;
+      }
     };
   }, []);
 

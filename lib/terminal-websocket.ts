@@ -10,9 +10,9 @@ import type {
 } from "@/lib/types";
 
 const TERMINAL_NAMESPACE = "/terminal";
-const TERMINAL_INPUT_FLUSH_DELAY_MS = 24;
+const TERMINAL_INPUT_FLUSH_DELAY_MS = 8;
 const TERMINAL_INPUT_RETRY_DELAY_MS = 200;
-const TERMINAL_INPUT_RATE_LIMIT_RETRY_DELAY_MS = 400;
+const TERMINAL_INPUT_RATE_LIMIT_RETRY_DELAY_MS = 5_000;
 const TERMINAL_INPUT_MAX_CHUNK_BYTES = 24_000;
 const TERMINAL_INITIAL_CONNECT_TIMEOUT_MS = 15_000;
 const API_PREFIX_PATTERN = /^\/(?:api\/)?v\d+(?:\/.*)?$/i;
@@ -272,7 +272,10 @@ export class NoderaxTerminalClient {
     }
 
     this.queuedInputBuffer += value;
-    this.scheduleInputFlush();
+    const shouldFlushImmediately =
+      value.length >= 32 || /[\r\n\u0003\u0004]/.test(value);
+
+    this.scheduleInputFlush(shouldFlushImmediately ? 0 : undefined);
   }
 
   async resize(sessionId: string, cols: number, rows: number) {
