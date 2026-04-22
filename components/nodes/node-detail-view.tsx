@@ -3,6 +3,7 @@
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
+import { useTheme } from "next-themes";
 import { useState } from "react";
 import {
   AlertTriangle,
@@ -268,6 +269,7 @@ const MetricGauge = ({
   suffix = "%",
   startColor,
   endColor,
+  needleColor,
   ariaLabel,
 }: {
   value: number | null;
@@ -276,6 +278,7 @@ const MetricGauge = ({
   suffix?: string;
   startColor: string;
   endColor: string;
+  needleColor: string;
   ariaLabel: string;
 }) => {
   const hasValue = value !== null && Number.isFinite(value);
@@ -293,7 +296,7 @@ const MetricGauge = ({
         needleTransitionDuration={280}
         startColor={startColor}
         endColor={endColor}
-        needleColor="#f8fafc"
+        needleColor={needleColor}
         textColor="var(--foreground)"
         valueTextFontSize="11px"
         labelFontSize="9px"
@@ -324,6 +327,7 @@ type NodeNotificationDraft = {
 
 export const NodeDetailView = ({ id }: { id: string }) => {
   const router = useRouter();
+  const { resolvedTheme } = useTheme();
   const { buildWorkspaceHref, isWorkspaceAdmin, workspace } =
     useWorkspaceContext();
   const [operationDraft, setOperationDraft] = useState<NodeOperationDraft>({
@@ -557,6 +561,7 @@ export const NodeDetailView = ({ id }: { id: string }) => {
       },
     },
   ];
+  const gaugeNeedleColor = resolvedTheme === "light" ? "#0f172a" : "#f8fafc";
 
   return (
     <AppShell>
@@ -698,7 +703,7 @@ export const NodeDetailView = ({ id }: { id: string }) => {
               {metric.value}
             </p>
             <div className="mt-2">
-              <MetricGauge {...metric.gauge} />
+              <MetricGauge {...metric.gauge} needleColor={gaugeNeedleColor} />
             </div>
             <p className="mt-1 text-center text-xs leading-5 text-muted-foreground">
               {metric.description}

@@ -113,17 +113,6 @@ const decodeTranscriptText = (value: string) => {
   }
 };
 
-const encodeInputPayload = (value: string) => {
-  const bytes = new TextEncoder().encode(value);
-  let binary = "";
-
-  bytes.forEach((byte) => {
-    binary += String.fromCharCode(byte);
-  });
-
-  return globalThis.btoa(binary);
-};
-
 const statusTone = (status: TerminalSessionStatus) => {
   switch (status) {
     case "open":
@@ -578,7 +567,7 @@ export const NodeTerminalView = ({ id }: { id: string }) => {
         return;
       }
 
-      void client.sendInput(sessionId, encodeInputPayload(data)).catch((error) => {
+      void client.sendInput(sessionId, data).catch((error) => {
         const message =
           error instanceof Error
             ? error.message

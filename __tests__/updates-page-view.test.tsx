@@ -99,11 +99,23 @@ const buildControlPlaneSummary = (overrides?: Record<string, unknown>) => ({
     version: "1.0.0",
     releaseId: "20260413T214149Z",
     releasedAt: "2026-04-13T21:41:49Z",
+    changelog: [
+      {
+        title: "Runtime",
+        items: ["Stabilized installer-managed runtime metadata."],
+      },
+    ],
   },
   latestRelease: {
     version: "1.0.0",
     releaseId: "20260413T214149Z",
     releasedAt: "2026-04-13T21:41:49Z",
+    changelog: [
+      {
+        title: "Runtime",
+        items: ["Stabilized installer-managed runtime metadata."],
+      },
+    ],
   },
   preparedRelease: null,
   updateAvailable: false,
@@ -213,5 +225,14 @@ describe("UpdatesPageView control-plane rendering", () => {
     render(<UpdatesPageView />);
 
     expect(screen.getAllByText("Apply prepared update").length).toBeGreaterThan(0);
+  });
+
+  it("renders control-plane changelog sections for known releases", () => {
+    render(<UpdatesPageView />);
+
+    expect(screen.getByText("Control-plane changelog")).toBeInTheDocument();
+    expect(
+      screen.getAllByText("Stabilized installer-managed runtime metadata.").length,
+    ).toBeGreaterThan(0);
   });
 });

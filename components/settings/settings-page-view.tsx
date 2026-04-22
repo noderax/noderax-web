@@ -695,26 +695,37 @@ function SettingsPageContent({
             value={activeTab}
             onValueChange={(value) => navigateToTab(value as SettingsTab)}
           >
-            <TabsList variant="line">
-              <TabsTrigger value="account">
+            <div className="overflow-x-auto overscroll-x-contain pb-1 [-webkit-overflow-scrolling:touch] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              <TabsList variant="line" className="w-max min-w-full">
+                <TabsTrigger value="account" className="flex-none px-3 sm:px-4">
                 <UserRound className="size-4" />
                 My Settings
               </TabsTrigger>
-              <TabsTrigger value="workspace">
+                <TabsTrigger
+                  value="workspace"
+                  className="flex-none px-3 sm:px-4"
+                >
                 <Settings2 className="size-4" />
                 Workspace Settings
               </TabsTrigger>
-              <TabsTrigger value="notifications">
+                <TabsTrigger
+                  value="notifications"
+                  className="flex-none px-3 sm:px-4"
+                >
                 <BellRing className="size-4" />
                 Notifications
               </TabsTrigger>
-              {isPlatformAdmin ? (
-                <TabsTrigger value="platform">
-                  <Shield className="size-4" />
-                  Platform Settings
-                </TabsTrigger>
-              ) : null}
-            </TabsList>
+                {isPlatformAdmin ? (
+                  <TabsTrigger
+                    value="platform"
+                    className="flex-none px-3 sm:px-4"
+                  >
+                    <Shield className="size-4" />
+                    Platform Settings
+                  </TabsTrigger>
+                ) : null}
+              </TabsList>
+            </div>
 
             <TabsContent value="account" className="pt-6">
               <SectionPanel
@@ -745,20 +756,22 @@ function SettingsPageContent({
                   }
                   className="gap-4"
                 >
-                  <TabsList className="h-auto max-w-full flex-wrap justify-start gap-2">
-                    <TabsTrigger
-                      value="preferences"
-                      className="flex-none rounded-full px-3 py-2 text-xs sm:text-sm"
-                    >
-                      Preferences
-                    </TabsTrigger>
-                    <TabsTrigger
-                      value="security"
-                      className="flex-none rounded-full px-3 py-2 text-xs sm:text-sm"
-                    >
-                      Security
-                    </TabsTrigger>
-                  </TabsList>
+                  <div className="overflow-x-auto overscroll-x-contain pb-1 [-webkit-overflow-scrolling:touch] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                    <TabsList className="h-auto w-max min-w-full justify-start gap-2">
+                      <TabsTrigger
+                        value="preferences"
+                        className="flex-none rounded-full px-3 py-2 text-xs sm:text-sm"
+                      >
+                        Preferences
+                      </TabsTrigger>
+                      <TabsTrigger
+                        value="security"
+                        className="flex-none rounded-full px-3 py-2 text-xs sm:text-sm"
+                      >
+                        Security
+                      </TabsTrigger>
+                    </TabsList>
+                  </div>
 
                   <TabsContent value="preferences" className="pt-2">
                     <div className="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
@@ -1959,32 +1972,34 @@ function SettingsPageContent({
                         }
                         className="gap-4"
                       >
-                        <TabsList className="h-auto max-w-full flex-wrap justify-start gap-2">
-                          <TabsTrigger
-                            value="runtime"
-                            className="flex-none rounded-full px-3 py-2 text-xs sm:text-sm"
-                          >
-                            Runtime
-                          </TabsTrigger>
-                          <TabsTrigger
-                            value="infrastructure"
-                            className="flex-none rounded-full px-3 py-2 text-xs sm:text-sm"
-                          >
-                            Infrastructure
-                          </TabsTrigger>
-                          <TabsTrigger
-                            value="identity"
-                            className="flex-none rounded-full px-3 py-2 text-xs sm:text-sm"
-                          >
-                            Identity
-                          </TabsTrigger>
-                          <TabsTrigger
-                            value="agents"
-                            className="flex-none rounded-full px-3 py-2 text-xs sm:text-sm"
-                          >
-                            Agents
-                          </TabsTrigger>
-                        </TabsList>
+                        <div className="overflow-x-auto overscroll-x-contain pb-1 [-webkit-overflow-scrolling:touch] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                          <TabsList className="h-auto w-max min-w-full justify-start gap-2">
+                            <TabsTrigger
+                              value="runtime"
+                              className="flex-none rounded-full px-3 py-2 text-xs sm:text-sm"
+                            >
+                              Runtime
+                            </TabsTrigger>
+                            <TabsTrigger
+                              value="infrastructure"
+                              className="flex-none rounded-full px-3 py-2 text-xs sm:text-sm"
+                            >
+                              Infrastructure
+                            </TabsTrigger>
+                            <TabsTrigger
+                              value="identity"
+                              className="flex-none rounded-full px-3 py-2 text-xs sm:text-sm"
+                            >
+                              Identity
+                            </TabsTrigger>
+                            <TabsTrigger
+                              value="agents"
+                              className="flex-none rounded-full px-3 py-2 text-xs sm:text-sm"
+                            >
+                              Agents
+                            </TabsTrigger>
+                          </TabsList>
+                        </div>
 
                         <TabsContent value="runtime" className="pt-2">
                           <div className="grid gap-6 xl:grid-cols-2">

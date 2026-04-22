@@ -544,6 +544,10 @@ export interface ControlPlaneRelease {
   bundleSha256?: string | null;
   bundleUrl?: string | null;
   manifestUrl?: string | null;
+  changelog?: Array<{
+    title: string;
+    items: string[];
+  }> | null;
 }
 
 export interface ControlPlaneUpdateOperation {

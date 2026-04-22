@@ -585,8 +585,8 @@ export const NotificationCenter = ({
                   onTabChange(value as NotificationCenterTab)
                 }
               >
-                <ScrollArea className="w-full whitespace-nowrap">
-                  <TabsList className="inline-flex min-w-full sm:min-w-0">
+                <div className="overflow-x-auto overscroll-x-contain pb-1 [-webkit-overflow-scrolling:touch] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                  <TabsList className="inline-flex w-max min-w-full sm:min-w-0">
                     {NOTIFICATION_TABS.map((tab) => (
                       <TabsTrigger
                         key={tab.value}
@@ -597,11 +597,11 @@ export const NotificationCenter = ({
                       </TabsTrigger>
                     ))}
                   </TabsList>
-                </ScrollArea>
+                </div>
               </Tabs>
 
-              <ScrollArea className="w-full whitespace-nowrap">
-                <div className="flex w-max gap-2 pb-1">
+              <div className="overflow-x-auto overscroll-x-contain pb-1 [-webkit-overflow-scrolling:touch] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                <div className="flex w-max gap-2">
                   {(["all", "info", "warning", "critical"] as const).map((value) => (
                     <Button
                       key={value}
@@ -621,7 +621,7 @@ export const NotificationCenter = ({
                     </Button>
                   ))}
                 </div>
-              </ScrollArea>
+              </div>
             </div>
           </div>
 

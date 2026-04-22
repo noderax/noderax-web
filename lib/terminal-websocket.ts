@@ -10,6 +10,11 @@ import type {
 } from "@/lib/types";
 
 const TERMINAL_NAMESPACE = "/terminal";
+const TERMINAL_INPUT_FLUSH_DELAY_MS = 24;
+const TERMINAL_INPUT_RETRY_DELAY_MS = 200;
+const TERMINAL_INPUT_RATE_LIMIT_RETRY_DELAY_MS = 400;
+const TERMINAL_INPUT_MAX_CHUNK_BYTES = 24_000;
+const TERMINAL_INITIAL_CONNECT_TIMEOUT_MS = 15_000;
 const API_PREFIX_PATTERN = /^\/(?:api\/)?v\d+(?:\/.*)?$/i;
 const ABSOLUTE_URL_PATTERN = /^[a-z][a-z\d+\-.]*:\/\//i;
 const HOST_LIKE_VALUE_PATTERN = /^[a-z\d.-]+(?::\d+)?(?:\/.*)?$/i;
@@ -48,6 +53,11 @@ type TerminalErrorPayload = {
   sessionId?: string | null;
   message: string;
   sourceInstanceId?: string;
+};
+
+type QueuedTerminalInput = {
+  sessionId: string;
+  payload: string;
 };
 
 const normalizePathname = (value: string | null | undefined) => {
@@ -135,6 +145,40 @@ const resolveTerminalNamespaceUrl = () => {
   return `${window.location.origin}${TERMINAL_NAMESPACE}`;
 };
 
+const encodeTerminalInputChunk = (bytes: Uint8Array) => {
+  let binary = "";
+
+  bytes.forEach((byte) => {
+    binary += String.fromCharCode(byte);
+  });
+
+  return globalThis.btoa(binary);
+};
+
+const encodeTerminalInputPayloads = (value: string) => {
+  const bytes = new TextEncoder().encode(value);
+
+  if (bytes.length === 0) {
+    return [];
+  }
+
+  const payloads: string[] = [];
+
+  for (
+    let offset = 0;
+    offset < bytes.length;
+    offset += TERMINAL_INPUT_MAX_CHUNK_BYTES
+  ) {
+    payloads.push(
+      encodeTerminalInputChunk(
+        bytes.slice(offset, offset + TERMINAL_INPUT_MAX_CHUNK_BYTES),
+      ),
+    );
+  }
+
+  return payloads;
+};
+
 export class NoderaxTerminalClient {
   private socket: Socket | null = null;
   private connectPromise: Promise<void> | null = null;
@@ -143,6 +187,11 @@ export class NoderaxTerminalClient {
   private didRetryAuth = false;
   private suppressErrorEvents = false;
   private status: TerminalSocketStatus = "idle";
+  private queuedInputBuffer = "";
+  private queuedInputPayloads: QueuedTerminalInput[] = [];
+  private inputFlushTimer: number | null = null;
+  private inputRetryTimer: number | null = null;
+  private inputFlushPromise: Promise<void> | null = null;
 
   private readonly statusListeners = new Set<StatusListener>();
   private readonly sessionListeners = new Set<SessionListener>();
@@ -213,11 +262,17 @@ export class NoderaxTerminalClient {
     }
   }
 
-  async sendInput(sessionId: string, payload: string) {
-    await this.emitWithAck("terminal.input", {
-      sessionId,
-      payload,
-    });
+  async sendInput(sessionId: string, value: string) {
+    if (!value) {
+      return;
+    }
+
+    if (this.sessionId && this.sessionId !== sessionId) {
+      this.resetQueuedInput();
+    }
+
+    this.queuedInputBuffer += value;
+    this.scheduleInputFlush();
   }
 
   async resize(sessionId: string, cols: number, rows: number) {
@@ -240,6 +295,7 @@ export class NoderaxTerminalClient {
     this.didRetryAuth = false;
     this.sessionId = null;
     this.workspaceId = null;
+    this.resetQueuedInput();
 
     if (this.socket) {
       this.detachSocketListeners(this.socket);
@@ -292,15 +348,30 @@ export class NoderaxTerminalClient {
 
     try {
       await new Promise<void>((resolve, reject) => {
+        const timeout = window.setTimeout(() => {
+          cleanup();
+          reject(
+            new Error(
+              "Terminal connection is still unavailable. Keep the page open while the socket reconnects.",
+            ),
+          );
+        }, TERMINAL_INITIAL_CONNECT_TIMEOUT_MS);
+
         const handleConnect = () => {
           cleanup();
           resolve();
         };
         const handleError = (error: TerminalConnectError) => {
+          if (this.isRecoverableEndpointError(error)) {
+            this.setStatus("reconnecting");
+            return;
+          }
+
           cleanup();
           reject(error);
         };
         const cleanup = () => {
+          window.clearTimeout(timeout);
           socket.off("connect", handleConnect);
           socket.off("connect_error", handleError);
         };
@@ -317,6 +388,7 @@ export class NoderaxTerminalClient {
 
       await this.attachSession(sessionId);
       this.suppressErrorEvents = false;
+      void this.flushQueuedInput();
     } catch (error) {
       if (this.socket === socket) {
         this.detachSocketListeners(socket);
@@ -333,17 +405,9 @@ export class NoderaxTerminalClient {
   }
 
   private async attachSession(sessionId: string) {
-    const response = await this.emitWithAck("terminal.attach", {
+    await this.emitWithAck("terminal.attach", {
       sessionId,
     });
-
-    if (response && typeof response === "object" && "ok" in response && !response.ok) {
-      throw new Error(
-        typeof response.message === "string"
-          ? response.message
-          : "Unable to attach terminal session.",
-      );
-    }
   }
 
   private async emitWithAck(eventName: string, payload: Record<string, unknown>) {
@@ -355,7 +419,134 @@ export class NoderaxTerminalClient {
       throw new Error("Terminal websocket is not connected.");
     }
 
-    return this.socket.timeout(5_000).emitWithAck(eventName, payload);
+    const response = await this.socket.timeout(5_000).emitWithAck(eventName, payload);
+
+    if (response && typeof response === "object" && "ok" in response && !response.ok) {
+      throw new Error(
+        typeof response.message === "string"
+          ? response.message
+          : "Terminal request failed.",
+      );
+    }
+
+    return response;
+  }
+
+  private stageQueuedInput() {
+    if (!this.queuedInputBuffer || !this.sessionId) {
+      return;
+    }
+
+    const payloads = encodeTerminalInputPayloads(this.queuedInputBuffer);
+    this.queuedInputBuffer = "";
+    this.queuedInputPayloads.push(
+      ...payloads.map((payload) => ({
+        sessionId: this.sessionId as string,
+        payload,
+      })),
+    );
+  }
+
+  private scheduleInputFlush(delay = TERMINAL_INPUT_FLUSH_DELAY_MS) {
+    if (typeof window === "undefined" || this.inputFlushTimer !== null) {
+      return;
+    }
+
+    this.inputFlushTimer = window.setTimeout(() => {
+      this.inputFlushTimer = null;
+      void this.flushQueuedInput();
+    }, delay);
+  }
+
+  private scheduleInputRetry(delay: number) {
+    if (typeof window === "undefined" || this.inputRetryTimer !== null) {
+      return;
+    }
+
+    this.inputRetryTimer = window.setTimeout(() => {
+      this.inputRetryTimer = null;
+      void this.flushQueuedInput();
+    }, delay);
+  }
+
+  private resetQueuedInput() {
+    if (typeof window !== "undefined") {
+      if (this.inputFlushTimer !== null) {
+        window.clearTimeout(this.inputFlushTimer);
+      }
+      if (this.inputRetryTimer !== null) {
+        window.clearTimeout(this.inputRetryTimer);
+      }
+    }
+
+    this.inputFlushTimer = null;
+    this.inputRetryTimer = null;
+    this.queuedInputBuffer = "";
+    this.queuedInputPayloads = [];
+    this.inputFlushPromise = null;
+  }
+
+  private isRecoverableTerminalMessage(message: string) {
+    return (
+      /terminal websocket is not connected/i.test(message) ||
+      /socket has been disconnected/i.test(message) ||
+      /rate limit exceeded/i.test(message) ||
+      /too many requests/i.test(message) ||
+      /timed out/i.test(message) ||
+      /transport (close|error)/i.test(message) ||
+      /websocket error/i.test(message)
+    );
+  }
+
+  private getQueuedInputRetryDelay(message: string) {
+    if (/rate limit exceeded|too many requests/i.test(message)) {
+      return TERMINAL_INPUT_RATE_LIMIT_RETRY_DELAY_MS;
+    }
+
+    return TERMINAL_INPUT_RETRY_DELAY_MS;
+  }
+
+  private async flushQueuedInput() {
+    this.stageQueuedInput();
+
+    if (this.inputFlushPromise || this.queuedInputPayloads.length === 0) {
+      return this.inputFlushPromise ?? Promise.resolve();
+    }
+
+    this.inputFlushPromise = (async () => {
+      while (this.queuedInputPayloads.length > 0) {
+        const nextPayload = this.queuedInputPayloads[0];
+
+        try {
+          await this.emitWithAck("terminal.input", nextPayload);
+          this.queuedInputPayloads.shift();
+        } catch (error) {
+          const message =
+            error instanceof Error
+              ? error.message
+              : "Terminal input could not be forwarded.";
+
+          if (this.isRecoverableTerminalMessage(message)) {
+            this.scheduleInputRetry(this.getQueuedInputRetryDelay(message));
+            return;
+          }
+
+          if (this.isClosedSessionAttachError(message)) {
+            this.resetQueuedInput();
+            this.disconnect();
+            return;
+          }
+
+          this.resetQueuedInput();
+          this.emitError(message);
+          return;
+        }
+      }
+    })().finally(() => {
+      this.inputFlushPromise = null;
+    });
+
+    return this.inputFlushPromise;
   }
 
   private async waitForSocketReady() {
@@ -424,7 +615,10 @@ export class NoderaxTerminalClient {
 
     return (
       /websocket error|xhr poll error|not found|cannot get|cannot post/.test(message) ||
-      /terminal session .* was not found/.test(message)
+      /terminal session .* was not found/.test(message) ||
+      /socket has been disconnected|transport close|transport error|timed out/.test(
+        message,
+      )
     );
   }
 
@@ -440,6 +634,7 @@ export class NoderaxTerminalClient {
   private readonly handleConnect = () => {
     this.didRetryAuth = false;
     this.setStatus("connected");
+    void this.flushQueuedInput();
   };
 
   private readonly handleConnectError = (error: TerminalConnectError) => {
@@ -453,11 +648,21 @@ export class NoderaxTerminalClient {
       return;
     }
 
+    if (this.isRecoverableTerminalMessage(message)) {
+      this.setStatus("reconnecting");
+      return;
+    }
+
     this.setStatus("disconnected");
     this.emitError(message);
   };
 
   private readonly handleDisconnect = () => {
+    if (this.socket?.active) {
+      this.setStatus("reconnecting");
+      return;
+    }
+
     this.setStatus("disconnected");
   };
 
@@ -473,19 +678,30 @@ export class NoderaxTerminalClient {
       return;
     }
 
-    void this.attachSession(this.sessionId).catch((error) => {
-      const message =
-        error instanceof Error ? error.message : "Unable to reattach terminal session.";
-      if (this.isClosedSessionAttachError(message)) {
-        this.disconnect();
-        return;
-      }
+    void this.attachSession(this.sessionId)
+      .catch((error) => {
+        const message =
+          error instanceof Error
+            ? error.message
+            : "Unable to reattach terminal session.";
+        if (this.isClosedSessionAttachError(message)) {
+          this.disconnect();
+          return;
+        }
 
-      this.emitError(message);
-    });
+        this.emitError(message);
+      })
+      .then(() => {
+        void this.flushQueuedInput();
+      });
   };
 
   private readonly handleReconnectError = (error: Error) => {
+    if (this.isRecoverableTerminalMessage(error.message)) {
+      this.setStatus("reconnecting");
+      return;
+    }
+
     this.setStatus("disconnected");
     this.emitError(error.message || "Terminal reconnect failed.");
   };
@@ -530,6 +746,11 @@ export class NoderaxTerminalClient {
 
     if (this.isClosedSessionAttachError(message)) {
       this.disconnect();
+      return;
+    }
+
+    if (this.isRecoverableTerminalMessage(message)) {
+      this.scheduleInputRetry(this.getQueuedInputRetryDelay(message));
       return;
     }
 

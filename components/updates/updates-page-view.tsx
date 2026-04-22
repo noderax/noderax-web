@@ -133,6 +133,17 @@ const getControlPlaneTone = (
   }
 };
 
+const getControlPlaneReleaseRoleTone = (role: "Installed" | "Prepared" | "Latest") => {
+  switch (role) {
+    case "Installed":
+      return "tone-success";
+    case "Prepared":
+      return "tone-warning";
+    case "Latest":
+      return "tone-brand";
+  }
+};
+
 const formatControlPlaneRelease = (release: ControlPlaneRelease | null) => {
   if (!release) {
     return "Unavailable";
@@ -549,6 +560,81 @@ export const UpdatesPageView = () => {
       ? "agents"
       : "control-plane";
   const activeTab = hasUserSelectedTab ? selectedTab : recommendedTab;
+  const controlPlaneReleaseNotes = useMemo(() => {
+    const releaseEntries = [
+      {
+        release: controlPlaneSummary?.latestRelease ?? null,
+        role: "Latest" as const,
+      },
+      {
+        release: controlPlanePreparedRelease,
+        role: "Prepared" as const,
+      },
+      {
+        release: controlPlaneSummary?.currentRelease ?? null,
+        role: "Installed" as const,
+      },
+    ].filter(
+      (entry): entry is {
+        release: NonNullable<typeof entry.release>;
+        role: typeof entry.role;
+      } => Boolean(entry.release),
+    );
+
+    const releaseMap = new Map<
+      string,
+      {
+        release: (typeof releaseEntries)[number]["release"];
+        roles: Array<(typeof releaseEntries)[number]["role"]>;
+      }
+    >();
+
+    releaseEntries.forEach(({ release, role }) => {
+      const key = release.releaseId || release.version;
+      const existing = releaseMap.get(key);
+
+      if (existing) {
+        if (!existing.roles.includes(role)) {
+          existing.roles.push(role);
+        }
+        if (!existing.release.changelog?.length && release.changelog?.length) {
+          existing.release = release;
+        }
+        return;
+      }
+
+      releaseMap.set(key, {
+        release,
+        roles: [role],
+      });
+    });
+
+    const rolePriority = {
+      Latest: 0,
+      Prepared: 1,
+      Installed: 2,
+    } as const;
+
+    return Array.from(releaseMap.values()).sort((left, right) => {
+      const leftPriority = Math.min(
+        ...left.roles.map((role) => rolePriority[role]),
+      );
+      const rightPriority = Math.min(
+        ...right.roles.map((role) => rolePriority[role]),
+      );
+
+      return (
+        leftPriority - rightPriority ||
+        (right.release.releasedAt ?? "").localeCompare(
+          left.release.releasedAt ?? "",
+        )
+      );
+    });
+  }, [
+    controlPlanePreparedRelease,
+    controlPlaneSummary?.currentRelease,
+    controlPlaneSummary?.latestRelease,
+  ]);
 
   const workspaceNameById = useMemo(
     () =>
@@ -1442,6 +1528,100 @@ export const UpdatesPageView = () => {
                         release differs from the installed build, you can stage it
                         here and confirm the apply separately.
                       </p>
+                    )}
+                  </SectionPanel>
+
+                  <SectionPanel
+                    eyebrow="Release notes"
+                    title="Control-plane changelog"
+                    description="Review the installer-managed release notes for the installed, prepared, and latest platform builds."
+                    className="lg:col-span-2"
+                  >
+                    {!controlPlaneReleaseNotes.length ? (
+                      <EmptyState
+                        title="No release notes available"
+                        description="Release notes appear here when the current catalog manifest includes changelog sections."
+                        icon={Clock3}
+                        variant="plain"
+                      />
+                    ) : (
+                      <div className="grid gap-4 xl:grid-cols-2">
+                        {controlPlaneReleaseNotes.map(({ release, roles }) => (
+                          <div
+                            key={release.releaseId}
+                            className="rounded-[24px] border border-border/70 bg-background/82 p-5 shadow-[var(--shadow-dashboard)]"
+                          >
+                            <div className="flex flex-wrap items-start justify-between gap-3">
+                              <div className="min-w-0">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <Badge className="rounded-full px-3 py-1">
+                                    {release.version}
+                                  </Badge>
+                                  {roles.map((role) => (
+                                    <Badge
+                                      key={`${release.releaseId}-${role}`}
+                                      variant="outline"
+                                      className={cn(
+                                        "rounded-full px-3 py-1",
+                                        getControlPlaneReleaseRoleTone(role),
+                                      )}
+                                    >
+                                      {role}
+                                    </Badge>
+                                  ))}
+                                </div>
+                                <p className="mt-3 text-xs text-muted-foreground">
+                                  Release ID
+                                </p>
+                                <p className="mt-1 break-all font-mono text-xs text-muted-foreground">
+                                  {release.releaseId}
+                                </p>
+                              </div>
+                              <div className="text-right text-xs text-muted-foreground">
+                                <p>Published</p>
+                                <p className="mt-1 font-medium text-foreground">
+                                  {release.releasedAt ? (
+                                    <TimeDisplay
+                                      value={release.releasedAt}
+                                      mode="datetime"
+                                    />
+                                  ) : (
+                                    "Unknown"
+                                  )}
+                                </p>
+                              </div>
+                            </div>
+
+                            {release.changelog?.length ? (
+                              <div className="mt-4 space-y-3">
+                                {release.changelog.map((section) => (
+                                  <div
+                                    key={`${release.releaseId}-${section.title}`}
+                                    className="rounded-[20px] border border-border/70 bg-muted/20 p-4"
+                                  >
+                                    <p className="text-sm font-medium">
+                                      {section.title}
+                                    </p>
+                                    <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
+                                      {section.items.map((item) => (
+                                        <li key={item} className="flex gap-2">
+                                          <span className="mt-2 size-1.5 rounded-full bg-muted-foreground/60" />
+                                          <span>{item}</span>
+                                        </li>
+                                      ))}
+                                    </ul>
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <p className="mt-4 text-sm leading-7 text-muted-foreground">
+                                No changelog was published for this control-plane
+                                release manifest.
+                              </p>
+                            )}
+                          </div>
+                        ))}
+                      </div>
                     )}
                   </SectionPanel>
                 </div>
