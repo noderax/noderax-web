@@ -4,6 +4,7 @@ import { AlertTriangle } from "lucide-react";
 
 import { AppSidebar } from "@/components/layout/app-sidebar";
 import { ControlPlaneUpdateFreeze } from "@/components/layout/control-plane-update-freeze";
+import { OperatorDisclaimerModal } from "@/components/layout/operator-disclaimer-modal";
 import { Topbar } from "@/components/layout/topbar";
 import { useRealtimeBridge } from "@/lib/hooks/use-realtime";
 import { useWorkspaceContext } from "@/lib/hooks/use-workspace-context";
@@ -43,6 +44,7 @@ export const AppShell = ({ children }: { children: React.ReactNode }) => {
         </main>
       </div>
       <ControlPlaneUpdateFreeze />
+      <OperatorDisclaimerModal />
     </div>
   );
 };
