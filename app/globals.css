@@ -2,6 +2,7 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
+@import "leaflet/dist/leaflet.css";
 @import "xterm/css/xterm.css";
 
 @custom-variant dark (&:is(.dark *));
@@ -428,6 +429,57 @@
   .group:active .action-icon-spin,
   .group\/button:active .action-icon-spin {
     transform: rotate(220deg);
+  }
+
+  .leaflet-container {
+    background: var(--card) !important;
+    font: inherit !important;
+  }
+
+  .leaflet-container a {
+    color: inherit !important;
+  }
+
+  .leaflet-div-icon {
+    background: transparent !important;
+    border: none !important;
+  }
+
+  .leaflet-popup {
+    animation: none !important;
+  }
+
+  .leaflet-popup-content-wrapper,
+  .leaflet-popup-content,
+  .leaflet-popup-content p {
+    all: unset !important;
+  }
+
+  .leaflet-popup-content-wrapper {
+    display: block !important;
+    border-radius: 12px !important;
+    background: var(--popover) !important;
+    color: var(--popover-foreground) !important;
+    box-shadow: var(--shadow-dashboard-hover) !important;
+  }
+
+  .leaflet-popup-close-button {
+    border-radius: 4px !important;
+    color: var(--foreground) !important;
+    opacity: 0.7;
+  }
+
+  .leaflet-popup-tip-container {
+    display: none !important;
+  }
+
+  .leaflet-control-attribution {
+    border-radius: 6px !important;
+    background: var(--muted) !important;
+    color: inherit !important;
+    font-size: 10px !important;
+    line-height: 1 !important;
+    padding: 3px 5px !important;
   }
 }
 

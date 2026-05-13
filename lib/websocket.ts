@@ -9,6 +9,7 @@ import type {
   NodeInstallDto,
   RootAccessProfile,
   RootAccessSyncStatus,
+  NodeLocation,
   NodeStatus,
   RealtimeEventMeta,
   RealtimeStatus,
@@ -27,6 +28,7 @@ export type RealtimeMessage =
         lastSeenAt: string | null;
         agentVersion?: string | null;
         lastVersionReportedAt?: string | null;
+        location?: NodeLocation | null;
       };
     }
   | {
@@ -80,6 +82,7 @@ type NodeStatusUpdatedPayload = {
   lastSeenAt?: string | null;
   agentVersion?: string | null;
   lastVersionReportedAt?: string | null;
+  location?: NodeLocation | null;
   sequence?: number;
   sourceInstance?: string;
 };
@@ -480,6 +483,7 @@ class NoderaxRealtimeClient {
         lastSeenAt: payload.lastSeenAt ?? null,
         agentVersion: payload.agentVersion ?? null,
         lastVersionReportedAt: payload.lastVersionReportedAt ?? null,
+        location: payload.location ?? null,
       },
     });
   };

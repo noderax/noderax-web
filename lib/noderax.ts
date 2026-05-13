@@ -10,6 +10,7 @@ import type {
   MetricPoint,
   NodeDetail,
   NodeDto,
+  NodeLocation,
   NodeSummary,
   PackageSearchResult,
   ScheduledTaskDto,
@@ -250,6 +251,7 @@ export const mapNodeSummary = (
     platformVersion: node.platformVersion ?? null,
     kernelVersion: node.kernelVersion ?? null,
     lastVersionReportedAt: node.lastVersionReportedAt ?? null,
+    location: normalizeNodeLocation(node),
     lastSeenAt: node.lastSeenAt,
     os: node.os,
     arch: node.arch,
@@ -257,6 +259,47 @@ export const mapNodeSummary = (
     updatedAt: node.updatedAt,
     latestMetric: metrics[0] ? mapMetricDtoToPoint(metrics[0]) : null,
   };
+};
+
+const normalizeNodeLocation = (node: NodeDto): NodeLocation | null => {
+  if (node.location) {
+    return {
+      provider: node.location.provider,
+      source: node.location.source,
+      region: node.location.region,
+      zone: node.location.zone ?? null,
+      latitude: normalizeCoordinate(node.location.latitude),
+      longitude: normalizeCoordinate(node.location.longitude),
+      updatedAt: node.location.updatedAt ?? null,
+    };
+  }
+
+  if (!node.locationProvider || !node.locationSource || !node.locationRegion) {
+    return null;
+  }
+
+  return {
+    provider: node.locationProvider,
+    source: node.locationSource,
+    region: node.locationRegion,
+    zone: node.locationZone ?? null,
+    latitude: normalizeCoordinate(node.locationLatitude),
+    longitude: normalizeCoordinate(node.locationLongitude),
+    updatedAt: node.locationUpdatedAt ?? null,
+  };
+};
+
+const normalizeCoordinate = (value: number | string | null | undefined) => {
+  if (typeof value === "number") {
+    return Number.isFinite(value) ? value : null;
+  }
+
+  if (typeof value === "string" && value.trim()) {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  return null;
 };
 
 export const mapTaskSummary = (

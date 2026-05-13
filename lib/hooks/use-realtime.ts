@@ -276,7 +276,11 @@ type TrackedNodeVersionSnapshot = {
 type TrackedNodePresencePatch = Partial<
   Pick<
     NodeSummary,
-    "status" | "lastSeenAt" | "agentVersion" | "lastVersionReportedAt"
+    | "status"
+    | "lastSeenAt"
+    | "agentVersion"
+    | "lastVersionReportedAt"
+    | "location"
   >
 >;
 
@@ -718,6 +722,11 @@ export const useRealtimeBridge = () => {
         ...(message.data.lastVersionReportedAt !== undefined
           ? {
               lastVersionReportedAt: message.data.lastVersionReportedAt,
+            }
+          : {}),
+        ...(message.data.location !== undefined
+          ? {
+              location: message.data.location,
             }
           : {}),
       });

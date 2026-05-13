@@ -41,6 +41,18 @@ export type RootAccessProfile =
 export type RootAccessSyncStatus = "pending" | "applied" | "failed";
 export type RootScope = "task" | "operational";
 export type LogSourcePresetKind = "file" | "journal";
+export type NodeLocationProvider = "aws" | "gcp" | "azure";
+export type NodeLocationSource = "cloud_metadata";
+
+export interface NodeLocation {
+  provider: NodeLocationProvider;
+  source: NodeLocationSource;
+  region: string;
+  zone?: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  updatedAt?: string | null;
+}
 
 export interface RealtimeEventMeta {
   sequence?: number | null;
@@ -95,6 +107,14 @@ export interface NodeDto {
   platformVersion?: string | null;
   kernelVersion?: string | null;
   lastVersionReportedAt?: string | null;
+  location?: NodeLocation | null;
+  locationProvider?: NodeLocationProvider | null;
+  locationSource?: NodeLocationSource | null;
+  locationRegion?: string | null;
+  locationZone?: string | null;
+  locationLatitude?: number | string | null;
+  locationLongitude?: number | string | null;
+  locationUpdatedAt?: string | null;
   lastSeenAt: string | null;
   createdAt: string;
   updatedAt: string;
@@ -415,6 +435,7 @@ export interface NodeSummary {
   platformVersion?: string | null;
   kernelVersion?: string | null;
   lastVersionReportedAt?: string | null;
+  location: NodeLocation | null;
   lastSeenAt: string | null;
   os: string;
   arch: string;

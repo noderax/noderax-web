@@ -3,6 +3,7 @@
 import { AlertTriangle, Boxes, CirclePlay, ServerCog } from "lucide-react";
 
 import { NodeTelemetryBoard } from "@/components/dashboard/node-telemetry-board";
+import { NodeMapPanel } from "@/components/dashboard/node-map-panel";
 import { RecentEventsFeed } from "@/components/dashboard/recent-events-feed";
 import { EmptyState } from "@/components/empty-state";
 import { AppShell } from "@/components/layout/app-shell";
@@ -83,6 +84,8 @@ export const DashboardView = () => {
               },
             ]}
           />
+
+          <NodeMapPanel nodes={overviewQuery.data.nodes} />
 
           <NodeTelemetryBoard nodes={overviewQuery.data.nodes} />
 

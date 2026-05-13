@@ -151,6 +151,7 @@ const buildNode = (overrides?: Partial<NodeDetail>): NodeDetail => ({
   platformVersion: "24.04",
   kernelVersion: "6.8.0",
   lastVersionReportedAt: null,
+  location: null,
   lastSeenAt: null,
   os: "ubuntu-24.04",
   arch: "amd64",
