@@ -38,6 +38,14 @@ const toneLabels: Record<NodeMapGroupTone, string> = {
   mixed: "Mixed",
 };
 
+const locationProviderLabels: Record<string, string> = {
+  aws: "AWS",
+  gcp: "GCP",
+  azure: "Azure",
+  manual: "Manual",
+  public_ip: "Public IP",
+};
+
 export const NodeMapPanel = ({ nodes }: { nodes: NodeSummary[] }) => {
   const { buildWorkspaceHref } = useWorkspaceContext();
   const groups = useMemo(() => groupNodesByLocation(nodes), [nodes]);
@@ -54,8 +62,8 @@ export const NodeMapPanel = ({ nodes }: { nodes: NodeSummary[] }) => {
   return (
     <SectionPanel
       eyebrow="Node Map"
-      title="Cloud region footprint"
-      description="Nodes with cloud metadata are placed at the approximate center of their provider region."
+      title="Node location footprint"
+      description="Nodes with reported coordinates are placed at their approximate provider, manual, or public-IP location."
       action={
         unmappedCount > 0 ? (
           <span className="rounded-full border px-2.5 py-1 text-xs text-muted-foreground">
@@ -209,7 +217,10 @@ const NodeGroupPopup = ({
           </div>
 
           <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
-            <NodePopupField label="Provider" value={node.location?.provider?.toUpperCase()} />
+            <NodePopupField
+              label="Provider"
+              value={formatLocationProvider(node.location?.provider)}
+            />
             <NodePopupField label="Region" value={node.location?.region} />
             <NodePopupField label="Zone" value={node.location?.zone ?? "N/A"} />
             <NodePopupField
@@ -288,7 +299,14 @@ const formatGroupLocation = (group: NodeMapGroup) => {
     return "Unknown region";
   }
 
-  return [firstLocation.provider.toUpperCase(), firstLocation.region]
+  return [formatLocationProvider(firstLocation.provider), firstLocation.region]
     .filter(Boolean)
     .join(" / ");
+};
+
+const formatLocationProvider = (provider?: string | null) => {
+  if (!provider) {
+    return undefined;
+  }
+  return locationProviderLabels[provider] ?? provider.toUpperCase();
 };

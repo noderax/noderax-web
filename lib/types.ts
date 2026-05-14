@@ -41,8 +41,8 @@ export type RootAccessProfile =
 export type RootAccessSyncStatus = "pending" | "applied" | "failed";
 export type RootScope = "task" | "operational";
 export type LogSourcePresetKind = "file" | "journal";
-export type NodeLocationProvider = "aws" | "gcp" | "azure";
-export type NodeLocationSource = "cloud_metadata";
+export type NodeLocationProvider = "aws" | "gcp" | "azure" | "manual" | "public_ip";
+export type NodeLocationSource = "cloud_metadata" | "manual" | "ipinfo";
 
 export interface NodeLocation {
   provider: NodeLocationProvider;
