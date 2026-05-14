@@ -2,11 +2,13 @@
 
 import { cn } from "@/lib/utils";
 import { MapPinIcon, MinusIcon, PlusIcon } from "lucide-react";
+import { useTheme } from "next-themes";
 import React, {
   Suspense,
   lazy,
   useEffect,
   useState,
+  useSyncExternalStore,
   type ComponentType,
   type ReactNode,
 } from "react";
@@ -55,12 +57,20 @@ const LeafletPopup = lazy(() =>
   })),
 );
 
-const ClientOnly = ({ children }: { children: ReactNode }) => {
-  const [isMounted, setIsMounted] = useState(false);
+const subscribeToClientSnapshot = () => () => {};
+const getClientSnapshot = () => true;
+const getServerSnapshot = () => false;
+const LIGHT_TILE_URL = "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png";
+const DARK_TILE_URL = "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png";
+const CARTO_ATTRIBUTION =
+  '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>, &copy; <a href="https://carto.com/attributions">CARTO</a>';
 
-  useEffect(() => {
-    setIsMounted(true);
-  }, []);
+const ClientOnly = ({ children }: { children: ReactNode }) => {
+  const isMounted = useSyncExternalStore(
+    subscribeToClientSnapshot,
+    getClientSnapshot,
+    getServerSnapshot,
+  );
 
   if (!isMounted) {
     return null;
@@ -90,14 +100,30 @@ export const Map = ({
 );
 
 export const MapTileLayer = ({
-  url = "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png",
-  attribution = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>, &copy; <a href="https://carto.com/attributions">CARTO</a>',
+  url,
+  lightUrl = LIGHT_TILE_URL,
+  darkUrl = DARK_TILE_URL,
+  attribution = CARTO_ATTRIBUTION,
   ...props
-}: Omit<TileLayerProps, "url"> & { url?: string }) => (
-  <ClientOnly>
-    <LeafletTileLayer url={url} attribution={attribution} {...props} />
-  </ClientOnly>
-);
+}: Omit<TileLayerProps, "url"> & {
+  url?: string;
+  lightUrl?: string;
+  darkUrl?: string;
+}) => {
+  const { resolvedTheme } = useTheme();
+  const tileUrl = url ?? (resolvedTheme === "dark" ? darkUrl : lightUrl);
+
+  return (
+    <ClientOnly>
+      <LeafletTileLayer
+        key={tileUrl}
+        url={tileUrl}
+        attribution={attribution}
+        {...props}
+      />
+    </ClientOnly>
+  );
+};
 
 export const MapMarker = ({
   icon = <MapPinIcon className="size-6" />,
@@ -174,18 +200,27 @@ export const MapZoomControl = () => {
 export const MapFitBounds = ({
   bounds,
   maxZoom = 7,
+  fitKey,
 }: {
   bounds: LatLngBoundsExpression;
   maxZoom?: number;
+  fitKey?: string;
 }) => {
   const map = useMap();
+  const previousFitKeyRef = React.useRef<string | null>(null);
 
   useEffect(() => {
+    const nextFitKey = fitKey ?? JSON.stringify(bounds);
+    if (previousFitKeyRef.current === nextFitKey) {
+      return;
+    }
+    previousFitKeyRef.current = nextFitKey;
+
     map.fitBounds(bounds, {
       maxZoom,
       padding: [42, 42],
     });
-  }, [bounds, map, maxZoom]);
+  }, [bounds, fitKey, map, maxZoom]);
 
   return null;
 };

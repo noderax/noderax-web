@@ -55,6 +55,7 @@ export const NodeMapPanel = ({ nodes }: { nodes: NodeSummary[] }) => {
     () => groups.map((group) => [group.latitude, group.longitude] as [number, number]),
     [groups],
   );
+  const boundsKey = useMemo(() => groups.map((group) => group.key).join("|"), [groups]);
   const center = groups[0]
     ? ([groups[0].latitude, groups[0].longitude] as [number, number])
     : ([20, 0] as [number, number]);
@@ -74,7 +75,7 @@ export const NodeMapPanel = ({ nodes }: { nodes: NodeSummary[] }) => {
       contentClassName="p-0"
     >
       <div className="grid gap-0 xl:grid-cols-[minmax(0,1fr)_280px]">
-        <div className="relative h-[360px] min-h-[360px] overflow-hidden bg-muted/20 xl:h-[430px]">
+        <div className="relative h-[360px] min-h-[360px] overflow-hidden bg-slate-100 dark:bg-[#111827] xl:h-[430px]">
           {groups.length > 0 ? (
             <Map
               center={center}
@@ -85,7 +86,9 @@ export const NodeMapPanel = ({ nodes }: { nodes: NodeSummary[] }) => {
             >
               <MapTileLayer />
               <MapZoomControl />
-              {bounds.length > 0 ? <MapFitBounds bounds={bounds} /> : null}
+              {bounds.length > 0 ? (
+                <MapFitBounds bounds={bounds} fitKey={boundsKey} />
+              ) : null}
               {groups.map((group) => (
                 <MapMarker
                   key={group.key}
@@ -111,8 +114,8 @@ export const NodeMapPanel = ({ nodes }: { nodes: NodeSummary[] }) => {
                 <MapPinIcon className="mx-auto size-8 text-muted-foreground" />
                 <p className="text-sm font-medium">No node locations yet</p>
                 <p className="text-sm text-muted-foreground">
-                  Agents continue reporting normally; map markers appear after cloud
-                  region metadata is available.
+                  Agents continue reporting normally; map markers appear after location
+                  coordinates are available.
                 </p>
               </div>
             </div>
