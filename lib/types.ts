@@ -41,7 +41,12 @@ export type RootAccessProfile =
 export type RootAccessSyncStatus = "pending" | "applied" | "failed";
 export type RootScope = "task" | "operational";
 export type LogSourcePresetKind = "file" | "journal";
-export type NodeLocationProvider = "aws" | "gcp" | "azure" | "manual" | "public_ip";
+export type NodeLocationProvider =
+  | "aws"
+  | "gcp"
+  | "azure"
+  | "manual"
+  | "public_ip";
 export type NodeLocationSource = "cloud_metadata" | "manual" | "ipinfo";
 
 export interface NodeLocation {
@@ -98,6 +103,9 @@ export interface NodeDto {
   rootAccessSyncStatus: RootAccessSyncStatus;
   rootAccessUpdatedAt?: string | null;
   rootAccessUpdatedByUserId?: string | null;
+  rootAccessExpiresAt?: string | null;
+  rootAccessReason?: string | null;
+  rootAccessGrantId?: string | null;
   rootAccessLastAppliedAt?: string | null;
   rootAccessLastError?: string | null;
   maintenanceReason?: string | null;
@@ -428,6 +436,9 @@ export interface NodeSummary {
   rootAccessSyncStatus: RootAccessSyncStatus;
   rootAccessUpdatedAt?: string | null;
   rootAccessUpdatedByUserId?: string | null;
+  rootAccessExpiresAt?: string | null;
+  rootAccessReason?: string | null;
+  rootAccessGrantId?: string | null;
   rootAccessLastAppliedAt?: string | null;
   rootAccessLastError?: string | null;
   maintenanceReason?: string | null;
@@ -553,6 +564,7 @@ export type ControlPlaneUpdateStatus =
   | "loading_images"
   | "prepared"
   | "applying"
+  | "migrating_database"
   | "recreating_services"
   | "completed"
   | "failed";
@@ -1108,6 +1120,8 @@ export interface UpdateNodeTeamPayload {
 
 export interface UpdateNodeRootAccessPayload {
   profile: RootAccessProfile;
+  durationMinutes?: number;
+  reason?: string;
 }
 
 export interface UpdateNodeNotificationsPayload {

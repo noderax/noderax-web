@@ -1,11 +1,6 @@
 "use client";
 
-import {
-  LoaderCircle,
-  RefreshCcw,
-  ServerCog,
-  ShieldAlert,
-} from "lucide-react";
+import { LoaderCircle, RefreshCcw, ServerCog, ShieldAlert } from "lucide-react";
 import {
   useEffect,
   useMemo,
@@ -45,6 +40,7 @@ const STAGE_ESTIMATES_SECONDS: Record<string, number> = {
   loading_images: 75,
   prepared: 15,
   applying: 180,
+  migrating_database: 180,
   recreating_services: 150,
   failed: 0,
 };
@@ -79,6 +75,8 @@ const getHeadline = (snapshot: MaintenanceSnapshot) => {
   switch (snapshot.status) {
     case "recreating_services":
       return "Restarting runtime services";
+    case "migrating_database":
+      return "Applying database migrations";
     case "applying":
       return "Applying prepared control-plane update";
     case "failed":
@@ -109,6 +107,14 @@ const getDescription = (
     );
   }
 
+  if (snapshot.status === "migrating_database") {
+    return (
+      message ??
+      snapshot.message ??
+      "The prepared API image is applying pending database migrations. Existing data is preserved; only unapplied migrations run."
+    );
+  }
+
   return (
     message ??
     snapshot.message ??
@@ -120,7 +126,8 @@ const getCompletion = (snapshot: MaintenanceSnapshot) => {
   if (snapshot.kind === "platform_api_restart") {
     return {
       title: "API restart complete",
-      description: "The platform API reported healthy again. Reloading the page.",
+      description:
+        "The platform API reported healthy again. Reloading the page.",
     };
   }
 
@@ -360,7 +367,9 @@ const ActiveMaintenanceOverlay = ({
           <div
             className={cn(
               "rounded-full border px-3 py-1 text-xs font-medium",
-              isFailed || progressState.timedOut ? "tone-warning" : "tone-brand",
+              isFailed || progressState.timedOut
+                ? "tone-warning"
+                : "tone-brand",
             )}
           >
             {isFailed

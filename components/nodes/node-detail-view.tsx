@@ -41,6 +41,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SectionPanel } from "@/components/ui/section-panel";
 import { ShimmerButton } from "@/components/ui/shimmer-button";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -157,6 +158,30 @@ const rootAccessSyncTone = (status: string) => {
 const readRootAccessStatusDescription = (profile: RootAccessProfile) => {
   const capabilities = ROOT_ACCESS_PROFILE_CAPABILITIES[profile] ?? [];
   return capabilities[0] ?? "No capabilities available for this profile.";
+};
+
+const ROOT_ACCESS_MIN_DURATION_MINUTES = 5;
+const ROOT_ACCESS_MAX_DURATION_MINUTES = 120;
+const ROOT_ACCESS_DEFAULT_DURATION_MINUTES = 30;
+
+const readRootAccessDurationDraft = (expiresAt?: string | null) => {
+  if (!expiresAt) {
+    return String(ROOT_ACCESS_DEFAULT_DURATION_MINUTES);
+  }
+
+  const expiresAtMs = Date.parse(expiresAt);
+  if (!Number.isFinite(expiresAtMs)) {
+    return String(ROOT_ACCESS_DEFAULT_DURATION_MINUTES);
+  }
+
+  const remainingMinutes = Math.ceil((expiresAtMs - Date.now()) / 60_000);
+  if (remainingMinutes < ROOT_ACCESS_MIN_DURATION_MINUTES) {
+    return String(ROOT_ACCESS_DEFAULT_DURATION_MINUTES);
+  }
+
+  return String(
+    Math.min(remainingMinutes, ROOT_ACCESS_MAX_DURATION_MINUTES),
+  );
 };
 
 const ROOT_ACCESS_SURFACE_OPTIONS: Array<{
@@ -355,6 +380,11 @@ export const NodeDetailView = ({ id }: { id: string }) => {
     task: false,
     terminal: false,
   });
+  const [
+    pendingRootAccessDurationMinutes,
+    setPendingRootAccessDurationMinutes,
+  ] = useState(String(ROOT_ACCESS_DEFAULT_DURATION_MINUTES));
+  const [pendingRootAccessReason, setPendingRootAccessReason] = useState("");
 
   useNodeRealtimeSubscription(id);
 
@@ -490,6 +520,29 @@ export const NodeDetailView = ({ id }: { id: string }) => {
   );
   const rootAccessCapabilities =
     ROOT_ACCESS_PROFILE_CAPABILITIES[pendingRootAccessProfile] ?? [];
+  const pendingRootAccessDurationValue = Number(
+    pendingRootAccessDurationMinutes,
+  );
+  const pendingRootAccessDurationValid =
+    Number.isInteger(pendingRootAccessDurationValue) &&
+    pendingRootAccessDurationValue >= ROOT_ACCESS_MIN_DURATION_MINUTES &&
+    pendingRootAccessDurationValue <= ROOT_ACCESS_MAX_DURATION_MINUTES;
+  const pendingRootAccessReasonValue = pendingRootAccessReason.trim();
+  const pendingRootAccessRequiresGrant = pendingRootAccessProfile !== "off";
+  const rootAccessSubmitDisabled =
+    updateNodeRootAccess.isPending ||
+    (pendingRootAccessRequiresGrant
+      ? !pendingRootAccessDurationValid || pendingRootAccessReasonValue === ""
+      : node.rootAccessProfile === "off");
+  const primeRootAccessDraft = () => {
+    setPendingRootAccessSurfaceSelection(
+      profileToSurfaceSelection(node.rootAccessProfile),
+    );
+    setPendingRootAccessDurationMinutes(
+      readRootAccessDurationDraft(node.rootAccessExpiresAt),
+    );
+    setPendingRootAccessReason(node.rootAccessReason ?? "");
+  };
   const telemetryCards: Array<{
     key: GaugeMetricKey;
     label: string;
@@ -915,9 +968,7 @@ export const NodeDetailView = ({ id }: { id: string }) => {
                     shimmerColor="var(--destructive)"
                     disabled={!isAdmin || updateNodeRootAccess.isPending}
                     onClick={() => {
-                      setPendingRootAccessSurfaceSelection(
-                        profileToSurfaceSelection(node.rootAccessProfile),
-                      );
+                      primeRootAccessDraft();
                       setRootAccessDialogOpen(true);
                     }}
                   >
@@ -942,7 +993,7 @@ export const NodeDetailView = ({ id }: { id: string }) => {
                   </Badge>
                 </div>
 
-                <div className="mt-4 grid gap-4 lg:grid-cols-3">
+                <div className="mt-4 grid gap-4 lg:grid-cols-4">
                   <div className="rounded-[18px] border bg-muted/15 px-4 py-3">
                     <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
                       Desired capabilities
@@ -975,7 +1026,30 @@ export const NodeDetailView = ({ id }: { id: string }) => {
                       />
                     </p>
                   </div>
+                  <div className="rounded-[18px] border bg-muted/15 px-4 py-3">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                      Access expires
+                    </p>
+                    <p className="mt-2 text-sm font-medium">
+                      <TimeDisplay
+                        value={node.rootAccessExpiresAt ?? null}
+                        mode="relative"
+                        emptyLabel="No active grant"
+                      />
+                    </p>
+                  </div>
                 </div>
+
+                {node.rootAccessReason ? (
+                  <div className="mt-4 rounded-[18px] border bg-muted/15 px-4 py-3 text-sm">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                      Grant reason
+                    </p>
+                    <p className="mt-2 text-foreground">
+                      {node.rootAccessReason}
+                    </p>
+                  </div>
+                ) : null}
 
                 {node.rootAccessLastError ? (
                   <div className="mt-4 flex items-start gap-3 rounded-[18px] border border-tone-danger/30 bg-tone-danger/8 px-4 py-3 text-sm">
@@ -1347,9 +1421,7 @@ export const NodeDetailView = ({ id }: { id: string }) => {
         onOpenChange={(open) => {
           setRootAccessDialogOpen(open);
           if (open) {
-            setPendingRootAccessSurfaceSelection(
-              profileToSurfaceSelection(node.rootAccessProfile),
-            );
+            primeRootAccessDraft();
           }
         }}
       >
@@ -1407,6 +1479,47 @@ export const NodeDetailView = ({ id }: { id: string }) => {
               </p>
             </div>
 
+            {pendingRootAccessRequiresGrant ? (
+              <div className="grid gap-4 md:grid-cols-[160px_1fr]">
+                <div className="space-y-2">
+                  <Label htmlFor="node-root-access-duration">
+                    Duration
+                  </Label>
+                  <Input
+                    id="node-root-access-duration"
+                    type="number"
+                    min={ROOT_ACCESS_MIN_DURATION_MINUTES}
+                    max={ROOT_ACCESS_MAX_DURATION_MINUTES}
+                    step={1}
+                    value={pendingRootAccessDurationMinutes}
+                    onChange={(event) =>
+                      setPendingRootAccessDurationMinutes(event.target.value)
+                    }
+                    aria-invalid={!pendingRootAccessDurationValid}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    {ROOT_ACCESS_MIN_DURATION_MINUTES}-
+                    {ROOT_ACCESS_MAX_DURATION_MINUTES} minutes
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="node-root-access-reason">
+                    Reason
+                  </Label>
+                  <Textarea
+                    id="node-root-access-reason"
+                    value={pendingRootAccessReason}
+                    onChange={(event) =>
+                      setPendingRootAccessReason(event.target.value)
+                    }
+                    rows={3}
+                    maxLength={500}
+                    aria-invalid={pendingRootAccessReasonValue === ""}
+                  />
+                </div>
+              </div>
+            ) : null}
+
             <div className="rounded-[18px] border px-4 py-3">
               <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
                 Effective profile
@@ -1430,16 +1543,19 @@ export const NodeDetailView = ({ id }: { id: string }) => {
               Cancel
             </Button>
             <Button
-              disabled={
-                updateNodeRootAccess.isPending ||
-                pendingRootAccessProfile === node.rootAccessProfile
-              }
+              disabled={rootAccessSubmitDisabled}
               onClick={async () => {
                 try {
                   await updateNodeRootAccess.mutateAsync({
                     nodeId: node.id,
                     payload: {
                       profile: pendingRootAccessProfile,
+                      ...(pendingRootAccessRequiresGrant
+                        ? {
+                            durationMinutes: pendingRootAccessDurationValue,
+                            reason: pendingRootAccessReasonValue,
+                          }
+                        : {}),
                     },
                   });
                   setRootAccessDialogOpen(false);

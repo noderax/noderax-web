@@ -5,6 +5,7 @@ import {
   getApiRequestUrls,
   normalizeApiBaseUrl,
 } from "@/lib/auth";
+import { isSafeProxyPath } from "@/lib/server/api-url-security";
 
 export const dynamic = "force-dynamic";
 
@@ -48,6 +49,10 @@ async function forwardRequest(
   context: { params: Promise<{ path: string[] }> },
 ) {
   const { path } = await context.params;
+  if (!isSafeProxyPath(path)) {
+    return NextResponse.json({ message: "Invalid proxy path." }, { status: 400 });
+  }
+
   const upstreamUrls = getApiRequestUrls(`/${path.join("/")}`);
   const publicApiHeaderUrl = resolvePublicApiHeaderUrl(request);
 
@@ -73,6 +78,11 @@ async function forwardRequest(
   headers.delete("host");
   headers.delete("connection");
   headers.delete("content-length");
+  headers.delete("upgrade");
+  headers.delete("proxy-authorization");
+  headers.delete("proxy-authenticate");
+  headers.delete("x-forwarded-host");
+  headers.delete("x-forwarded-proto");
   if (publicApiHeaderUrl) {
     headers.set("x-noderax-public-api-url", publicApiHeaderUrl);
   }
@@ -80,6 +90,9 @@ async function forwardRequest(
     request.method === "GET" || request.method === "HEAD"
       ? undefined
       : await request.arrayBuffer();
+  if (requestBody && requestBody.byteLength > 10 * 1024 * 1024) {
+    return NextResponse.json({ message: "Request body is too large." }, { status: 413 });
+  }
 
   let response: Response | null = null;
   let lastFetchError: Error | null = null;
@@ -89,6 +102,8 @@ async function forwardRequest(
       upstreamUrl.searchParams.set(key, value);
     });
 
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15_000);
     try {
       response = await fetch(upstreamUrl, {
         method: request.method,
@@ -96,6 +111,7 @@ async function forwardRequest(
         body: requestBody,
         cache: "no-store",
         redirect: "manual",
+        signal: controller.signal,
       });
     } catch (error) {
       lastFetchError =
@@ -103,6 +119,8 @@ async function forwardRequest(
           ? error
           : new Error("Unable to reach upstream API.");
       continue;
+    } finally {
+      clearTimeout(timeout);
     }
 
     if (response.status !== 404) {
@@ -125,8 +143,14 @@ async function forwardRequest(
   responseHeaders.delete("content-encoding");
   responseHeaders.delete("content-length");
   responseHeaders.delete("transfer-encoding");
+  responseHeaders.delete("connection");
+  responseHeaders.delete("upgrade");
+  const responseBody = await response.arrayBuffer();
+  if (responseBody.byteLength > 25 * 1024 * 1024) {
+    return NextResponse.json({ message: "Upstream response is too large." }, { status: 502 });
+  }
 
-  return new NextResponse(await response.arrayBuffer(), {
+  return new NextResponse(responseBody, {
     status: response.status,
     headers: responseHeaders,
   });

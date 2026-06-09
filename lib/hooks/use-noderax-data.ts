@@ -97,6 +97,7 @@ const ACTIVE_CONTROL_PLANE_UPDATE_QUERY_STATUSES = new Set([
   "extracting",
   "loading_images",
   "applying",
+  "migrating_database",
   "recreating_services",
 ]);
 
@@ -1017,7 +1018,11 @@ export const usePreviewNodeLogs = (nodeId: string) => {
 
   return useMutation<LogPreviewResponseDto, unknown, CreateLogPreviewPayload>({
     mutationFn: (payload) =>
-      apiClient.previewNodeLogs(nodeId, payload, requireWorkspaceId(workspaceId)),
+      apiClient.previewNodeLogs(
+        nodeId,
+        payload,
+        requireWorkspaceId(workspaceId),
+      ),
     onError: (error) => {
       toast.error("Unable to preview logs", {
         description: readMutationError(error),
@@ -1559,7 +1564,9 @@ export const useUpdateNodeNotifications = () => {
           refetchType: "active",
         }),
         queryClient.invalidateQueries({
-          queryKey: queryKeys.dashboard.overview(requireWorkspaceId(workspaceId)),
+          queryKey: queryKeys.dashboard.overview(
+            requireWorkspaceId(workspaceId),
+          ),
           refetchType: "active",
         }),
         queryClient.invalidateQueries({

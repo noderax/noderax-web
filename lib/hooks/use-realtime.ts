@@ -291,6 +291,9 @@ type TrackedNodeRootAccessPatch = Pick<
   | "rootAccessSyncStatus"
   | "rootAccessUpdatedAt"
   | "rootAccessUpdatedByUserId"
+  | "rootAccessExpiresAt"
+  | "rootAccessReason"
+  | "rootAccessGrantId"
   | "rootAccessLastAppliedAt"
   | "rootAccessLastError"
 >;
@@ -828,6 +831,9 @@ export const useRealtimeBridge = () => {
         rootAccessUpdatedAt: message.data.rootAccessUpdatedAt ?? null,
         rootAccessUpdatedByUserId:
           message.data.rootAccessUpdatedByUserId ?? null,
+        rootAccessExpiresAt: message.data.rootAccessExpiresAt ?? null,
+        rootAccessReason: message.data.rootAccessReason ?? null,
+        rootAccessGrantId: message.data.rootAccessGrantId ?? null,
         rootAccessLastAppliedAt: message.data.rootAccessLastAppliedAt ?? null,
         rootAccessLastError: message.data.rootAccessLastError ?? null,
       });

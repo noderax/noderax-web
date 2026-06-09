@@ -7,6 +7,10 @@ import {
   normalizeApiBaseUrl,
 } from "@/lib/auth";
 import { getSetupApiConfig } from "@/lib/setup";
+import {
+  allowPrivateApiUrls,
+  validateServerApiBaseUrl,
+} from "@/lib/server/api-url-security";
 import { parseSetupApiUrlInput, readSetupApiConfig } from "../_shared";
 
 export const dynamic = "force-dynamic";
@@ -74,6 +78,18 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           message: "Enter a valid http:// or https:// API URL.",
+        },
+        { status: 400 },
+      );
+    }
+
+    const validation = await validateServerApiBaseUrl(normalizedApiUrl, {
+      allowPrivate: allowPrivateApiUrls(),
+    });
+    if (!validation.apiUrl) {
+      return NextResponse.json(
+        {
+          message: validation.error ?? "API URL is not allowed.",
         },
         { status: 400 },
       );

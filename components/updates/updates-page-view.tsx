@@ -1,11 +1,6 @@
 "use client";
 
-import {
-  type ReactNode,
-  useDeferredValue,
-  useMemo,
-  useState,
-} from "react";
+import { type ReactNode, useDeferredValue, useMemo, useState } from "react";
 import {
   Activity,
   AlertTriangle,
@@ -112,6 +107,7 @@ const ACTIVE_CONTROL_PLANE_UPDATE_STATUSES = new Set([
   "extracting",
   "loading_images",
   "applying",
+  "migrating_database",
   "recreating_services",
 ]);
 type UpdateTabId = "control-plane" | "agents";
@@ -133,7 +129,9 @@ const getControlPlaneTone = (
   }
 };
 
-const getControlPlaneReleaseRoleTone = (role: "Installed" | "Prepared" | "Latest") => {
+const getControlPlaneReleaseRoleTone = (
+  role: "Installed" | "Prepared" | "Latest",
+) => {
   switch (role) {
     case "Installed":
       return "tone-success";
@@ -469,7 +467,8 @@ const TablePaginationBar = ({
 export const UpdatesPageView = () => {
   const { isPlatformAdmin } = useWorkspaceContext();
   const workspacesQuery = useWorkspaces(isPlatformAdmin);
-  const controlPlaneSummaryQuery = useControlPlaneUpdateSummary(isPlatformAdmin);
+  const controlPlaneSummaryQuery =
+    useControlPlaneUpdateSummary(isPlatformAdmin);
   const summaryQuery = useAgentUpdateSummary(isPlatformAdmin);
   const releasesQuery = useAgentUpdateReleases(isPlatformAdmin);
   const rolloutsQuery = useAgentUpdateRollouts(isPlatformAdmin);
@@ -504,8 +503,7 @@ export const UpdatesPageView = () => {
     useState<(typeof TABLE_PAGE_SIZE_OPTIONS)[number]>(10);
   const [historyPageIndex, setHistoryPageIndex] = useState(0);
   const [isApplyDialogOpen, setIsApplyDialogOpen] = useState(false);
-  const [selectedTab, setSelectedTab] =
-    useState<UpdateTabId>("control-plane");
+  const [selectedTab, setSelectedTab] = useState<UpdateTabId>("control-plane");
   const [hasUserSelectedTab, setHasUserSelectedTab] = useState(false);
   const deferredSearch = useDeferredValue(search);
 
@@ -515,10 +513,11 @@ export const UpdatesPageView = () => {
   const recentRollouts = rolloutsQuery.data ?? EMPTY_ROLLOUTS;
   const controlPlaneSummary = controlPlaneSummaryQuery.data ?? null;
   const controlPlaneOperation = controlPlaneSummary?.operation ?? null;
-  const controlPlanePreparedRelease = controlPlaneSummary?.preparedRelease ?? null;
+  const controlPlanePreparedRelease =
+    controlPlaneSummary?.preparedRelease ?? null;
   const controlPlaneHasActiveOperation = Boolean(
     controlPlaneOperation &&
-      ACTIVE_CONTROL_PLANE_UPDATE_STATUSES.has(controlPlaneOperation.status),
+    ACTIVE_CONTROL_PLANE_UPDATE_STATUSES.has(controlPlaneOperation.status),
   );
   const activeRollout = summaryQuery.data?.activeRollout ?? null;
   const latestRelease = summaryQuery.data?.latestRelease ?? null;
@@ -530,8 +529,8 @@ export const UpdatesPageView = () => {
     nodesQuery.isFetching;
   const controlPlaneTabHasUpdate = Boolean(
     controlPlaneHasActiveOperation ||
-      controlPlanePreparedRelease ||
-      controlPlaneSummary?.updateAvailable,
+    controlPlanePreparedRelease ||
+    controlPlaneSummary?.updateAvailable,
   );
   const agentTabHasUpdate = Boolean(
     activeRollout || (summaryQuery.data?.outdatedNodeCount ?? 0) > 0,
@@ -552,7 +551,7 @@ export const UpdatesPageView = () => {
     : (summaryQuery.data?.eligibleOutdatedNodeCount ?? 0) > 0
       ? `${summaryQuery.data?.eligibleOutdatedNodeCount} ready`
       : (summaryQuery.data?.outdatedNodeCount ?? 0) > 0
-      ? `${summaryQuery.data?.outdatedNodeCount} outdated`
+        ? `${summaryQuery.data?.outdatedNodeCount} outdated`
         : null;
   const recommendedTab: UpdateTabId = controlPlaneTabHasUpdate
     ? "control-plane"
@@ -575,7 +574,9 @@ export const UpdatesPageView = () => {
         role: "Installed" as const,
       },
     ].filter(
-      (entry): entry is {
+      (
+        entry,
+      ): entry is {
         release: NonNullable<typeof entry.release>;
         role: typeof entry.role;
       } => Boolean(entry.release),
@@ -1268,7 +1269,9 @@ export const UpdatesPageView = () => {
                   variant="outline"
                   className={cn(
                     "rounded-full px-2 py-0.5 text-[11px]",
-                    activeRollout ? getRolloutTone(activeRollout.status) : "tone-brand",
+                    activeRollout
+                      ? getRolloutTone(activeRollout.status)
+                      : "tone-brand",
                   )}
                 >
                   {agentTabLabel}
@@ -1299,7 +1302,9 @@ export const UpdatesPageView = () => {
                       variant="outline"
                       className={cn(
                         "rounded-full px-3 py-1",
-                        getControlPlaneTone(controlPlaneOperation?.status ?? "available"),
+                        getControlPlaneTone(
+                          controlPlaneOperation?.status ?? "available",
+                        ),
                       )}
                     >
                       {controlPlaneOperation?.operation === "apply"
@@ -1346,7 +1351,10 @@ export const UpdatesPageView = () => {
                     }}
                   >
                     <div className="flex flex-wrap items-center gap-2">
-                      <Badge variant="outline" className="rounded-full px-3 py-1">
+                      <Badge
+                        variant="outline"
+                        className="rounded-full px-3 py-1"
+                      >
                         <Sparkles className="mr-1 size-3.5" />
                         Latest-only channel
                       </Badge>
@@ -1383,8 +1391,8 @@ export const UpdatesPageView = () => {
                         </AnimatedGradientText>
                       </h2>
                       <p className="mt-4 max-w-2xl text-sm leading-7 text-muted-foreground">
-                        Downloads run on the host supervisor and only mutate the live
-                        runtime after an explicit apply confirmation.
+                        Downloads run on the host supervisor and only mutate the
+                        live runtime after an explicit apply confirmation.
                       </p>
                     </div>
 
@@ -1421,11 +1429,15 @@ export const UpdatesPageView = () => {
                   <div className="grid gap-4">
                     <UpdateStatCard
                       label="Current build"
-                      value={formatControlPlaneRelease(controlPlaneSummary.currentRelease)}
+                      value={formatControlPlaneRelease(
+                        controlPlaneSummary.currentRelease,
+                      )}
                       description={
                         controlPlaneSummary.currentRelease?.releasedAt ? (
                           <TimeDisplay
-                            value={controlPlaneSummary.currentRelease.releasedAt}
+                            value={
+                              controlPlaneSummary.currentRelease.releasedAt
+                            }
                             mode="datetime"
                           />
                         ) : (
@@ -1436,7 +1448,9 @@ export const UpdatesPageView = () => {
                     />
                     <UpdateStatCard
                       label="Latest build"
-                      value={formatControlPlaneRelease(controlPlaneSummary.latestRelease)}
+                      value={formatControlPlaneRelease(
+                        controlPlaneSummary.latestRelease,
+                      )}
                       description={
                         controlPlaneSummary.latestRelease?.releasedAt ? (
                           <TimeDisplay
@@ -1456,7 +1470,9 @@ export const UpdatesPageView = () => {
                     />
                     <UpdateStatCard
                       label="Prepared build"
-                      value={formatControlPlaneRelease(controlPlanePreparedRelease)}
+                      value={formatControlPlaneRelease(
+                        controlPlanePreparedRelease,
+                      )}
                       description={
                         controlPlaneOperation?.message ??
                         "No staged control-plane release is waiting to be applied."
@@ -1481,7 +1497,7 @@ export const UpdatesPageView = () => {
                   <SectionPanel
                     eyebrow="Operation"
                     title="Control-plane state"
-                    description="The host-side supervisor updates this state while downloading, verifying, extracting, or applying the prepared release."
+                    description="The host-side supervisor updates this state while downloading, verifying, extracting, migrating, or applying the prepared release."
                     className="lg:col-span-2"
                   >
                     {controlPlaneOperation ? (
@@ -1494,7 +1510,8 @@ export const UpdatesPageView = () => {
                               getControlPlaneTone(controlPlaneOperation.status),
                             )}
                           >
-                            {controlPlaneOperation.operation} {controlPlaneOperation.status}
+                            {controlPlaneOperation.operation}{" "}
+                            {controlPlaneOperation.status}
                           </Badge>
                           <p className="text-sm leading-7 text-muted-foreground">
                             {controlPlaneOperation.error ??
@@ -1503,15 +1520,25 @@ export const UpdatesPageView = () => {
                           </p>
                           <div className="flex flex-wrap gap-4 text-xs text-muted-foreground">
                             <span>
-                              Requested <TimeDisplay value={controlPlaneOperation.requestedAt} mode="datetime" />
+                              Requested{" "}
+                              <TimeDisplay
+                                value={controlPlaneOperation.requestedAt}
+                                mode="datetime"
+                              />
                             </span>
                             {controlPlaneOperation.completedAt ? (
                               <span>
-                                Completed <TimeDisplay value={controlPlaneOperation.completedAt} mode="datetime" />
+                                Completed{" "}
+                                <TimeDisplay
+                                  value={controlPlaneOperation.completedAt}
+                                  mode="datetime"
+                                />
                               </span>
                             ) : null}
                             {controlPlaneOperation.rollbackStatus ? (
-                              <span>Rollback {controlPlaneOperation.rollbackStatus}</span>
+                              <span>
+                                Rollback {controlPlaneOperation.rollbackStatus}
+                              </span>
                             ) : null}
                           </div>
                         </div>
@@ -1524,9 +1551,9 @@ export const UpdatesPageView = () => {
                       </div>
                     ) : (
                       <p className="text-sm leading-7 text-muted-foreground">
-                        No control-plane update operation is active. If the latest
-                        release differs from the installed build, you can stage it
-                        here and confirm the apply separately.
+                        No control-plane update operation is active. If the
+                        latest release differs from the installed build, you can
+                        stage it here and confirm the apply separately.
                       </p>
                     )}
                   </SectionPanel>
@@ -1615,8 +1642,8 @@ export const UpdatesPageView = () => {
                               </div>
                             ) : (
                               <p className="mt-4 text-sm leading-7 text-muted-foreground">
-                                No changelog was published for this control-plane
-                                release manifest.
+                                No changelog was published for this
+                                control-plane release manifest.
                               </p>
                             )}
                           </div>
@@ -1638,7 +1665,11 @@ export const UpdatesPageView = () => {
         ) : null}
 
         {activeTab === "agents" ? (
-          <div role="tabpanel" aria-labelledby="agent-updates-tab" className="space-y-4">
+          <div
+            role="tabpanel"
+            aria-labelledby="agent-updates-tab"
+            className="space-y-4"
+          >
             <SectionPanel
               eyebrow="Release Center"
               title="Agent updates"
@@ -1697,9 +1728,7 @@ export const UpdatesPageView = () => {
                       Live command deck
                     </Badge>
                     {latestRelease ? (
-                      <Badge
-                        className="rounded-full px-3 py-1"
-                      >
+                      <Badge className="rounded-full px-3 py-1">
                         Latest {latestRelease.version}
                       </Badge>
                     ) : null}
@@ -1717,29 +1746,29 @@ export const UpdatesPageView = () => {
                   </div>
 
                   <div className="mt-5 max-w-3xl">
-                <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
-                  Fleet release operations
-                </p>
-                <h2 className="mt-3 text-3xl font-semibold tracking-tight text-foreground sm:text-[2.45rem]">
-                  <AnimatedGradientText
-                    className="font-semibold"
-                    colorFrom="#d95f31"
-                    colorTo="#ffb54c"
-                    speed={1.2}
-                  >
-                    Stage, watch, and confirm
-                  </AnimatedGradientText>
-                  <span className="block">
-                    every agent version change in one place.
-                  </span>
-                </h2>
-                <p className="mt-3 max-w-2xl text-sm leading-7 text-muted-foreground">
-                  The board below is tuned for live operations: version shifts
-                  land in-place, rollout pressure stays visible, and selection
-                  controls remain docked on the right so you can act without
-                  losing the fleet table.
-                </p>
-              </div>
+                    <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
+                      Fleet release operations
+                    </p>
+                    <h2 className="mt-3 text-3xl font-semibold tracking-tight text-foreground sm:text-[2.45rem]">
+                      <AnimatedGradientText
+                        className="font-semibold"
+                        colorFrom="#d95f31"
+                        colorTo="#ffb54c"
+                        speed={1.2}
+                      >
+                        Stage, watch, and confirm
+                      </AnimatedGradientText>
+                      <span className="block">
+                        every agent version change in one place.
+                      </span>
+                    </h2>
+                    <p className="mt-3 max-w-2xl text-sm leading-7 text-muted-foreground">
+                      The board below is tuned for live operations: version
+                      shifts land in-place, rollout pressure stays visible, and
+                      selection controls remain docked on the right so you can
+                      act without losing the fleet table.
+                    </p>
+                  </div>
 
                   <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                     {summaryQuery.isPending ? (
@@ -1772,7 +1801,9 @@ export const UpdatesPageView = () => {
                         />
                         <UpdateStatCard
                           label="Eligible now"
-                          value={summaryQuery.data?.eligibleOutdatedNodeCount ?? 0}
+                          value={
+                            summaryQuery.data?.eligibleOutdatedNodeCount ?? 0
+                          }
                           description="Online, supported, and ready for the current target."
                           icon={<CheckCircle2 className="size-4" />}
                           tone="tone-success"
@@ -1800,108 +1831,110 @@ export const UpdatesPageView = () => {
                   </div>
 
                   <div className="mt-5 grid gap-3 lg:grid-cols-2 lg:items-stretch">
-                <div className="rounded-[24px] border border-border/70 bg-background/80 p-5">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <p className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
-                      Selected target
-                    </p>
-                    <Badge
-                      variant="outline"
-                      className={cn(
-                        "rounded-full px-3 py-1",
-                        rollbackMode ? "tone-warning" : "tone-success",
-                      )}
-                    >
-                      {rollbackMode ? "Rollback mode" : "Update mode"}
-                    </Badge>
-                  </div>
+                    <div className="rounded-[24px] border border-border/70 bg-background/80 p-5">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
+                          Selected target
+                        </p>
+                        <Badge
+                          variant="outline"
+                          className={cn(
+                            "rounded-full px-3 py-1",
+                            rollbackMode ? "tone-warning" : "tone-success",
+                          )}
+                        >
+                          {rollbackMode ? "Rollback mode" : "Update mode"}
+                        </Badge>
+                      </div>
 
-                  <div className="mt-3 flex flex-wrap items-center gap-3">
-                    <h3 className="text-2xl font-semibold tracking-tight">
-                      {selectedRelease?.version ?? "Select a release"}
-                    </h3>
-                    {selectedRelease ? (
-                      <p className="text-sm text-muted-foreground">
-                        Published{" "}
-                        <TimeDisplay
-                          value={selectedRelease.publishedAt}
-                          mode="datetime"
-                        />
-                      </p>
-                    ) : null}
-                  </div>
+                      <div className="mt-3 flex flex-wrap items-center gap-3">
+                        <h3 className="text-2xl font-semibold tracking-tight">
+                          {selectedRelease?.version ?? "Select a release"}
+                        </h3>
+                        {selectedRelease ? (
+                          <p className="text-sm text-muted-foreground">
+                            Published{" "}
+                            <TimeDisplay
+                              value={selectedRelease.publishedAt}
+                              mode="datetime"
+                            />
+                          </p>
+                        ) : null}
+                      </div>
 
-                  <div className="mt-4 grid gap-3 md:grid-cols-3">
-                    <div className="rounded-[20px] border border-border/70 bg-background/85 p-4">
-                      <p className="text-xs text-muted-foreground">Selection</p>
-                      <p className="mt-1 text-lg font-semibold">
-                        {effectiveSelectedNodeIds.length}
-                      </p>
-                      <p className="mt-2 text-sm text-muted-foreground">
-                        Nodes staged for the next rollout command.
-                      </p>
+                      <div className="mt-4 grid gap-3 md:grid-cols-3">
+                        <div className="rounded-[20px] border border-border/70 bg-background/85 p-4">
+                          <p className="text-xs text-muted-foreground">
+                            Selection
+                          </p>
+                          <p className="mt-1 text-lg font-semibold">
+                            {effectiveSelectedNodeIds.length}
+                          </p>
+                          <p className="mt-2 text-sm text-muted-foreground">
+                            Nodes staged for the next rollout command.
+                          </p>
+                        </div>
+                        <div className="rounded-[20px] border border-border/70 bg-background/85 p-4">
+                          <p className="text-xs text-muted-foreground">
+                            Visible ready
+                          </p>
+                          <p className="mt-1 text-lg font-semibold">
+                            {selectableFilteredNodes.length}
+                          </p>
+                          <p className="mt-2 text-sm text-muted-foreground">
+                            Eligible nodes inside the active fleet filter.
+                          </p>
+                        </div>
+                        <div className="rounded-[20px] border border-border/70 bg-background/85 p-4">
+                          <p className="text-xs text-muted-foreground">
+                            Live board
+                          </p>
+                          <p className="mt-1 text-lg font-semibold">
+                            {visibleTransitionCount}
+                          </p>
+                          <p className="mt-2 text-sm text-muted-foreground">
+                            Visible nodes currently carrying rollout state.
+                          </p>
+                        </div>
+                      </div>
                     </div>
-                    <div className="rounded-[20px] border border-border/70 bg-background/85 p-4">
-                      <p className="text-xs text-muted-foreground">
-                        Visible ready
-                      </p>
-                      <p className="mt-1 text-lg font-semibold">
-                        {selectableFilteredNodes.length}
-                      </p>
-                      <p className="mt-2 text-sm text-muted-foreground">
-                        Eligible nodes inside the active fleet filter.
-                      </p>
-                    </div>
-                    <div className="rounded-[20px] border border-border/70 bg-background/85 p-4">
-                      <p className="text-xs text-muted-foreground">
-                        Live board
-                      </p>
-                      <p className="mt-1 text-lg font-semibold">
-                        {visibleTransitionCount}
-                      </p>
-                      <p className="mt-2 text-sm text-muted-foreground">
-                        Visible nodes currently carrying rollout state.
-                      </p>
-                    </div>
-                  </div>
-                </div>
 
-                <div className="rounded-[24px] border border-border/70 bg-background/80 p-5">
-                  <p className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
-                    Release signal
-                  </p>
-                  <div className="mt-4 space-y-4">
-                    <div className="rounded-[20px] border border-border/70 bg-background/85 p-4">
-                      <p className="text-xs text-muted-foreground">
-                        Catalog sync
+                    <div className="rounded-[24px] border border-border/70 bg-background/80 p-5">
+                      <p className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
+                        Release signal
                       </p>
-                      <p className="mt-1 font-medium">
-                        {summaryQuery.data?.releaseCheckedAt ? (
-                          <TimeDisplay
-                            value={summaryQuery.data.releaseCheckedAt}
-                            mode="datetime"
-                          />
-                        ) : (
-                          "Not checked yet"
-                        )}
-                      </p>
-                    </div>
-                    <div className="rounded-[20px] border border-border/70 bg-background/85 p-4">
-                      <p className="text-xs text-muted-foreground">
-                        Current live node
-                      </p>
-                      <p className="mt-1 font-medium">
-                        {currentRolloutTarget?.nodeNameSnapshot ??
-                          "No active target"}
-                      </p>
-                      <p className="mt-2 text-sm text-muted-foreground">
-                        {currentRolloutTarget?.statusMessage ??
-                          "When a rollout is running, the active node and progress will stay pinned here."}
-                      </p>
+                      <div className="mt-4 space-y-4">
+                        <div className="rounded-[20px] border border-border/70 bg-background/85 p-4">
+                          <p className="text-xs text-muted-foreground">
+                            Catalog sync
+                          </p>
+                          <p className="mt-1 font-medium">
+                            {summaryQuery.data?.releaseCheckedAt ? (
+                              <TimeDisplay
+                                value={summaryQuery.data.releaseCheckedAt}
+                                mode="datetime"
+                              />
+                            ) : (
+                              "Not checked yet"
+                            )}
+                          </p>
+                        </div>
+                        <div className="rounded-[20px] border border-border/70 bg-background/85 p-4">
+                          <p className="text-xs text-muted-foreground">
+                            Current live node
+                          </p>
+                          <p className="mt-1 font-medium">
+                            {currentRolloutTarget?.nodeNameSnapshot ??
+                              "No active target"}
+                          </p>
+                          <p className="mt-2 text-sm text-muted-foreground">
+                            {currentRolloutTarget?.statusMessage ??
+                              "When a rollout is running, the active node and progress will stay pinned here."}
+                          </p>
+                        </div>
+                      </div>
                     </div>
                   </div>
-                </div>
-              </div>
 
                   <div className="mt-3">{activeRolloutPanel}</div>
                 </div>
@@ -1910,7 +1943,9 @@ export const UpdatesPageView = () => {
                   <SectionPanel
                     eyebrow="Live pulse"
                     title={
-                      activeRollout ? activeRollout.targetVersion : "Rollout watch"
+                      activeRollout
+                        ? activeRollout.targetVersion
+                        : "Rollout watch"
                     }
                     description="Realtime status, queue pressure, and the node currently carrying update work."
                   >
@@ -1945,7 +1980,8 @@ export const UpdatesPageView = () => {
                               Current node
                             </p>
                             <p className="mt-1 font-semibold">
-                              {currentRolloutTarget?.nodeNameSnapshot ?? "Queued"}
+                              {currentRolloutTarget?.nodeNameSnapshot ??
+                                "Queued"}
                             </p>
                             <p className="mt-2 text-sm text-muted-foreground">
                               {currentRolloutTarget?.statusMessage ??
@@ -1974,9 +2010,10 @@ export const UpdatesPageView = () => {
                     ) : (
                       <div className="space-y-4">
                         <p className="text-sm text-muted-foreground">
-                          No rollout is active right now. Build a selection on the
-                          left, choose the target release on the right, and start
-                          the next update or rollback from the command deck.
+                          No rollout is active right now. Build a selection on
+                          the left, choose the target release on the right, and
+                          start the next update or rollback from the command
+                          deck.
                         </p>
                         <div className="rounded-[20px] border border-border/70 bg-background/85 p-4">
                           <p className="text-xs text-muted-foreground">
@@ -1987,8 +2024,9 @@ export const UpdatesPageView = () => {
                               "Waiting for release metadata"}
                           </p>
                           <p className="mt-2 text-sm text-muted-foreground">
-                            Only official tagged releases appear here. Preview or
-                            main channel binaries stay out of the operator flow.
+                            Only official tagged releases appear here. Preview
+                            or main channel binaries stay out of the operator
+                            flow.
                           </p>
                         </div>
                       </div>
@@ -2008,363 +2046,385 @@ export const UpdatesPageView = () => {
                   description="Filter the fleet, watch live version movement in the rows, and keep active rollout nodes pinned near the top of the table."
                   contentClassName="p-0"
                 >
-              <div className="border-b border-border/70 px-4 py-3 sm:px-5">
-                <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-7">
-                  <Input
-                    value={search}
-                    onChange={(event) => {
-                      setSearch(event.target.value);
-                      setNodePageIndex(0);
-                    }}
-                    placeholder="Search node, hostname, or team"
-                    className="md:col-span-2 xl:col-span-2"
-                  />
-                  <Select
-                    value={workspaceFilter}
-                    onValueChange={(value) => {
-                      setWorkspaceFilter(value ?? "all");
-                      setNodePageIndex(0);
-                    }}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Workspace" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All workspaces</SelectItem>
-                      {workspaceOptions.map((workspace) => (
-                        <SelectItem key={workspace.id} value={workspace.id}>
-                          {workspace.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <Select
-                    value={teamFilter}
-                    onValueChange={(value) => {
-                      setTeamFilter(value ?? "all");
-                      setNodePageIndex(0);
-                    }}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Team" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All teams</SelectItem>
-                      {teamOptions.map((team) => (
-                        <SelectItem key={team.id} value={team.id}>
-                          {team.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <Select
-                    value={statusFilter}
-                    onValueChange={(value) => {
-                      setStatusFilter((value ?? "all") as typeof statusFilter);
-                      setNodePageIndex(0);
-                    }}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All status</SelectItem>
-                      <SelectItem value="online">Online</SelectItem>
-                      <SelectItem value="offline">Offline</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <Select
-                    value={maintenanceFilter}
-                    onValueChange={(value) => {
-                      setMaintenanceFilter(
-                        (value ?? "all") as typeof maintenanceFilter,
-                      );
-                      setNodePageIndex(0);
-                    }}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Availability" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All availability</SelectItem>
-                      <SelectItem value="active">Accepting work</SelectItem>
-                      <SelectItem value="maintenance">
-                        Maintenance only
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <Select
-                    value={archFilter}
-                    onValueChange={(value) => {
-                      setArchFilter(value ?? "all");
-                      setNodePageIndex(0);
-                    }}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Arch" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All arch</SelectItem>
-                      <SelectItem value="amd64">amd64</SelectItem>
-                      <SelectItem value="arm64">arm64</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <Select
-                    value={versionFilter}
-                    onValueChange={(value) => {
-                      setVersionFilter(value ?? "all");
-                      setNodePageIndex(0);
-                    }}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Agent version" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All versions</SelectItem>
-                      {versionOptions.map((version) => (
-                        <SelectItem key={version} value={version}>
-                          {version}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+                  <div className="border-b border-border/70 px-4 py-3 sm:px-5">
+                    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-7">
+                      <Input
+                        value={search}
+                        onChange={(event) => {
+                          setSearch(event.target.value);
+                          setNodePageIndex(0);
+                        }}
+                        placeholder="Search node, hostname, or team"
+                        className="md:col-span-2 xl:col-span-2"
+                      />
+                      <Select
+                        value={workspaceFilter}
+                        onValueChange={(value) => {
+                          setWorkspaceFilter(value ?? "all");
+                          setNodePageIndex(0);
+                        }}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Workspace" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All workspaces</SelectItem>
+                          {workspaceOptions.map((workspace) => (
+                            <SelectItem key={workspace.id} value={workspace.id}>
+                              {workspace.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Select
+                        value={teamFilter}
+                        onValueChange={(value) => {
+                          setTeamFilter(value ?? "all");
+                          setNodePageIndex(0);
+                        }}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Team" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All teams</SelectItem>
+                          {teamOptions.map((team) => (
+                            <SelectItem key={team.id} value={team.id}>
+                              {team.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Select
+                        value={statusFilter}
+                        onValueChange={(value) => {
+                          setStatusFilter(
+                            (value ?? "all") as typeof statusFilter,
+                          );
+                          setNodePageIndex(0);
+                        }}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Status" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All status</SelectItem>
+                          <SelectItem value="online">Online</SelectItem>
+                          <SelectItem value="offline">Offline</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <Select
+                        value={maintenanceFilter}
+                        onValueChange={(value) => {
+                          setMaintenanceFilter(
+                            (value ?? "all") as typeof maintenanceFilter,
+                          );
+                          setNodePageIndex(0);
+                        }}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Availability" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All availability</SelectItem>
+                          <SelectItem value="active">Accepting work</SelectItem>
+                          <SelectItem value="maintenance">
+                            Maintenance only
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <Select
+                        value={archFilter}
+                        onValueChange={(value) => {
+                          setArchFilter(value ?? "all");
+                          setNodePageIndex(0);
+                        }}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Arch" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All arch</SelectItem>
+                          <SelectItem value="amd64">amd64</SelectItem>
+                          <SelectItem value="arm64">arm64</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <Select
+                        value={versionFilter}
+                        onValueChange={(value) => {
+                          setVersionFilter(value ?? "all");
+                          setNodePageIndex(0);
+                        }}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Agent version" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All versions</SelectItem>
+                          {versionOptions.map((version) => (
+                            <SelectItem key={version} value={version}>
+                              {version}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
 
-                <div className="mt-4 flex flex-wrap gap-2">
-                  <Badge variant="outline" className="rounded-full px-3 py-1">
-                    {prioritizedFilteredNodes.length} visible
-                  </Badge>
-                  <Badge variant="outline" className="rounded-full px-3 py-1">
-                    {visibleOnlineCount} online
-                  </Badge>
-                  <Badge variant="outline" className="rounded-full px-3 py-1">
-                    {selectableFilteredNodes.length} ready
-                  </Badge>
-                  <Badge variant="outline" className="rounded-full px-3 py-1">
-                    {filteredBlockedNodeCount} blocked
-                  </Badge>
-                  <Badge variant="outline" className="rounded-full px-3 py-1">
-                    {visibleTransitionCount} in transition
-                  </Badge>
-                </div>
-              </div>
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      <Badge
+                        variant="outline"
+                        className="rounded-full px-3 py-1"
+                      >
+                        {prioritizedFilteredNodes.length} visible
+                      </Badge>
+                      <Badge
+                        variant="outline"
+                        className="rounded-full px-3 py-1"
+                      >
+                        {visibleOnlineCount} online
+                      </Badge>
+                      <Badge
+                        variant="outline"
+                        className="rounded-full px-3 py-1"
+                      >
+                        {selectableFilteredNodes.length} ready
+                      </Badge>
+                      <Badge
+                        variant="outline"
+                        className="rounded-full px-3 py-1"
+                      >
+                        {filteredBlockedNodeCount} blocked
+                      </Badge>
+                      <Badge
+                        variant="outline"
+                        className="rounded-full px-3 py-1"
+                      >
+                        {visibleTransitionCount} in transition
+                      </Badge>
+                    </div>
+                  </div>
 
-              {!nodes.length && nodesQuery.isPending ? (
-                <div className="space-y-3 px-4 py-3 sm:px-5">
-                  {Array.from({ length: 6 }).map((_, index) => (
-                    <Skeleton key={index} className="h-20 rounded-[18px]" />
-                  ))}
-                </div>
-              ) : !prioritizedFilteredNodes.length ? (
-                <div className="px-4 py-5 sm:px-5">
-                  <EmptyState
-                    title="No nodes matched the current filter"
-                    description="Widen the workspace, team, maintenance, version, or architecture filters to see more rollout targets."
-                    icon={ShieldAlert}
-                    variant="plain"
-                  />
-                </div>
-              ) : (
-                <ScrollArea className="max-h-[32rem]">
-                  <Table>
-                    <TableHeader>
-                      <TableRow className="hover:bg-transparent">
-                        <TableHead>Node</TableHead>
-                        <TableHead>Placement</TableHead>
-                        <TableHead>Version lane</TableHead>
-                        <TableHead>Runtime</TableHead>
-                        <TableHead>Availability</TableHead>
-                        <TableHead className="text-right">Selection</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {paginatedNodes.map((node) => {
-                        const eligibility = eligibilityByNodeId.get(
-                          node.id,
-                        ) ?? {
-                          selectable: false,
-                          reason: "Unknown state.",
-                        };
-                        const selected = effectiveSelectedNodeIds.includes(
-                          node.id,
-                        );
-                        const rolloutTarget = activeTargetByNodeId.get(node.id);
-
-                        return (
-                          <TableRow key={node.id}>
-                            <TableCell className="align-top">
-                              <div>
-                                <div className="flex flex-wrap items-center gap-2">
-                                  <p className="font-medium">{node.name}</p>
-                                  {rolloutTarget ? (
-                                    <Badge
-                                      variant="outline"
-                                      className={cn(
-                                        "rounded-full px-3 py-1",
-                                        getTargetTone(rolloutTarget.status),
-                                      )}
-                                    >
-                                      {rolloutTarget.status}{" "}
-                                      {rolloutTarget.progressPercent}%
-                                    </Badge>
-                                  ) : null}
-                                </div>
-                                <p className="mt-1 text-xs text-muted-foreground">
-                                  {node.hostname} · {node.status}
-                                </p>
-                              </div>
-                            </TableCell>
-                            <TableCell className="align-top text-sm text-muted-foreground">
-                              <p>
-                                {workspaceNameById.get(node.workspaceId) ??
-                                  node.workspaceId}
-                              </p>
-                              <p className="mt-1 text-xs">
-                                {node.teamName ?? "Unassigned"}
-                              </p>
-                            </TableCell>
-                            <TableCell className="align-top">
-                              <div className="space-y-2">
-                                <div className="flex flex-wrap items-center gap-2">
-                                  <Badge className="rounded-full px-3 py-1">
-                                    {node.agentVersion ?? "Unknown"}
-                                  </Badge>
-                                  {selectedTargetVersion &&
-                                  node.agentVersion !==
-                                    selectedTargetVersion ? (
-                                    <Badge
-                                      variant="outline"
-                                      className="rounded-full px-3 py-1"
-                                    >
-                                      Target {selectedTargetVersion}
-                                    </Badge>
-                                  ) : null}
-                                </div>
-                                <p className="text-xs text-muted-foreground">
-                                  {node.lastVersionReportedAt ? (
-                                    <>
-                                      Last version signal{" "}
-                                      <TimeDisplay
-                                        value={node.lastVersionReportedAt}
-                                        mode="datetime"
-                                      />
-                                    </>
-                                  ) : (
-                                    "No version signal received yet."
-                                  )}
-                                </p>
-                                {rolloutTarget ? (
-                                  <p className="text-xs text-muted-foreground">
-                                    {rolloutTarget.statusMessage ??
-                                      "This node is currently participating in the active rollout."}
-                                  </p>
-                                ) : null}
-                              </div>
-                            </TableCell>
-                            <TableCell className="align-top text-sm text-muted-foreground">
-                              <p>
-                                {node.os} / {node.arch}
-                              </p>
-                              <p className="mt-1 text-xs">
-                                {node.lastSeenAt ? (
-                                  <>
-                                    Seen{" "}
-                                    <TimeDisplay
-                                      value={node.lastSeenAt}
-                                      mode="datetime"
-                                    />
-                                  </>
-                                ) : (
-                                  "No heartbeat yet"
-                                )}
-                              </p>
-                            </TableCell>
-                            <TableCell className="align-top">
-                              {eligibility.selectable ? (
-                                <Badge
-                                  variant="outline"
-                                  className="rounded-full px-3 py-1 tone-success"
-                                >
-                                  Ready
-                                </Badge>
-                              ) : selectedTargetVersion &&
-                                node.agentVersion === selectedTargetVersion ? (
-                                <Badge
-                                  variant="outline"
-                                  className="rounded-full px-3 py-1 tone-success"
-                                >
-                                  Latest
-                                </Badge>
-                              ) : (
-                                <div className="space-y-1">
-                                  <Badge
-                                    variant="outline"
-                                    className="rounded-full px-3 py-1 tone-warning"
-                                  >
-                                    Blocked
-                                  </Badge>
-                                  <p className="max-w-sm text-xs text-muted-foreground">
-                                    {eligibility.reason}
-                                  </p>
-                                </div>
-                              )}
-                            </TableCell>
-                            <TableCell className="text-right align-top">
-                              <Button
-                                size="sm"
-                                variant={selected ? "default" : "outline"}
-                                disabled={
-                                  !eligibility.selectable ||
-                                  Boolean(activeRollout)
-                                }
-                                onClick={() =>
-                                  setSelectedNodeIds((current) =>
-                                    current.includes(node.id)
-                                      ? current.filter(
-                                          (value) => value !== node.id,
-                                        )
-                                      : [...current, node.id],
-                                  )
-                                }
-                              >
-                                {selected
-                                  ? "Selected"
-                                  : eligibility.selectable
-                                    ? "Select"
-                                    : "Unavailable"}
-                              </Button>
-                            </TableCell>
+                  {!nodes.length && nodesQuery.isPending ? (
+                    <div className="space-y-3 px-4 py-3 sm:px-5">
+                      {Array.from({ length: 6 }).map((_, index) => (
+                        <Skeleton key={index} className="h-20 rounded-[18px]" />
+                      ))}
+                    </div>
+                  ) : !prioritizedFilteredNodes.length ? (
+                    <div className="px-4 py-5 sm:px-5">
+                      <EmptyState
+                        title="No nodes matched the current filter"
+                        description="Widen the workspace, team, maintenance, version, or architecture filters to see more rollout targets."
+                        icon={ShieldAlert}
+                        variant="plain"
+                      />
+                    </div>
+                  ) : (
+                    <ScrollArea className="max-h-[32rem]">
+                      <Table>
+                        <TableHeader>
+                          <TableRow className="hover:bg-transparent">
+                            <TableHead>Node</TableHead>
+                            <TableHead>Placement</TableHead>
+                            <TableHead>Version lane</TableHead>
+                            <TableHead>Runtime</TableHead>
+                            <TableHead>Availability</TableHead>
+                            <TableHead className="text-right">
+                              Selection
+                            </TableHead>
                           </TableRow>
-                        );
-                      })}
-                    </TableBody>
-                  </Table>
-                </ScrollArea>
-              )}
+                        </TableHeader>
+                        <TableBody>
+                          {paginatedNodes.map((node) => {
+                            const eligibility = eligibilityByNodeId.get(
+                              node.id,
+                            ) ?? {
+                              selectable: false,
+                              reason: "Unknown state.",
+                            };
+                            const selected = effectiveSelectedNodeIds.includes(
+                              node.id,
+                            );
+                            const rolloutTarget = activeTargetByNodeId.get(
+                              node.id,
+                            );
 
-              {prioritizedFilteredNodes.length ? (
-                <TablePaginationBar
-                  itemLabel="nodes"
-                  total={prioritizedFilteredNodes.length}
-                  pageCount={nodePageCount}
-                  currentPageIndex={currentNodePageIndex}
-                  pageSize={nodePageSize}
-                  rangeStart={nodeRangeStart}
-                  rangeEnd={nodeRangeEnd}
-                  onPageSizeChange={(value) => {
-                    setNodePageSize(value);
-                    setNodePageIndex(0);
-                  }}
-                  onPreviousPage={() =>
-                    setNodePageIndex((current) => Math.max(0, current - 1))
-                  }
-                  onNextPage={() =>
-                    setNodePageIndex((current) =>
-                      Math.min(nodePageCount - 1, current + 1),
-                    )
-                  }
-                />
-              ) : null}
+                            return (
+                              <TableRow key={node.id}>
+                                <TableCell className="align-top">
+                                  <div>
+                                    <div className="flex flex-wrap items-center gap-2">
+                                      <p className="font-medium">{node.name}</p>
+                                      {rolloutTarget ? (
+                                        <Badge
+                                          variant="outline"
+                                          className={cn(
+                                            "rounded-full px-3 py-1",
+                                            getTargetTone(rolloutTarget.status),
+                                          )}
+                                        >
+                                          {rolloutTarget.status}{" "}
+                                          {rolloutTarget.progressPercent}%
+                                        </Badge>
+                                      ) : null}
+                                    </div>
+                                    <p className="mt-1 text-xs text-muted-foreground">
+                                      {node.hostname} · {node.status}
+                                    </p>
+                                  </div>
+                                </TableCell>
+                                <TableCell className="align-top text-sm text-muted-foreground">
+                                  <p>
+                                    {workspaceNameById.get(node.workspaceId) ??
+                                      node.workspaceId}
+                                  </p>
+                                  <p className="mt-1 text-xs">
+                                    {node.teamName ?? "Unassigned"}
+                                  </p>
+                                </TableCell>
+                                <TableCell className="align-top">
+                                  <div className="space-y-2">
+                                    <div className="flex flex-wrap items-center gap-2">
+                                      <Badge className="rounded-full px-3 py-1">
+                                        {node.agentVersion ?? "Unknown"}
+                                      </Badge>
+                                      {selectedTargetVersion &&
+                                      node.agentVersion !==
+                                        selectedTargetVersion ? (
+                                        <Badge
+                                          variant="outline"
+                                          className="rounded-full px-3 py-1"
+                                        >
+                                          Target {selectedTargetVersion}
+                                        </Badge>
+                                      ) : null}
+                                    </div>
+                                    <p className="text-xs text-muted-foreground">
+                                      {node.lastVersionReportedAt ? (
+                                        <>
+                                          Last version signal{" "}
+                                          <TimeDisplay
+                                            value={node.lastVersionReportedAt}
+                                            mode="datetime"
+                                          />
+                                        </>
+                                      ) : (
+                                        "No version signal received yet."
+                                      )}
+                                    </p>
+                                    {rolloutTarget ? (
+                                      <p className="text-xs text-muted-foreground">
+                                        {rolloutTarget.statusMessage ??
+                                          "This node is currently participating in the active rollout."}
+                                      </p>
+                                    ) : null}
+                                  </div>
+                                </TableCell>
+                                <TableCell className="align-top text-sm text-muted-foreground">
+                                  <p>
+                                    {node.os} / {node.arch}
+                                  </p>
+                                  <p className="mt-1 text-xs">
+                                    {node.lastSeenAt ? (
+                                      <>
+                                        Seen{" "}
+                                        <TimeDisplay
+                                          value={node.lastSeenAt}
+                                          mode="datetime"
+                                        />
+                                      </>
+                                    ) : (
+                                      "No heartbeat yet"
+                                    )}
+                                  </p>
+                                </TableCell>
+                                <TableCell className="align-top">
+                                  {eligibility.selectable ? (
+                                    <Badge
+                                      variant="outline"
+                                      className="rounded-full px-3 py-1 tone-success"
+                                    >
+                                      Ready
+                                    </Badge>
+                                  ) : selectedTargetVersion &&
+                                    node.agentVersion ===
+                                      selectedTargetVersion ? (
+                                    <Badge
+                                      variant="outline"
+                                      className="rounded-full px-3 py-1 tone-success"
+                                    >
+                                      Latest
+                                    </Badge>
+                                  ) : (
+                                    <div className="space-y-1">
+                                      <Badge
+                                        variant="outline"
+                                        className="rounded-full px-3 py-1 tone-warning"
+                                      >
+                                        Blocked
+                                      </Badge>
+                                      <p className="max-w-sm text-xs text-muted-foreground">
+                                        {eligibility.reason}
+                                      </p>
+                                    </div>
+                                  )}
+                                </TableCell>
+                                <TableCell className="text-right align-top">
+                                  <Button
+                                    size="sm"
+                                    variant={selected ? "default" : "outline"}
+                                    disabled={
+                                      !eligibility.selectable ||
+                                      Boolean(activeRollout)
+                                    }
+                                    onClick={() =>
+                                      setSelectedNodeIds((current) =>
+                                        current.includes(node.id)
+                                          ? current.filter(
+                                              (value) => value !== node.id,
+                                            )
+                                          : [...current, node.id],
+                                      )
+                                    }
+                                  >
+                                    {selected
+                                      ? "Selected"
+                                      : eligibility.selectable
+                                        ? "Select"
+                                        : "Unavailable"}
+                                  </Button>
+                                </TableCell>
+                              </TableRow>
+                            );
+                          })}
+                        </TableBody>
+                      </Table>
+                    </ScrollArea>
+                  )}
+
+                  {prioritizedFilteredNodes.length ? (
+                    <TablePaginationBar
+                      itemLabel="nodes"
+                      total={prioritizedFilteredNodes.length}
+                      pageCount={nodePageCount}
+                      currentPageIndex={currentNodePageIndex}
+                      pageSize={nodePageSize}
+                      rangeStart={nodeRangeStart}
+                      rangeEnd={nodeRangeEnd}
+                      onPageSizeChange={(value) => {
+                        setNodePageSize(value);
+                        setNodePageIndex(0);
+                      }}
+                      onPreviousPage={() =>
+                        setNodePageIndex((current) => Math.max(0, current - 1))
+                      }
+                      onNextPage={() =>
+                        setNodePageIndex((current) =>
+                          Math.min(nodePageCount - 1, current + 1),
+                        )
+                      }
+                    />
+                  ) : null}
                 </SectionPanel>
 
                 <div className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(300px,0.85fr)] xl:items-start">
@@ -2377,63 +2437,70 @@ export const UpdatesPageView = () => {
                     }
                     description="Read the selected changelog while the official catalog stays visible beside it."
                   >
-                {!selectedRelease ? (
-                  <EmptyState
-                    title="No release selected"
-                    description="Choose a tagged release from the catalog to review the notes before starting a rollout."
-                    icon={Clock3}
-                    variant="plain"
-                  />
-                ) : (
-                  <div className="space-y-3">
-                    <div className="grid gap-3 md:grid-cols-3">
-                      <div className="rounded-[20px] border border-border/70 bg-background/82 p-4">
-                        <p className="text-xs text-muted-foreground">
-                          Published
-                        </p>
-                        <p className="mt-2 text-sm font-medium">
-                          <TimeDisplay
-                            value={selectedRelease.publishedAt}
-                            mode="datetime"
-                          />
-                        </p>
-                      </div>
-                      <div className="rounded-[20px] border border-border/70 bg-background/82 p-4">
-                        <p className="text-xs text-muted-foreground">Commit</p>
-                        <p className="mt-2 break-all font-mono text-xs text-muted-foreground">
-                          {selectedRelease.commit}
-                        </p>
-                      </div>
-                      <div className="rounded-[20px] border border-border/70 bg-background/82 p-4">
-                        <p className="text-xs text-muted-foreground">Usage</p>
-                        <p className="mt-2 text-sm font-medium">
-                          {selectedRelease.version === latestRelease?.version
-                            ? "Use for rollout"
-                            : "Use for rollback"}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="grid gap-3 lg:grid-cols-2">
-                      {selectedRelease.notes.map((section) => (
-                        <div
-                          key={`${selectedRelease.version}-${section.title}`}
-                          className="rounded-[22px] border border-border/70 bg-background/82 p-4 shadow-[var(--shadow-dashboard)]"
-                        >
-                          <p className="text-sm font-medium">{section.title}</p>
-                          <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
-                            {section.items.map((item) => (
-                              <li key={item} className="flex gap-2">
-                                <span className="mt-2 size-1.5 rounded-full bg-muted-foreground/60" />
-                                <span>{item}</span>
-                              </li>
-                            ))}
-                          </ul>
+                    {!selectedRelease ? (
+                      <EmptyState
+                        title="No release selected"
+                        description="Choose a tagged release from the catalog to review the notes before starting a rollout."
+                        icon={Clock3}
+                        variant="plain"
+                      />
+                    ) : (
+                      <div className="space-y-3">
+                        <div className="grid gap-3 md:grid-cols-3">
+                          <div className="rounded-[20px] border border-border/70 bg-background/82 p-4">
+                            <p className="text-xs text-muted-foreground">
+                              Published
+                            </p>
+                            <p className="mt-2 text-sm font-medium">
+                              <TimeDisplay
+                                value={selectedRelease.publishedAt}
+                                mode="datetime"
+                              />
+                            </p>
+                          </div>
+                          <div className="rounded-[20px] border border-border/70 bg-background/82 p-4">
+                            <p className="text-xs text-muted-foreground">
+                              Commit
+                            </p>
+                            <p className="mt-2 break-all font-mono text-xs text-muted-foreground">
+                              {selectedRelease.commit}
+                            </p>
+                          </div>
+                          <div className="rounded-[20px] border border-border/70 bg-background/82 p-4">
+                            <p className="text-xs text-muted-foreground">
+                              Usage
+                            </p>
+                            <p className="mt-2 text-sm font-medium">
+                              {selectedRelease.version ===
+                              latestRelease?.version
+                                ? "Use for rollout"
+                                : "Use for rollback"}
+                            </p>
+                          </div>
                         </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
+
+                        <div className="grid gap-3 lg:grid-cols-2">
+                          {selectedRelease.notes.map((section) => (
+                            <div
+                              key={`${selectedRelease.version}-${section.title}`}
+                              className="rounded-[22px] border border-border/70 bg-background/82 p-4 shadow-[var(--shadow-dashboard)]"
+                            >
+                              <p className="text-sm font-medium">
+                                {section.title}
+                              </p>
+                              <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
+                                {section.items.map((item) => (
+                                  <li key={item} className="flex gap-2">
+                                    <span className="mt-2 size-1.5 rounded-full bg-muted-foreground/60" />
+                                    <span>{item}</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </SectionPanel>
 
                   <SectionPanel
@@ -2443,85 +2510,91 @@ export const UpdatesPageView = () => {
                     contentClassName="p-0"
                     className="h-full"
                   >
-                {releasesQuery.isPending ? (
-                  <div className="space-y-3 px-4 py-3 sm:px-5">
-                    {Array.from({ length: 4 }).map((_, index) => (
-                      <Skeleton key={index} className="h-24 rounded-[20px]" />
-                    ))}
-                  </div>
-                ) : !releases.length ? (
-                  <div className="px-4 py-5 sm:px-5">
-                    <EmptyState
-                      title="No tagged releases are available"
-                      description="Publish an official tagged agent release to populate the update center."
-                      icon={Clock3}
-                      variant="plain"
-                    />
-                  </div>
-                ) : (
-                  <ScrollArea className="h-[30rem]">
-                    <div className="space-y-3 px-4 py-3 sm:px-5">
-                      {releases.map((release) => {
-                        const selected =
-                          selectedRelease?.version === release.version;
+                    {releasesQuery.isPending ? (
+                      <div className="space-y-3 px-4 py-3 sm:px-5">
+                        {Array.from({ length: 4 }).map((_, index) => (
+                          <Skeleton
+                            key={index}
+                            className="h-24 rounded-[20px]"
+                          />
+                        ))}
+                      </div>
+                    ) : !releases.length ? (
+                      <div className="px-4 py-5 sm:px-5">
+                        <EmptyState
+                          title="No tagged releases are available"
+                          description="Publish an official tagged agent release to populate the update center."
+                          icon={Clock3}
+                          variant="plain"
+                        />
+                      </div>
+                    ) : (
+                      <ScrollArea className="h-[30rem]">
+                        <div className="space-y-3 px-4 py-3 sm:px-5">
+                          {releases.map((release) => {
+                            const selected =
+                              selectedRelease?.version === release.version;
 
-                        return (
-                          <button
-                            key={release.version}
-                            type="button"
-                            onClick={() => setReleaseSelection(release.version)}
-                            className={cn(
-                              "w-full rounded-[22px] border p-4 text-left transition-colors",
-                              selected
-                                ? "surface-feature border-primary/40 shadow-[var(--shadow-dashboard)]"
-                                : "surface-subtle hover:border-border/80",
-                            )}
-                          >
-                            <div className="flex items-start justify-between gap-3">
-                              <div>
-                                <div className="flex flex-wrap items-center gap-2">
-                                  <Badge className="rounded-full">
-                                    {release.version}
-                                  </Badge>
-                                  {release.version ===
-                                  latestRelease?.version ? (
-                                    <Badge
-                                      variant="outline"
-                                      className="rounded-full px-3 py-1 tone-success"
-                                    >
-                                      Latest
-                                    </Badge>
-                                  ) : null}
+                            return (
+                              <button
+                                key={release.version}
+                                type="button"
+                                onClick={() =>
+                                  setReleaseSelection(release.version)
+                                }
+                                className={cn(
+                                  "w-full rounded-[22px] border p-4 text-left transition-colors",
+                                  selected
+                                    ? "surface-feature border-primary/40 shadow-[var(--shadow-dashboard)]"
+                                    : "surface-subtle hover:border-border/80",
+                                )}
+                              >
+                                <div className="flex items-start justify-between gap-3">
+                                  <div>
+                                    <div className="flex flex-wrap items-center gap-2">
+                                      <Badge className="rounded-full">
+                                        {release.version}
+                                      </Badge>
+                                      {release.version ===
+                                      latestRelease?.version ? (
+                                        <Badge
+                                          variant="outline"
+                                          className="rounded-full px-3 py-1 tone-success"
+                                        >
+                                          Latest
+                                        </Badge>
+                                      ) : null}
+                                    </div>
+                                    <p className="mt-2 text-sm text-muted-foreground">
+                                      <TimeDisplay
+                                        value={release.publishedAt}
+                                        mode="datetime"
+                                      />
+                                    </p>
+                                    <p className="mt-2 text-sm text-muted-foreground">
+                                      {release.notes.reduce(
+                                        (count, section) =>
+                                          count + section.items.length,
+                                        0,
+                                      )}{" "}
+                                      changelog items
+                                    </p>
+                                  </div>
+                                  {selected ? (
+                                    <CheckCircle2 className="mt-1 size-4 text-primary" />
+                                  ) : release.version ===
+                                    latestRelease?.version ? (
+                                    <Sparkles className="mt-1 size-4 text-muted-foreground" />
+                                  ) : (
+                                    <Undo2 className="mt-1 size-4 text-muted-foreground" />
+                                  )}
                                 </div>
-                                <p className="mt-2 text-sm text-muted-foreground">
-                                  <TimeDisplay
-                                    value={release.publishedAt}
-                                    mode="datetime"
-                                  />
-                                </p>
-                                <p className="mt-2 text-sm text-muted-foreground">
-                                  {release.notes.reduce(
-                                    (count, section) =>
-                                      count + section.items.length,
-                                    0,
-                                  )}{" "}
-                                  changelog items
-                                </p>
-                              </div>
-                              {selected ? (
-                                <CheckCircle2 className="mt-1 size-4 text-primary" />
-                              ) : release.version === latestRelease?.version ? (
-                                <Sparkles className="mt-1 size-4 text-muted-foreground" />
-                              ) : (
-                                <Undo2 className="mt-1 size-4 text-muted-foreground" />
-                              )}
-                            </div>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </ScrollArea>
-                )}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </ScrollArea>
+                    )}
                   </SectionPanel>
                 </div>
 
@@ -2531,92 +2604,95 @@ export const UpdatesPageView = () => {
                   description="Audit recent fleet operations without pushing the live command deck below the fold."
                   contentClassName="p-0"
                 >
-              {!recentRollouts.length ? (
-                <div className="px-4 py-5 sm:px-5">
-                  <EmptyState
-                    title="No rollout history yet"
-                    description="Once you start update or rollback operations, recent rollout summaries will appear here."
-                    icon={Clock3}
-                    variant="plain"
-                  />
-                </div>
-              ) : (
-                <ScrollArea className="max-h-[30rem]">
-                  <Table>
-                    <TableHeader>
-                      <TableRow className="hover:bg-transparent">
-                        <TableHead>When</TableHead>
-                        <TableHead>Version</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Mode</TableHead>
-                        <TableHead>Counts</TableHead>
-                        <TableHead>Operator</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {paginatedRollouts.map((rollout) => (
-                        <TableRow key={rollout.id}>
-                          <TableCell className="text-muted-foreground">
-                            <TimeDisplay
-                              value={rollout.createdAt}
-                              mode="datetime"
-                            />
-                          </TableCell>
-                          <TableCell className="font-medium">
-                            {rollout.targetVersion}
-                          </TableCell>
-                          <TableCell>
-                            <Badge
-                              variant="outline"
-                              className={cn(
-                                "rounded-full px-3 py-1",
-                                getRolloutTone(rollout.status),
-                              )}
-                            >
-                              {rollout.status}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>
-                            {rollout.rollback ? "Rollback" : "Update"}
-                          </TableCell>
-                          <TableCell className="text-sm text-muted-foreground">
-                            {rollout.counts.completed}/{rollout.counts.total}{" "}
-                            complete, {rollout.counts.failed} failed,{" "}
-                            {rollout.counts.skipped} skipped
-                          </TableCell>
-                          <TableCell className="text-sm text-muted-foreground">
-                            {rollout.requestedByEmailSnapshot ?? "System"}
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </ScrollArea>
-              )}
+                  {!recentRollouts.length ? (
+                    <div className="px-4 py-5 sm:px-5">
+                      <EmptyState
+                        title="No rollout history yet"
+                        description="Once you start update or rollback operations, recent rollout summaries will appear here."
+                        icon={Clock3}
+                        variant="plain"
+                      />
+                    </div>
+                  ) : (
+                    <ScrollArea className="max-h-[30rem]">
+                      <Table>
+                        <TableHeader>
+                          <TableRow className="hover:bg-transparent">
+                            <TableHead>When</TableHead>
+                            <TableHead>Version</TableHead>
+                            <TableHead>Status</TableHead>
+                            <TableHead>Mode</TableHead>
+                            <TableHead>Counts</TableHead>
+                            <TableHead>Operator</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {paginatedRollouts.map((rollout) => (
+                            <TableRow key={rollout.id}>
+                              <TableCell className="text-muted-foreground">
+                                <TimeDisplay
+                                  value={rollout.createdAt}
+                                  mode="datetime"
+                                />
+                              </TableCell>
+                              <TableCell className="font-medium">
+                                {rollout.targetVersion}
+                              </TableCell>
+                              <TableCell>
+                                <Badge
+                                  variant="outline"
+                                  className={cn(
+                                    "rounded-full px-3 py-1",
+                                    getRolloutTone(rollout.status),
+                                  )}
+                                >
+                                  {rollout.status}
+                                </Badge>
+                              </TableCell>
+                              <TableCell>
+                                {rollout.rollback ? "Rollback" : "Update"}
+                              </TableCell>
+                              <TableCell className="text-sm text-muted-foreground">
+                                {rollout.counts.completed}/
+                                {rollout.counts.total} complete,{" "}
+                                {rollout.counts.failed} failed,{" "}
+                                {rollout.counts.skipped} skipped
+                              </TableCell>
+                              <TableCell className="text-sm text-muted-foreground">
+                                {rollout.requestedByEmailSnapshot ?? "System"}
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </ScrollArea>
+                  )}
 
-              {recentRollouts.length ? (
-                <TablePaginationBar
-                  itemLabel="rollouts"
-                  total={recentRollouts.length}
-                  pageCount={historyPageCount}
-                  currentPageIndex={currentHistoryPageIndex}
-                  pageSize={historyPageSize}
-                  rangeStart={historyRangeStart}
-                  rangeEnd={historyRangeEnd}
-                  onPageSizeChange={(value) => {
-                    setHistoryPageSize(value);
-                    setHistoryPageIndex(0);
-                  }}
-                  onPreviousPage={() =>
-                    setHistoryPageIndex((current) => Math.max(0, current - 1))
-                  }
-                  onNextPage={() =>
-                    setHistoryPageIndex((current) =>
-                      Math.min(historyPageCount - 1, current + 1),
-                    )
-                  }
-                />
-              ) : null}
+                  {recentRollouts.length ? (
+                    <TablePaginationBar
+                      itemLabel="rollouts"
+                      total={recentRollouts.length}
+                      pageCount={historyPageCount}
+                      currentPageIndex={currentHistoryPageIndex}
+                      pageSize={historyPageSize}
+                      rangeStart={historyRangeStart}
+                      rangeEnd={historyRangeEnd}
+                      onPageSizeChange={(value) => {
+                        setHistoryPageSize(value);
+                        setHistoryPageIndex(0);
+                      }}
+                      onPreviousPage={() =>
+                        setHistoryPageIndex((current) =>
+                          Math.max(0, current - 1),
+                        )
+                      }
+                      onNextPage={() =>
+                        setHistoryPageIndex((current) =>
+                          Math.min(historyPageCount - 1, current + 1),
+                        )
+                      }
+                    />
+                  ) : null}
                 </SectionPanel>
               </div>
             </div>
@@ -2654,7 +2730,8 @@ export const UpdatesPageView = () => {
                   });
                 }}
                 disabled={
-                  queueControlPlaneApply.isPending || !controlPlanePreparedRelease
+                  queueControlPlaneApply.isPending ||
+                  !controlPlanePreparedRelease
                 }
               >
                 {queueControlPlaneApply.isPending

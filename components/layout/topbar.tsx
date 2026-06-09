@@ -69,6 +69,7 @@ const ACTIVE_CONTROL_PLANE_UPDATE_STATUSES = new Set([
   "extracting",
   "loading_images",
   "applying",
+  "migrating_database",
   "recreating_services",
 ]);
 
@@ -189,8 +190,9 @@ const TopbarContent = () => {
   const isPlatformAdmin = session?.user.role === "platform_admin";
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [notificationCenterOpen, setNotificationCenterOpen] = useState(false);
-  const [notificationCenterTab, setNotificationCenterTab] =
-    useState<"all" | "events" | "tasks" | "nodes" | "runtime">("all");
+  const [notificationCenterTab, setNotificationCenterTab] = useState<
+    "all" | "events" | "tasks" | "nodes" | "runtime"
+  >("all");
   const realtimeStatus = useAppStore((state) => state.realtimeStatus);
   const searchQuery = useAppStore((state) => state.searchQuery);
   const setSearchQuery = useAppStore((state) => state.setSearchQuery);
@@ -268,7 +270,8 @@ const TopbarContent = () => {
     enabled: isPlatformAdmin,
     refetchInterval: 15_000,
   });
-  const controlPlaneSummaryQuery = useControlPlaneUpdateSummary(isPlatformAdmin);
+  const controlPlaneSummaryQuery =
+    useControlPlaneUpdateSummary(isPlatformAdmin);
   const agentUpdatesSummaryQuery = useAgentUpdateSummary(isPlatformAdmin);
 
   const queuedAges = (queuedTaskHealthQuery.data ?? [])
@@ -288,23 +291,24 @@ const TopbarContent = () => {
       .slice(0, 2)
       .join("")
       .toUpperCase() ?? "NR";
-  const controlPlaneOperation = controlPlaneSummaryQuery.data?.operation ?? null;
+  const controlPlaneOperation =
+    controlPlaneSummaryQuery.data?.operation ?? null;
   const controlPlanePrepared =
     controlPlaneSummaryQuery.data?.preparedRelease ?? null;
   const controlPlaneHasActiveOperation = Boolean(
     controlPlaneOperation &&
-      ACTIVE_CONTROL_PLANE_UPDATE_STATUSES.has(controlPlaneOperation.status),
+    ACTIVE_CONTROL_PLANE_UPDATE_STATUSES.has(controlPlaneOperation.status),
   );
   const controlPlaneHasPreparedRelease = Boolean(
     !controlPlaneHasActiveOperation &&
-      controlPlanePrepared &&
-      controlPlanePrepared.releaseId !==
-        controlPlaneSummaryQuery.data?.currentRelease?.releaseId,
+    controlPlanePrepared &&
+    controlPlanePrepared.releaseId !==
+      controlPlaneSummaryQuery.data?.currentRelease?.releaseId,
   );
   const controlPlaneHasAvailableUpdate = Boolean(
     !controlPlaneHasActiveOperation &&
-      !controlPlaneHasPreparedRelease &&
-      controlPlaneSummaryQuery.data?.updateAvailable,
+    !controlPlaneHasPreparedRelease &&
+    controlPlaneSummaryQuery.data?.updateAvailable,
   );
 
   const handleLogout = async () => {

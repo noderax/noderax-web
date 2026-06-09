@@ -6,6 +6,10 @@ import {
   buildClearedApiBaseUrlCookieOptions,
   normalizeApiBaseUrl,
 } from "@/lib/auth";
+import {
+  allowPrivateApiUrls,
+  validateServerApiBaseUrl,
+} from "@/lib/server/api-url-security";
 import { fetchSetupApi, getSetupApiConfig } from "@/lib/setup";
 
 const readErrorMessage = async (response: Response) => {
@@ -33,6 +37,17 @@ export const proxySetupRequest = async (
   const cookieStore = await cookies();
   const apiUrlOverride = cookieStore.get(API_BASE_URL_COOKIE)?.value;
   const apiConfig = getSetupApiConfig(apiUrlOverride);
+  if (apiConfig.apiUrl) {
+    const validation = await validateServerApiBaseUrl(apiConfig.apiUrl, {
+      allowPrivate: apiConfig.source === "env" || allowPrivateApiUrls(),
+    });
+    if (!validation.apiUrl) {
+      return NextResponse.json(
+        { message: validation.error ?? "API URL is not allowed." },
+        { status: 400 },
+      );
+    }
+  }
   let response: Response;
 
   try {

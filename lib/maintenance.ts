@@ -1,8 +1,7 @@
 import type { ControlPlaneUpdateOperation } from "@/lib/types";
 
 export const MAINTENANCE_SNAPSHOT_COOKIE = "noderax_maintenance";
-export const MAINTENANCE_SNAPSHOT_STORAGE_KEY =
-  "noderax.maintenance-snapshot";
+export const MAINTENANCE_SNAPSHOT_STORAGE_KEY = "noderax.maintenance-snapshot";
 export const MAINTENANCE_COMPLETION_STORAGE_KEY =
   "noderax.maintenance-completion";
 export const MAINTENANCE_SUPPRESSION_STORAGE_KEY =
@@ -14,9 +13,7 @@ const MAINTENANCE_MAX_AGE_MS: Record<MaintenanceKind, number> = {
   platform_api_restart: 5 * 60 * 1_000,
 };
 
-export type MaintenanceKind =
-  | "control_plane_update"
-  | "platform_api_restart";
+export type MaintenanceKind = "control_plane_update" | "platform_api_restart";
 
 export type MaintenanceRecoveryStatus =
   | "inactive"
@@ -152,11 +149,12 @@ export const parseMaintenanceSnapshotValue = (
 export const serializeMaintenanceSnapshot = (snapshot: MaintenanceSnapshot) =>
   encodeCookieValue(JSON.stringify(snapshot));
 
-export const getMaintenanceSnapshotFromCookies = (
-  cookieStore: {
-    get(name: string): { value: string } | undefined;
-  },
-) => parseMaintenanceSnapshotValue(cookieStore.get(MAINTENANCE_SNAPSHOT_COOKIE)?.value);
+export const getMaintenanceSnapshotFromCookies = (cookieStore: {
+  get(name: string): { value: string } | undefined;
+}) =>
+  parseMaintenanceSnapshotValue(
+    cookieStore.get(MAINTENANCE_SNAPSHOT_COOKIE)?.value,
+  );
 
 const emitSnapshotChange = () => {
   if (typeof window === "undefined") {
@@ -311,10 +309,7 @@ export const persistMaintenanceSnapshot = (snapshot: MaintenanceSnapshot) => {
     return;
   }
 
-  window.sessionStorage.setItem(
-    MAINTENANCE_SNAPSHOT_STORAGE_KEY,
-    rawValue,
-  );
+  window.sessionStorage.setItem(MAINTENANCE_SNAPSHOT_STORAGE_KEY, rawValue);
   setCookie(
     MAINTENANCE_SNAPSHOT_COOKIE,
     serializeMaintenanceSnapshot(snapshot),
@@ -371,7 +366,9 @@ export const subscribeToMaintenanceSnapshot = (callback: () => void) => {
   };
 };
 
-export const persistMaintenanceCompletion = (completion: MaintenanceCompletion) => {
+export const persistMaintenanceCompletion = (
+  completion: MaintenanceCompletion,
+) => {
   if (typeof window === "undefined") {
     return;
   }
@@ -382,41 +379,44 @@ export const persistMaintenanceCompletion = (completion: MaintenanceCompletion) 
   );
 };
 
-export const consumeMaintenanceCompletion = (): MaintenanceCompletion | null => {
-  if (typeof window === "undefined") {
-    return null;
-  }
+export const consumeMaintenanceCompletion =
+  (): MaintenanceCompletion | null => {
+    if (typeof window === "undefined") {
+      return null;
+    }
 
-  const rawValue = window.sessionStorage.getItem(
-    MAINTENANCE_COMPLETION_STORAGE_KEY,
-  );
-  if (!rawValue) {
-    return null;
-  }
+    const rawValue = window.sessionStorage.getItem(
+      MAINTENANCE_COMPLETION_STORAGE_KEY,
+    );
+    if (!rawValue) {
+      return null;
+    }
 
-  window.sessionStorage.removeItem(MAINTENANCE_COMPLETION_STORAGE_KEY);
-  const parsed = parseJson(rawValue);
-  if (!isRecord(parsed) || !isMaintenanceKind(parsed.kind)) {
-    return null;
-  }
+    window.sessionStorage.removeItem(MAINTENANCE_COMPLETION_STORAGE_KEY);
+    const parsed = parseJson(rawValue);
+    if (!isRecord(parsed) || !isMaintenanceKind(parsed.kind)) {
+      return null;
+    }
 
-  const title = normalizeString(parsed.title);
-  const description = normalizeString(parsed.description);
-  const completedAt = normalizeString(parsed.completedAt);
-  if (!title || !description || !completedAt) {
-    return null;
-  }
+    const title = normalizeString(parsed.title);
+    const description = normalizeString(parsed.description);
+    const completedAt = normalizeString(parsed.completedAt);
+    if (!title || !description || !completedAt) {
+      return null;
+    }
 
-  return {
-    kind: parsed.kind,
-    title,
-    description,
-    completedAt,
+    return {
+      kind: parsed.kind,
+      title,
+      description,
+      completedAt,
+    };
   };
-};
 
 export const isControlPlaneMaintenanceStatus = (status: string) =>
-  status === "applying" || status === "recreating_services";
+  status === "applying" ||
+  status === "migrating_database" ||
+  status === "recreating_services";
 
 export const buildControlPlaneMaintenanceSnapshot = (
   operation: ControlPlaneUpdateOperation,

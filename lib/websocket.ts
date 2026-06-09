@@ -43,6 +43,9 @@ export type RealtimeMessage =
         rootAccessSyncStatus: RootAccessSyncStatus;
         rootAccessUpdatedAt?: string | null;
         rootAccessUpdatedByUserId?: string | null;
+        rootAccessExpiresAt?: string | null;
+        rootAccessReason?: string | null;
+        rootAccessGrantId?: string | null;
         rootAccessLastAppliedAt?: string | null;
         rootAccessLastError?: string | null;
       };
@@ -95,6 +98,9 @@ type NodeRootAccessUpdatedPayload = {
   rootAccessSyncStatus: RootAccessSyncStatus;
   rootAccessUpdatedAt?: string | null;
   rootAccessUpdatedByUserId?: string | null;
+  rootAccessExpiresAt?: string | null;
+  rootAccessReason?: string | null;
+  rootAccessGrantId?: string | null;
   rootAccessLastAppliedAt?: string | null;
   rootAccessLastError?: string | null;
   sequence?: number;
@@ -508,6 +514,9 @@ class NoderaxRealtimeClient {
         rootAccessSyncStatus: payload.rootAccessSyncStatus,
         rootAccessUpdatedAt: payload.rootAccessUpdatedAt ?? null,
         rootAccessUpdatedByUserId: payload.rootAccessUpdatedByUserId ?? null,
+        rootAccessExpiresAt: payload.rootAccessExpiresAt ?? null,
+        rootAccessReason: payload.rootAccessReason ?? null,
+        rootAccessGrantId: payload.rootAccessGrantId ?? null,
         rootAccessLastAppliedAt: payload.rootAccessLastAppliedAt ?? null,
         rootAccessLastError: payload.rootAccessLastError ?? null,
       },
