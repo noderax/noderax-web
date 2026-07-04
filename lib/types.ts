@@ -1230,6 +1230,36 @@ export interface PlatformApiRestartResponse {
   message: string;
 }
 
+export interface DataUsageTable {
+  table: string;
+  totalBytes: number;
+  estimatedRows: number;
+}
+
+export interface DataUsageResponse {
+  totalDatabaseBytes: number;
+  rowsAreEstimated: boolean;
+  tables: DataUsageTable[];
+}
+
+export interface MetricsRetentionSettings {
+  enabled: boolean;
+  retentionDays: number;
+  editable: boolean;
+  lastRunAt: string | null;
+  lastDeletedCount: number | null;
+}
+
+export interface UpdateMetricsRetentionPayload {
+  enabled: boolean;
+  retentionDays: number;
+}
+
+export interface MetricsRetentionRunResponse {
+  deletedCount: number;
+  runAt: string;
+}
+
 export interface HealthResponse {
   service: string;
   status: string;

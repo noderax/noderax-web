@@ -30,6 +30,7 @@ import { TaskFlowDiagnostics } from "@/components/diagnostics/task-flow-diagnost
 import { EmptyState } from "@/components/empty-state";
 import { AppShell } from "@/components/layout/app-shell";
 import { AccountSecurityPanel } from "@/components/settings/account-security-panel";
+import { DataStoragePanel } from "@/components/settings/data-storage-panel";
 import { PlatformIdentityPanel } from "@/components/settings/platform-identity-panel";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
 import { Badge } from "@/components/ui/badge";
@@ -95,7 +96,12 @@ import { toast } from "sonner";
 
 type SettingsTab = "account" | "notifications" | "workspace" | "platform";
 type AccountSectionTab = "preferences" | "security";
-type PlatformSectionTab = "runtime" | "infrastructure" | "identity" | "agents";
+type PlatformSectionTab =
+  | "runtime"
+  | "infrastructure"
+  | "identity"
+  | "agents"
+  | "data";
 type SmtpTestState = {
   tone: "success" | "error";
   message: string;
@@ -1998,6 +2004,12 @@ function SettingsPageContent({
                             >
                               Agents
                             </TabsTrigger>
+                            <TabsTrigger
+                              value="data"
+                              className="flex-none rounded-full px-3 py-2 text-xs sm:text-sm"
+                            >
+                              Veri &amp; Depolama
+                            </TabsTrigger>
                           </TabsList>
                         </div>
 
@@ -2659,6 +2671,10 @@ function SettingsPageContent({
 
                         <TabsContent value="identity" className="pt-2">
                           <PlatformIdentityPanel />
+                        </TabsContent>
+
+                        <TabsContent value="data" className="pt-2">
+                          <DataStoragePanel enabled={isPlatformAdmin} />
                         </TabsContent>
 
                         <TabsContent value="agents" className="pt-2">

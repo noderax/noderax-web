@@ -53,6 +53,9 @@ import type {
   RemovePackagePayload,
   PlatformSettingsResponse,
   PlatformApiRestartResponse,
+  MetricsRetentionSettings,
+  MetricsRetentionRunResponse,
+  UpdateMetricsRetentionPayload,
   RegenerateMfaRecoveryCodesPayload,
   ResendUserInviteResponse,
   TestOidcProviderPayload,
@@ -145,6 +148,12 @@ export const queryKeys = {
   },
   platformSettings: {
     detail: ["platform-settings"] as const,
+  },
+  dataUsage: {
+    detail: ["data-usage"] as const,
+  },
+  metricsRetention: {
+    detail: ["metrics-retention"] as const,
   },
   controlPlaneUpdates: {
     summary: ["control-plane-updates", "summary"] as const,
@@ -440,6 +449,78 @@ export const usePlatformSettings = (enabled = true) =>
     enabled,
     staleTime: 15_000,
   });
+
+export const useDataUsage = (enabled = true) =>
+  useQuery({
+    queryKey: queryKeys.dataUsage.detail,
+    queryFn: apiClient.getDataUsage,
+    enabled,
+    staleTime: 30_000,
+  });
+
+export const useMetricsRetention = (enabled = true) =>
+  useQuery({
+    queryKey: queryKeys.metricsRetention.detail,
+    queryFn: apiClient.getMetricsRetention,
+    enabled,
+    staleTime: 15_000,
+  });
+
+export const useUpdateMetricsRetention = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (payload: UpdateMetricsRetentionPayload) =>
+      apiClient.updateMetricsRetention(payload),
+    onSuccess: async (settings: MetricsRetentionSettings) => {
+      toast.success("Metrics retention saved", {
+        description: settings.enabled
+          ? `Metrics older than ${settings.retentionDays} days will be removed automatically.`
+          : "Automatic metrics cleanup is disabled.",
+      });
+
+      queryClient.setQueryData(queryKeys.metricsRetention.detail, settings);
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.metricsRetention.detail,
+        refetchType: "active",
+      });
+    },
+    onError: (error) => {
+      toast.error("Unable to update metrics retention", {
+        description: readMutationError(error),
+      });
+    },
+  });
+};
+
+export const useRunMetricsRetentionCleanup = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: () => apiClient.runMetricsRetentionCleanup(),
+    onSuccess: async (result: MetricsRetentionRunResponse) => {
+      toast.success("Metrics cleanup complete", {
+        description: `Deleted ${result.deletedCount.toLocaleString()} metric record(s).`,
+      });
+
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.metricsRetention.detail,
+          refetchType: "active",
+        }),
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.dataUsage.detail,
+          refetchType: "active",
+        }),
+      ]);
+    },
+    onError: (error) => {
+      toast.error("Unable to run metrics cleanup", {
+        description: readMutationError(error),
+      });
+    },
+  });
+};
 
 const invalidateAgentUpdateQueries = async (
   queryClient: ReturnType<typeof useQueryClient>,

@@ -32,6 +32,10 @@ import type {
   CreateNodePayload,
   ControlPlaneUpdateSummary,
   CreateOidcProviderPayload,
+  DataUsageResponse,
+  MetricsRetentionSettings,
+  MetricsRetentionRunResponse,
+  UpdateMetricsRetentionPayload,
   CreateTeamPayload,
   CreateTeamTaskPayload,
   CreateTerminalSessionPayload,
@@ -945,6 +949,26 @@ export const apiClient = {
       {
         method: "POST",
         body: JSON.stringify(payload),
+      },
+    );
+  },
+  getDataUsage() {
+    return request<DataUsageResponse>("/api/proxy/platform-settings/data-usage");
+  },
+  getMetricsRetention() {
+    return request<MetricsRetentionSettings>("/api/proxy/metrics/retention");
+  },
+  updateMetricsRetention(payload: UpdateMetricsRetentionPayload) {
+    return request<MetricsRetentionSettings>("/api/proxy/metrics/retention", {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    });
+  },
+  runMetricsRetentionCleanup() {
+    return request<MetricsRetentionRunResponse>(
+      "/api/proxy/metrics/retention/run",
+      {
+        method: "POST",
       },
     );
   },
