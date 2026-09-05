@@ -744,10 +744,13 @@ export const useWorkspaceAssignableUsers = (enabled = true) => {
   });
 };
 
-export const usePlatformNodes = (filters?: NodeFilters, enabled = true) =>
+export const usePlatformNodes = (
+  filters?: Omit<NodeFilters, "limit" | "offset">,
+  enabled = true,
+) =>
   useQuery({
     queryKey: queryKeys.nodes.platform(filters),
-    queryFn: () => apiClient.getNodeSummaries(filters, undefined),
+    queryFn: () => apiClient.getPlatformNodeSummaries(filters),
     enabled,
     staleTime: 15_000,
     refetchInterval: enabled ? 20_000 : false,

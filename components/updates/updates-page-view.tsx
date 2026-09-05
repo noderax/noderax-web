@@ -85,7 +85,6 @@ import type {
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/store/useAppStore";
 
-const NODE_LIMIT = 500;
 const SUPPORTED_ARCHES = new Set(["amd64", "arm64"]);
 const EMPTY_WORKSPACES: Array<{ id: string; name: string }> = [];
 const EMPTY_NODES: NodeSummary[] = [];
@@ -472,7 +471,7 @@ export const UpdatesPageView = () => {
   const summaryQuery = useAgentUpdateSummary(isPlatformAdmin);
   const releasesQuery = useAgentUpdateReleases(isPlatformAdmin);
   const rolloutsQuery = useAgentUpdateRollouts(isPlatformAdmin);
-  const nodesQuery = usePlatformNodes({ limit: NODE_LIMIT }, isPlatformAdmin);
+  const nodesQuery = usePlatformNodes(undefined, isPlatformAdmin);
   const queueControlPlaneDownload = useQueueControlPlaneUpdateDownload();
   const queueControlPlaneApply = useQueueControlPlaneUpdateApply();
   const createRollout = useCreateAgentUpdateRollout();

@@ -1656,7 +1656,7 @@ export const apiClient = {
   },
   getMetrics(filters?: MetricFilters, workspaceId?: string) {
     return request<MetricDto[]>(
-      `${workspaceId ? buildWorkspaceApiPath(workspaceId, "/metrics") : "/api/proxy/metrics"}${buildQueryString({
+      `${workspaceId ? buildWorkspaceApiPath(workspaceId, "/metrics") : "/api/proxy/platform-metrics"}${buildQueryString({
         nodeId: filters?.nodeId,
         limit: filters?.limit,
       })}`,
@@ -1684,6 +1684,26 @@ export const apiClient = {
       events: eventRecords,
       metrics,
     });
+  },
+  async getPlatformNodeSummaries(
+    filters?: Omit<NodeFilters, "limit" | "offset">,
+  ): Promise<NodeSummary[]> {
+    const pageSize = 100;
+    const nodesById = new Map<string, NodeDto>();
+
+    // Rollout eligibility only needs inventory; telemetry must not block selection.
+    for (let offset = 0; ; offset += pageSize) {
+      const page = await this.getNodes({ ...filters, limit: pageSize, offset });
+      for (const node of page) {
+        nodesById.set(node.id, node);
+      }
+      if (page.length < pageSize) break;
+    }
+
+    const metricsByNodeId = new Map<string, MetricDto[]>();
+    return Array.from(nodesById.values(), (node) =>
+      mapNodeSummary(node, metricsByNodeId),
+    );
   },
   async getNodeSummaries(
     filters?: NodeFilters,

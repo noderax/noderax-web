@@ -1,5 +1,5 @@
 import React from "react";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { UpdatesPageView } from "@/components/updates/updates-page-view";
@@ -155,6 +155,8 @@ describe("UpdatesPageView control-plane rendering", () => {
       data: {
         latestRelease: {
           version: "2.3.4",
+          notes: [],
+          artifacts: {},
           publishedAt: "2026-04-15T09:00:00Z",
         },
         activeRollout: null,
@@ -171,6 +173,8 @@ describe("UpdatesPageView control-plane rendering", () => {
       data: [
         {
           version: "2.3.4",
+          notes: [],
+          artifacts: {},
           publishedAt: "2026-04-15T09:00:00Z",
         },
       ],
@@ -198,6 +202,30 @@ describe("UpdatesPageView control-plane rendering", () => {
     useCancelAgentUpdateRolloutMock.mockReturnValue(buildMutation());
     useRetryAgentUpdateRolloutTargetMock.mockReturnValue(buildMutation());
     useSkipAgentUpdateRolloutTargetMock.mockReturnValue(buildMutation());
+  });
+
+  it("lets an admin select an online node without metrics and start its rollout", () => {
+    const rollout = buildMutation();
+    useCreateAgentUpdateRolloutMock.mockReturnValue(rollout);
+    usePlatformNodesMock.mockReturnValue({
+      data: [{
+        id: "node-1", name: "Production node", hostname: "prod.example.com",
+        workspaceId: "workspace-1", status: "online", arch: "amd64", os: "linux",
+        agentVersion: "2.3.3", maintenanceMode: false, latestMetric: null,
+      }],
+      isPending: false, isError: false, isFetching: false, refetch: vi.fn(),
+    });
+
+    render(<UpdatesPageView />);
+    fireEvent.click(screen.getByRole("tab", { name: /Agent updates/i }));
+    const row = screen.getByText("Production node").closest("tr")!;
+    fireEvent.click(within(row).getByRole("button", { name: "Select" }));
+    const start = screen.getByRole("button", { name: "Start rollout" });
+    expect(start).toBeEnabled();
+    fireEvent.click(start);
+    expect(rollout.mutate).toHaveBeenCalledWith({
+      nodeIds: ["node-1"], version: "2.3.4", rollback: false,
+    });
   });
 
   it("renders cleanly when no control-plane update is available", () => {
