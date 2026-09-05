@@ -474,3 +474,7 @@ store/
 - Session and upstream token handling live in `app/api/auth/*` and `lib/auth.ts`.
 - New control-plane features should normally flow through:
   `lib/api.ts` -> `lib/hooks` -> route/page -> UI component.
+
+## Dependency updates (2026-09-05)
+
+Use Node.js 24.15+ and pnpm 10.33.0. TypeScript stays on 6.0.x to match typescript-eslint support. ESLint stays on 9.x to match Next.js lint plugins. Newly enabled React Compiler lint diagnostics remain warnings pending component refactoring. Terminal imports use @xterm/xterm 6; charts use Recharts 3 tooltip and legend content types. Security overrides live in pnpm-workspace.yaml.

@@ -22,7 +22,7 @@ import {
   SquareTerminal,
   XCircle,
 } from "lucide-react";
-import { Terminal } from "xterm";
+import { Terminal } from "@xterm/xterm";
 import { toast } from "sonner";
 
 import { EmptyState } from "@/components/empty-state";

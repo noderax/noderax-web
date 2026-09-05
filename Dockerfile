@@ -1,4 +1,4 @@
-FROM node:20-alpine AS base
+FROM node:24-alpine AS base
 
 ARG PNPM_VERSION=10.33.0
 
@@ -31,7 +31,7 @@ FROM deps AS production-deps
 RUN pnpm prune --prod
 
 
-FROM node:20-alpine AS runner
+FROM node:24-alpine AS runner
 
 ENV NODE_ENV=production
 ENV PORT=3000
