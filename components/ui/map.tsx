@@ -20,30 +20,21 @@ import type {
   Map as LeafletMap,
   Marker as LeafletMarkerType,
   Popup as LeafletPopupType,
-  TileLayer as LeafletTileLayerType,
 } from "leaflet";
 import {
   useMap,
   type MapContainerProps,
   type MarkerProps,
   type PopupProps,
-  type TileLayerProps,
 } from "react-leaflet";
 
 type MapContainerComponentProps = MapContainerProps & React.RefAttributes<LeafletMap>;
-type TileLayerComponentProps = TileLayerProps &
-  React.RefAttributes<LeafletTileLayerType>;
 type MarkerComponentProps = MarkerProps & React.RefAttributes<LeafletMarkerType>;
 type PopupComponentProps = PopupProps & React.RefAttributes<LeafletPopupType>;
 
 const LeafletMapContainer = lazy(() =>
   import("react-leaflet").then((mod) => ({
     default: mod.MapContainer as ComponentType<MapContainerComponentProps>,
-  })),
-);
-const LeafletTileLayer = lazy(() =>
-  import("react-leaflet").then((mod) => ({
-    default: mod.TileLayer as ComponentType<TileLayerComponentProps>,
   })),
 );
 const LeafletMarker = lazy(() =>
@@ -60,10 +51,10 @@ const LeafletPopup = lazy(() =>
 const subscribeToClientSnapshot = () => () => {};
 const getClientSnapshot = () => true;
 const getServerSnapshot = () => false;
-const LIGHT_TILE_URL = "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png";
-const DARK_TILE_URL = "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png";
-const CARTO_ATTRIBUTION =
-  '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>, &copy; <a href="https://carto.com/attributions">CARTO</a>';
+const LIGHT_MAP_STYLE = "https://tiles.openfreemap.org/styles/positron";
+const DARK_MAP_STYLE = "https://tiles.openfreemap.org/styles/dark";
+const MAP_ATTRIBUTION =
+  '<a href="https://openfreemap.org/">OpenFreeMap</a> &copy; <a href="https://openmaptiles.org/">OpenMapTiles</a> Data from <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>';
 
 const ClientOnly = ({ children }: { children: ReactNode }) => {
   const isMounted = useSyncExternalStore(
@@ -89,9 +80,10 @@ export const Map = ({
 }) => (
   <ClientOnly>
     <LeafletMapContainer
+      minZoom={1}
       zoom={zoom}
       maxZoom={maxZoom}
-      attributionControl={false}
+      attributionControl
       zoomControl={false}
       className={cn("z-0 size-full min-h-96 flex-1 rounded-md", className)}
       {...props}
@@ -99,30 +91,31 @@ export const Map = ({
   </ClientOnly>
 );
 
-export const MapTileLayer = ({
-  url,
-  lightUrl = LIGHT_TILE_URL,
-  darkUrl = DARK_TILE_URL,
-  attribution = CARTO_ATTRIBUTION,
-  ...props
-}: Omit<TileLayerProps, "url"> & {
-  url?: string;
-  lightUrl?: string;
-  darkUrl?: string;
-}) => {
+export const MapTileLayer = () => {
+  const map = useMap();
   const { resolvedTheme } = useTheme();
-  const tileUrl = url ?? (resolvedTheme === "dark" ? darkUrl : lightUrl);
+  const style = resolvedTheme === "dark" ? DARK_MAP_STYLE : LIGHT_MAP_STYLE;
 
-  return (
-    <ClientOnly>
-      <LeafletTileLayer
-        key={tileUrl}
-        url={tileUrl}
-        attribution={attribution}
-        {...props}
-      />
-    </ClientOnly>
-  );
+  useEffect(() => {
+    let disposed = false;
+    let layer: import("leaflet").Layer | undefined;
+
+    void import("@maplibre/maplibre-gl-leaflet").then(({ maplibreGL }) => {
+      if (disposed) return;
+      layer = maplibreGL({
+        style,
+        attributionControl: { customAttribution: MAP_ATTRIBUTION },
+      });
+      layer.addTo(map);
+    });
+
+    return () => {
+      disposed = true;
+      if (layer) map.removeLayer(layer);
+    };
+  }, [map, style]);
+
+  return null;
 };
 
 export const MapMarker = ({

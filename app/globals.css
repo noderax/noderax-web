@@ -3,6 +3,7 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 @import "leaflet/dist/leaflet.css";
+@import "maplibre-gl/dist/maplibre-gl.css";
 @import "@xterm/xterm/css/xterm.css";
 
 @custom-variant dark (&:is(.dark *));
